@@ -43,10 +43,10 @@ Outputs:
 | `Td_rudder`         | Derivative time constant for rudder loop                         | --  |   40 |
 | `Rudder_max`         | Maximum |rudder| output                         | --  |   35 |
 | `k_shaft`         | Proportional gain for shaft loop                         | --  |   5000 |
-| `Td_shaft`         | Derivative time constant for shaft loop                         | --  |   0.0001 |
+| `Td_shaft`         | Derivative time constant for shaft loop                         | --  |   1e-4 |
 | `Shaft_max`         | Maximum shaft output                         | --  |   300 |
-| `Shaft_min`         | Minimum shaft output                         | --  |   0.0001 |
-| `Tf_rudder`         | Filter time constant for derivative approximation (rudder loop)                         | --  |   1 |
+| `Shaft_min`         | Minimum shaft output                         | --  |   1e-4 |
+| `Tf_rudder`         | Filter time constant for derivative approximation (rudder loop)                         | --  |   1.0 |
 | `Tf_shaft`         | Filter time constant for derivative approximation (shaft loop)                         | --  |   0.1 |
 
 ## Connectors
@@ -75,11 +75,12 @@ Outputs:
 """
 @component function SimpleAutoPilot(; name = nothing, k_rudder=Float64(10), Td_rudder=Float64(40), Rudder_max=Float64(35), k_shaft=Float64(5000), Td_shaft=0.0001, Shaft_max=Float64(300), Shaft_min=0.0001, Tf_rudder=Float64(1), Tf_shaft=0.1, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = SimpleAutoPilot()
+  """))
 
-        @named model = SimpleAutoPilot()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

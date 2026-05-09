@@ -37,17 +37,17 @@ Limitations:
 | `P_D`         |                          | --  |   1 |
 | `Ae_Ao`         |                          | --  |   0.55 |
 | `SeaDensity`         |                          | kg/m3  |   1025 |
-| `WakeFraction`         |                          | --  |   0.1 |
+| `WakeFraction`         |                          | --  |   0.10 |
 | `ThrustDeduction`         |                          | --  |   0.2 |
 | `MaxPODAngle`         |                          | --  |   180 |
 | `POD_Tau`         |                          | --  |   0.4 |
 | `Kt0`         |                          | --  |   0.45 |
-| `Kt1`         |                          | --  |   -0.3 |
-| `Kt2`         |                          | --  |   -0.2 |
-| `Kq0`         |                          | --  |   0.06 |
-| `Kq1`         |                          | --  |   -0.04 |
-| `Kq2`         |                          | --  |   -0.02 |
-| `w_floor`         |                          | --  |   0.001 |
+| `Kt1`         |                          | --  |   -0.30 |
+| `Kt2`         |                          | --  |   -0.20 |
+| `Kq0`         |                          | --  |   0.060 |
+| `Kq1`         |                          | --  |   -0.040 |
+| `Kq2`         |                          | --  |   -0.020 |
+| `w_floor`         |                          | --  |   1e-3 |
 
 ## Connectors
 
@@ -79,11 +79,12 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 """
 @component function POD4Q(; name = nothing, Diameter=Float64(4), P_D=Float64(1), Ae_Ao=0.55, SeaDensity=Float64(1025), WakeFraction=0.1, ThrustDeduction=0.2, MaxPODAngle=Float64(180), POD_Tau=0.4, Kt0=0.45, Kt1=-0.3, Kt2=-0.2, Kq0=0.06, Kq1=-0.04, Kq2=-0.02, w_floor=0.001, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = POD4Q()
+  """))
 
-        @named model = POD4Q()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

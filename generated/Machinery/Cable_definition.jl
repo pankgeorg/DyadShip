@@ -48,11 +48,12 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 """
 @component function Cable(; name = nothing, k=nothing, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = Cable()
+  """))
 
-        @named model = Cable()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

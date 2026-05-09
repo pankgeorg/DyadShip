@@ -35,8 +35,8 @@ Outputs `u`, `v`, `r` are the body-frame surge / sway / yaw rate; `pos_x`, `pos_
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
-| `mass`         |                          | kg  |   5000000 |
-| `Iz`         |                          | kg.m2  |   5000000000 |
+| `mass`         |                          | kg  |   5e6 |
+| `Iz`         |                          | kg.m2  |   5e9 |
 | `Du`         | Linear surge drag coefficient (≥ 0)                         | --  |   0 |
 | `Dv`         |                          | --  |   0 |
 | `Dr`         |                          | --  |   0 |
@@ -59,11 +59,12 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 """
 @component function Hull3DOF(; name = nothing, mass=Float64(5000000), Iz=Float64(5000000000), Du=Float64(0), Dv=Float64(0), Dr=Float64(0), kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = Hull3DOF()
+  """))
 
-        @named model = Hull3DOF()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

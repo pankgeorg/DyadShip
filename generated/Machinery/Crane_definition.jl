@@ -39,7 +39,7 @@ Limitations:
 | `BoomLength`         |                          | m  |   10 |
 | `BoomInitialAngle`         | Initial boom angle from horizontal [deg, +up]                         | --  |   30 |
 | `Boom_Tau`         | Boom inclination time constant [s] (≈ 1 / BoomSpeed in deg/s)                         | --  |   0.25 |
-| `Cable_k`         |                          | N/m  |   100000 |
+| `Cable_k`         |                          | N/m  |   1e5 |
 
 ## Connectors
 
@@ -58,11 +58,12 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 """
 @component function Crane(; name = nothing, PedestalHeight=Float64(5), BoomLength=Float64(10), BoomInitialAngle=Float64(30), Boom_Tau=0.25, Cable_k=Float64(100000), kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = Crane()
+  """))
 
-        @named model = Crane()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

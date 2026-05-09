@@ -13,7 +13,10 @@ deflection to steer the hull toward a target waypoint, the rudder applies a yaw 
 
 Setup:
 - Hull: 1e6 kg, Iz = 1e8 kg·m², linear surge/sway/yaw drag.
-- Propeller driven by a constant 80 kN·m torque source.
+- Propeller driven by a constant 80 kN·m torque source, mounted 50 m aft of CG.
+- Rudder mounted 52 m aft of CG (just behind the propeller). Forces from each
+  device pass through a `FixedTranslation` so the lever-arm yaw moment is
+  applied to the hull (in addition to the device's own hydrodynamic moment).
 - Autopilot tracks (10000, 1000) with target speed 5 m/s.
 - Rudder: 7 m² area, no propeller slipstream (slipstream blending is parameterized but
   the rudder receives the ship's frame velocity directly through the WaterSpeed inputs).
@@ -23,11 +26,12 @@ toward the target.
 """
 @component function FullShip(; name = nothing, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = FullShip()
+  """))
 
-        @named model = FullShip()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
@@ -100,6 +104,14 @@ toward the target.
   pilot_overrides = Dict(Symbol(replace(string(k), r"^pilot__" => "")) => v for (k, v) in __overrides if startswith(string(k), "pilot__"))
   filter!(p -> !startswith(string(first(p)), "pilot__"), __overrides)
   push!(__systems, @named pilot = DyadShip.Ship.SimpleAutoPilot(pilot_overrides...))
+  # Subcomponent prop_arm of type MultibodyComponents.PlanarMechanics.FixedTranslation
+  prop_arm_overrides = Dict(Symbol(replace(string(k), r"^prop_arm__" => "")) => v for (k, v) in __overrides if startswith(string(k), "prop_arm__"))
+  filter!(p -> !startswith(string(first(p)), "prop_arm__"), __overrides)
+  push!(__systems, @named prop_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[-50, 0], render=false, prop_arm_overrides...))
+  # Subcomponent rudder_arm of type MultibodyComponents.PlanarMechanics.FixedTranslation
+  rudder_arm_overrides = Dict(Symbol(replace(string(k), r"^rudder_arm__" => "")) => v for (k, v) in __overrides if startswith(string(k), "rudder_arm__"))
+  filter!(p -> !startswith(string(first(p)), "rudder_arm__"), __overrides)
+  push!(__systems, @named rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[-52, 0], render=false, rudder_arm_overrides...))
 
   ### Check there are no unmatched overrides
   isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
@@ -134,7 +146,9 @@ toward the target.
   push!(__eqs, connect(src.support, ground.spline))
   push!(__eqs, connect(src.spline, shaft.spline_a))
   push!(__eqs, connect(shaft.spline_b, prop.flange))
-  push!(__eqs, connect(prop.frame_a, hull.frame_a, rudder.frame_a))
+  push!(__eqs, connect(hull.frame_a, prop_arm.frame_a, rudder_arm.frame_a))
+  push!(__eqs, connect(prop_arm.frame_b, prop.frame_a))
+  push!(__eqs, connect(rudder_arm.frame_b, rudder.frame_a))
   push!(__eqs, connect(pilot.rudder, rudder.Rudder_Order))
 
   # Return completely constructed System

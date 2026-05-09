@@ -55,11 +55,12 @@ Differences from upstream:
 """
 @component function Tank(; name = nothing, CoG_trans=8.77, V=211.47, H=Float64(5), rho=1.025, initial_fill_fraction=0.45, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = Tank()
+  """))
 
-        @named model = Tank()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

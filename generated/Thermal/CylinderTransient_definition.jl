@@ -31,9 +31,9 @@ Limitations vs upstream:
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
 | `R`         |                          | --  |   0.05 |
-| `L`         |                          | --  |   1 |
+| `L`         |                          | --  |   1.0 |
 | `k`         |                          | --  |   200 |
-| `rhoCp`         |                          | --  |   4000000 |
+| `rhoCp`         |                          | --  |   4e6 |
 | `T_start`         |                          | --  |   273.15 |
 | `N`         |                          | --  |   5 |
 | `A`         |                          | --  |   π * R ^ 2 |
@@ -43,15 +43,16 @@ Limitations vs upstream:
 
 ## Connectors
 
- * `port_b` - This connector represents a thermal port with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
+ * `port_b` - This connector represents a thermal node with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
 """
 @component function CylinderTransient(; name = nothing, R=0.05, L=Float64(1), k=Float64(200), rhoCp=Float64(4000000), T_start=273.15, N=5, A=π * R ^ 2, V_ring=A * L / N, C_node=rhoCp * V_ring, G_array=discretize_cylinder_conductances(R, L, k, N), kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = CylinderTransient()
+  """))
 
-        @named model = CylinderTransient()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
@@ -94,7 +95,7 @@ Limitations vs upstream:
   filter!(p -> !startswith(string(first(p)), "caps__"), __overrides)
   caps = System[]
   for i in 1:N
-    push!(caps, ThermalComponents.Components.HeatCapacitor(C=ModelingToolkit.default_to_parentscope(C_node), T0=ModelingToolkit.default_to_parentscope(T_start), name=Symbol("caps", "⸺", i), caps_overrides...))
+    push!(caps, ThermalComponents.Components.HeatCapacitor(C=C_node, T0=T_start, name=Symbol("caps", "⸺", i), caps_overrides...))
   end
   append!(__systems, caps)
   # Subcomponent conds of type ThermalComponents.Components.ThermalConductor
@@ -102,7 +103,7 @@ Limitations vs upstream:
   filter!(p -> !startswith(string(first(p)), "conds__"), __overrides)
   conds = System[]
   for i in 1:N
-    push!(conds, ThermalComponents.Components.ThermalConductor(G=ModelingToolkit.default_to_parentscope(G_array[i]), name=Symbol("conds", "⸺", i), conds_overrides...))
+    push!(conds, ThermalComponents.Components.ThermalConductor(G=G_array[i], name=Symbol("conds", "⸺", i), conds_overrides...))
   end
   append!(__systems, conds)
 
@@ -122,8 +123,8 @@ Limitations vs upstream:
 
   ### Control Structures
   for i in 1:(N - 1)
-      push!(__eqs, connect(getproperty(caps[i], :port), getproperty(conds[i], :port_a)))
-      push!(__eqs, connect(getproperty(conds[i], :port_b), getproperty(caps[i + 1], :port)))
+    push!(__eqs, connect(getproperty(caps[i], :port), getproperty(conds[i], :port_a)))
+    push!(__eqs, connect(getproperty(conds[i], :port_b), getproperty(caps[i + 1], :port)))
   end
 
   # Return completely constructed System

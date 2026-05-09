@@ -37,9 +37,9 @@ Limitations vs upstream:
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
 | `e`         | Plate thickness [m]                         | --  |   0.01 |
-| `Asur`         | Plate surface area [m²]                         | --  |   1 |
+| `Asur`         | Plate surface area [m²]                         | --  |   1.0 |
 | `k`         | Material thermal conductivity [W/(m·K)]                         | --  |   200 |
-| `rhoCp`         | Material volumetric heat capacity (ρ·Cp) [J/(m³·K)]                         | --  |   2400000 |
+| `rhoCp`         | Material volumetric heat capacity (ρ·Cp) [J/(m³·K)]                         | --  |   2.4e6 |
 | `T_init`         | Initial uniform temperature [K]                         | --  |   293.15 |
 | `nNodes`         | Number of discretization layers (uniform)                         | --  |   5 |
 | `nInterior`         | Number of interior conductors = nNodes - 1 (must be set consistently when overriding nNodes)                         | --  |   4 |
@@ -50,16 +50,17 @@ Limitations vs upstream:
 
 ## Connectors
 
- * `port_a` - This connector represents a thermal port with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
- * `port_b` - This connector represents a thermal port with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
+ * `port_a` - This connector represents a thermal node with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
+ * `port_b` - This connector represents a thermal node with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
 """
 @component function PlateTransient(; name = nothing, e=0.01, Asur=Float64(1), k=Float64(200), rhoCp=Float64(2400000), T_init=293.15, nNodes=5, nInterior=4, dx=e / nNodes, C_node=rhoCp * Asur * dx, G_internal=k * Asur / dx, G_face=k * Asur / (dx / 2), kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = PlateTransient()
+  """))
 
-        @named model = PlateTransient()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
@@ -103,7 +104,7 @@ Limitations vs upstream:
   filter!(p -> !startswith(string(first(p)), "caps__"), __overrides)
   caps = System[]
   for i in 1:nNodes
-    push!(caps, ThermalComponents.Components.HeatCapacitor(C=ModelingToolkit.default_to_parentscope(C_node), T0=ModelingToolkit.default_to_parentscope(T_init), name=Symbol("caps", "⸺", i), caps_overrides...))
+    push!(caps, ThermalComponents.Components.HeatCapacitor(C=C_node, T0=T_init, name=Symbol("caps", "⸺", i), caps_overrides...))
   end
   append!(__systems, caps)
   # Subcomponent cond_internal of type ThermalComponents.Components.ThermalConductor
@@ -111,7 +112,7 @@ Limitations vs upstream:
   filter!(p -> !startswith(string(first(p)), "cond_internal__"), __overrides)
   cond_internal = System[]
   for i in 1:nInterior
-    push!(cond_internal, ThermalComponents.Components.ThermalConductor(G=ModelingToolkit.default_to_parentscope(G_internal), name=Symbol("cond_internal", "⸺", i), cond_internal_overrides...))
+    push!(cond_internal, ThermalComponents.Components.ThermalConductor(G=G_internal, name=Symbol("cond_internal", "⸺", i), cond_internal_overrides...))
   end
   append!(__systems, cond_internal)
   # Subcomponent cond_face_a of type ThermalComponents.Components.ThermalConductor
@@ -141,8 +142,8 @@ Limitations vs upstream:
 
   ### Control Structures
   for i in 1:nInterior
-      push!(__eqs, connect(getproperty(caps[i], :port), getproperty(cond_internal[i], :port_a)))
-      push!(__eqs, connect(getproperty(cond_internal[i], :port_b), getproperty(caps[i + 1], :port)))
+    push!(__eqs, connect(getproperty(caps[i], :port), getproperty(cond_internal[i], :port_a)))
+    push!(__eqs, connect(getproperty(cond_internal[i], :port_b), getproperty(caps[i + 1], :port)))
   end
 
   # Return completely constructed System

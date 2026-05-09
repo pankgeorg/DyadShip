@@ -20,9 +20,9 @@ Convention is the same as `Environment`: 0° is +Y, 90° is +X, vector is `-V·{
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
 | `SeaDensity`         | Seawater density                         | kg/m3  |   1025 |
-| `SeaKViscosity`         | Seawater kinematic viscosity                         | m2/s  |   0.000001004 |
+| `SeaKViscosity`         | Seawater kinematic viscosity                         | m2/s  |   1.004e-6 |
 | `AirDensity`         | Air density                         | kg/m3  |   1.29 |
-| `AirKViscosity`         | Air kinematic viscosity                         | m2/s  |   0.0000148 |
+| `AirKViscosity`         | Air kinematic viscosity                         | m2/s  |   1.48e-5 |
 
 ## Connectors
 
@@ -40,11 +40,12 @@ Convention is the same as `Environment`: 0° is +Y, 90° is +X, vector is `-V·{
 """
 @component function VariableEnvironment(; name = nothing, SeaDensity=Float64(1025), SeaKViscosity=0.000001004, AirDensity=1.29, AirKViscosity=0.0000148, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = VariableEnvironment()
+  """))
 
-        @named model = VariableEnvironment()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

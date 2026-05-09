@@ -39,7 +39,7 @@ Limitations vs upstream:
 | `Kr`         | Percentage of nominal power used [0..1]                         | --  |   0.85 |
 | `StartTime`         | Start-up rise time [s] — the unit ramps from 0 to nominal over this period after `Work` flips on.                         | --  |   5 |
 | `CycleAmplitude`         | Steady-cycle small-amplitude variation around nominal.                         | --  |   0.1 |
-| `CycleFrequency`         | Steady-cycle frequency [Hz].                         | --  |   1 |
+| `CycleFrequency`         | Steady-cycle frequency [Hz].                         | --  |   1.0 |
 
 ## Connectors
 
@@ -55,11 +55,12 @@ Limitations vs upstream:
 """
 @component function OnOffConsumer(; name = nothing, NominalPower=Float64(1000), Kr=0.85, StartTime=Float64(5), CycleAmplitude=0.1, CycleFrequency=Float64(1), kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = OnOffConsumer()
+  """))
 
-        @named model = OnOffConsumer()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

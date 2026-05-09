@@ -16,11 +16,12 @@ speed module up toward `target_speed`.
 """
 @component function SimpleAutoPilotConstantTarget(; name = nothing, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = SimpleAutoPilotConstantTarget()
+  """))
 
-        @named model = SimpleAutoPilotConstantTarget()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

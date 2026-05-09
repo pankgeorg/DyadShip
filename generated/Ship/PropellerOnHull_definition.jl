@@ -16,11 +16,12 @@ propeller is connected via `frame_a` so thrust is applied directly in 2D multibo
 """
 @component function PropellerOnHull(; name = nothing, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = PropellerOnHull()
+  """))
 
-        @named model = PropellerOnHull()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

@@ -54,15 +54,15 @@ Limitations vs upstream:
 | `SeaDensity`         |                          | kg/m3  |   1025 |
 | `WakeFraction`         |                          | --  |   0.25 |
 | `ThrustDeduction`         |                          | --  |   0.18 |
-| `RotativeRelative`         |                          | --  |   1 |
+| `RotativeRelative`         |                          | --  |   1.0 |
 | `Rudder_distance`         |                          | m  |   Diameter * 1.2 |
 | `Kt0`         |                          | --  |   0.45 |
-| `Kt1`         |                          | --  |   -0.3 |
-| `Kt2`         |                          | --  |   -0.2 |
-| `Kq0`         |                          | --  |   0.06 |
-| `Kq1`         |                          | --  |   -0.04 |
-| `Kq2`         |                          | --  |   -0.02 |
-| `w_floor`         |                          | --  |   0.001 |
+| `Kt1`         |                          | --  |   -0.30 |
+| `Kt2`         |                          | --  |   -0.20 |
+| `Kq0`         |                          | --  |   0.060 |
+| `Kq1`         |                          | --  |   -0.040 |
+| `Kq2`         |                          | --  |   -0.020 |
+| `w_floor`         |                          | --  |   1e-3 |
 
 ## Connectors
 
@@ -97,11 +97,12 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 """
 @component function Propeller1Q(; name = nothing, Diameter=Float64(4), Z=Float64(4), P_D=Float64(1), Ae_Ao=0.3, Density_Prop=Float64(7600), Inertia=0.0002744 * Ae_Ao * (Ae_Ao + 3) * Density_Prop * Diameter ^ 5, Add_Inertia=0.3 * Inertia, SeaDensity=Float64(1025), WakeFraction=0.25, ThrustDeduction=0.18, RotativeRelative=Float64(1), Rudder_distance=Diameter * 1.2, Kt0=0.45, Kt1=-0.3, Kt2=-0.2, Kq0=0.06, Kq1=-0.04, Kq2=-0.02, w_floor=0.001, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = Propeller1Q()
+  """))
 
-        @named model = Propeller1Q()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

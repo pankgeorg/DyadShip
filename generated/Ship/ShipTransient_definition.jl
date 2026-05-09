@@ -30,7 +30,10 @@ using DyadInterface: AbstractTransientAnalysisSpec, TransientAnalysisSpec
   # 
   # Setup:
   # - Hull: 1e6 kg, Iz = 1e8 kg·m², linear surge/sway/yaw drag.
-  # - Propeller driven by a constant 80 kN·m torque source.
+  # - Propeller driven by a constant 80 kN·m torque source, mounted 50 m aft of CG.
+  # - Rudder mounted 52 m aft of CG (just behind the propeller). Forces from each
+  #   device pass through a `FixedTranslation` so the lever-arm yaw moment is
+  #   applied to the hull (in addition to the device's own hydrodynamic moment).
   # - Autopilot tracks (10000, 1000) with target speed 5 m/s.
   # - Rudder: 7 m² area, no propeller slipstream (slipstream blending is parameterized but
   #   the rudder receives the ship's frame velocity directly through the WaterSpeed inputs).

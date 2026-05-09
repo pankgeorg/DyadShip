@@ -61,11 +61,12 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 """
 @component function AntiHeeling(; name = nothing, B=24.3, b=6.35, V_tk=211.47, rho=1.025, Q=Float64(200), max_angle=0.1, startup_delay=Float64(500), kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = AntiHeeling()
+  """))
 
-        @named model = AntiHeeling()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

@@ -15,11 +15,12 @@ ShipSpeed). With Kq positive at small J, the spin-up reaches a steady-state RPM.
 """
 @component function Propeller1QSpinUp(; name = nothing, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = Propeller1QSpinUp()
+  """))
 
-        @named model = Propeller1QSpinUp()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
