@@ -5,7 +5,7 @@
 
 
 @doc Markdown.doc"""
-   HeadingAutoPilot(; name, k_p, k_i, Rudder_max, Integral_max, Deadband)
+   HeadingAutoPilot(; name, k_p, k_i, Rudder_max, Integral_max, Deadband, Throttle_full_dist, Throttle_off_dist)
 
 Heading-aware PI autopilot for a ship.
 
@@ -45,6 +45,8 @@ the wrong way, set `k_p < 0`.
 | `Rudder_max`         | Maximum |rudder| output [deg]                         | --  |   35 |
 | `Integral_max`         | Cap on the integral state [deg]. Bounds the integral wind-up.                         | --  |   30 |
 | `Deadband`         | Course-error deadband [rad]. While |course_diff| < Deadband the rudder is set to zero AND the integral is frozen.                         | rad  |   0.0 |
+| `Throttle_full_dist`         | Distance-to-target [m] above which the throttle output is 1 (full power).                         | m  |   300.0 |
+| `Throttle_off_dist`         | Distance-to-target [m] below which the throttle output is 0 (engine off).                         | m  |   100.0 |
 
 ## Connectors
 
@@ -57,6 +59,7 @@ the wrong way, set `k_p < 0`.
  * `course_difference` - This connector represents a real signal as an output from a component ([`RealOutput`](@ref))
  * `bearing` - This connector represents a real signal as an output from a component ([`RealOutput`](@ref))
  * `distance_to_target` - This connector represents a real signal as an output from a component ([`RealOutput`](@ref))
+ * `throttle` - This connector represents a real signal as an output from a component ([`RealOutput`](@ref))
 
 ## Variables
 
@@ -66,7 +69,7 @@ the wrong way, set `k_p < 0`.
 | `rudder_raw`         | Pre-saturation rudder command [deg]                         | --  | 
 | `integ_active`         | 1 if integrator is active, 0 if frozen (anti-windup + deadband)                         | --  | 
 """
-@component function HeadingAutoPilot(; name = nothing, k_p=Float64(30), k_i=Float64(1), Rudder_max=Float64(35), Integral_max=Float64(30), Deadband=Float64(0), kwargs...)
+@component function HeadingAutoPilot(; name = nothing, k_p=Float64(30), k_i=Float64(1), Rudder_max=Float64(35), Integral_max=Float64(30), Deadband=Float64(0), Throttle_full_dist=Float64(300), Throttle_off_dist=Float64(100), kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -114,6 +117,12 @@ the wrong way, set `k_p < 0`.
   __local__Deadband = Deadband
   append!(__params, @parameters (Deadband::Real), [description = "Course-error deadband [rad]. While |course_diff| < Deadband the rudder is set to zero AND the integral is frozen."])
   __initial_conditions[Deadband] = __local__Deadband
+  __local__Throttle_full_dist = Throttle_full_dist
+  append!(__params, @parameters (Throttle_full_dist::Real), [description = "Distance-to-target [m] above which the throttle output is 1 (full power)."])
+  __initial_conditions[Throttle_full_dist] = __local__Throttle_full_dist
+  __local__Throttle_off_dist = Throttle_off_dist
+  append!(__params, @parameters (Throttle_off_dist::Real), [description = "Distance-to-target [m] below which the throttle output is 0 (engine off)."])
+  __initial_conditions[Throttle_off_dist] = __local__Throttle_off_dist
 
   ### Final Path Parameters
   append!(__vars, @variables (pos_x(t)::Real), [input = true])
@@ -125,6 +134,7 @@ the wrong way, set `k_p < 0`.
   append!(__vars, @variables (course_difference(t)::Real), [output = true])
   append!(__vars, @variables (bearing(t)::Real), [output = true])
   append!(__vars, @variables (distance_to_target(t)::Real), [output = true])
+  append!(__vars, @variables (throttle(t)::Real), [output = true])
 
   ### Variables (declarations)
   append!(__vars, @variables (integ(t)::Real), [description = "Integrator state on course error [deg]"])
@@ -163,6 +173,7 @@ the wrong way, set `k_p < 0`.
   push!(__eqs, integ_active ~ ifelse(abs(rudder_raw) >= Rudder_max, 0, ifelse(abs(course_difference) < Deadband, 0, 1)))
   push!(__eqs, ModelingToolkit.D_nounits(integ) ~ integ_active * course_difference)
   push!(__eqs, rudder ~ clamp(rudder_raw, -Rudder_max, Rudder_max))
+  push!(__eqs, throttle ~ clamp((distance_to_target - Throttle_off_dist) / (Throttle_full_dist - Throttle_off_dist), 0, 1))
 
   # Return completely constructed System
   return System(__eqs, t, __vars, __params; systems=__systems, initial_conditions=__initial_conditions, guesses=__guesses, name, initialization_eqs=__initialization_eqs, bindings=__bindings, assertions=__assertions)

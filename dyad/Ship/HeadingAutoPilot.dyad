@@ -40,6 +40,11 @@ component HeadingAutoPilot
   "Course-error deadband [rad]. While |course_diff| < Deadband the rudder is set to zero AND the integral is frozen."
   parameter Deadband::Angle = 0.0
 
+  "Distance-to-target [m] above which the throttle output is 1 (full power)."
+  parameter Throttle_full_dist::Length = 300.0
+  "Distance-to-target [m] below which the throttle output is 0 (engine off)."
+  parameter Throttle_off_dist::Length = 100.0
+
   pos_x = RealInput()
   pos_y = RealInput()
   psi = RealInput()
@@ -50,6 +55,8 @@ component HeadingAutoPilot
   course_difference = RealOutput()
   bearing = RealOutput()
   distance_to_target = RealOutput()
+  "Throttle factor in [0, 1]. Full power above Throttle_full_dist, ramps linearly to zero at Throttle_off_dist."
+  throttle = RealOutput()
 
   "Integrator state on course error [deg]"
   variable integ::Real
@@ -78,4 +85,10 @@ relations
 
   # Saturated rudder output.
   rudder = clamp(rudder_raw, -Rudder_max, Rudder_max)
+
+  # Throttle: linear ramp from 1 (at Throttle_full_dist) to 0 (at Throttle_off_dist).
+  throttle = clamp(
+    (distance_to_target - Throttle_off_dist) / (Throttle_full_dist - Throttle_off_dist),
+    0, 1
+  )
 end

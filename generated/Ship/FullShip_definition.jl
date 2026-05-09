@@ -5,7 +5,7 @@
 
 
 @doc Markdown.doc"""
-   FullShip(; name)
+   FullShip(; name, base_torque)
 
 Full multibody ship analysis: hull + propeller + rudder + autopilot, with PlanarMechanics
 2D coupling. The propeller pushes the hull forward, the autopilot commands a rudder
@@ -23,8 +23,14 @@ Setup:
 
 Expected: hull moves toward the target, rudder modulates heading, surge speed climbs
 toward the target.
+
+## Parameters: 
+
+| Name         | Description                         | Units  |   Default value |
+| ------------ | ----------------------------------- | ------ | --------------- |
+| `base_torque`         |                          | --  |   80000 |
 """
-@component function FullShip(; name = nothing, kwargs...)
+@component function FullShip(; name = nothing, base_torque=Float64(80000), kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -57,6 +63,9 @@ toward the target.
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+  __local__base_torque = base_torque
+  append!(__params, @parameters (base_torque::Real))
+  __initial_conditions[base_torque] = __local__base_torque
 
   ### Final Path Parameters
 
@@ -88,10 +97,6 @@ toward the target.
   src_overrides = Dict(Symbol(replace(string(k), r"^src__" => "")) => v for (k, v) in __overrides if startswith(string(k), "src__"))
   filter!(p -> !startswith(string(first(p)), "src__"), __overrides)
   push!(__systems, @named src = RotationalComponents.Sources.TorqueSource(src_overrides...))
-  # Subcomponent k_tau of type BlockComponents.Sources.Constant
-  k_tau_overrides = Dict(Symbol(replace(string(k), r"^k_tau__" => "")) => v for (k, v) in __overrides if startswith(string(k), "k_tau__"))
-  filter!(p -> !startswith(string(first(p)), "k_tau__"), __overrides)
-  push!(__systems, @named k_tau = BlockComponents.Sources.Constant(k=80000, k_tau_overrides...))
   # Subcomponent ground of type RotationalComponents.Components.Fixed
   ground_overrides = Dict(Symbol(replace(string(k), r"^ground__" => "")) => v for (k, v) in __overrides if startswith(string(k), "ground__"))
   filter!(p -> !startswith(string(first(p)), "ground__"), __overrides)
@@ -126,6 +131,7 @@ toward the target.
   __assertions = []
 
   ### Equations
+  push!(__eqs, src.tau ~ base_torque * pilot.throttle)
   push!(__eqs, prop.ShipSpeed ~ hull.u)
   push!(__eqs, rudder.WaterSpeedX_in ~ hull.u)
   push!(__eqs, rudder.WaterSpeedY_in ~ hull.v)
@@ -140,7 +146,6 @@ toward the target.
   push!(__eqs, hull.Fx_extra ~ 0)
   push!(__eqs, hull.Fy_extra ~ 0)
   push!(__eqs, hull.Mz_extra ~ 0)
-  push!(__eqs, connect(k_tau.y, src.tau))
   push!(__eqs, connect(src.support, ground.spline))
   push!(__eqs, connect(src.spline, shaft.spline_a))
   push!(__eqs, connect(shaft.spline_b, prop.flange))

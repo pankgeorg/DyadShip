@@ -31,8 +31,8 @@ test component FullShip
   prop = DyadShip.Propulsion.Propeller1Q(Diameter = 4, P_D = 1.0, Ae_Ao = 0.55, Z = 4)
   shaft = RotationalComponents.Components.Inertia(J = 5000)
   src = RotationalComponents.Sources.TorqueSource()
-  k_tau = BlockComponents.Sources.Constant(k = 80000)
   ground = RotationalComponents.Components.Fixed()
+  parameter base_torque::Real = 80000
 
   rudder = DyadShip.Propulsion.Rudder()
   # PI on heading directly — replaces the previous PD-on-velocity-direction
@@ -53,7 +53,9 @@ relations
   initial shaft.w = 0
 
   # Mechanical shaft: torque source → inertia → propeller load.
-  connect(k_tau.y, src.tau)
+  # The autopilot scales the torque by `pilot.throttle` so the engine ramps
+  # down to zero between Throttle_full_dist and Throttle_off_dist.
+  src.tau = base_torque * pilot.throttle
   connect(src.support, ground.spline)
   connect(src.spline, shaft.spline_a)
   connect(shaft.spline_b, prop.flange)
