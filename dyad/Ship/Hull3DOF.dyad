@@ -34,6 +34,10 @@ component Hull3DOF
   parameter Dv_quad::Real = 0
   parameter Dr::Real = 0
   parameter Dr_quad::Real = 0
+  "Cubic yaw drag coefficient. Mimics the MMG `N_rrr·r³` damping that
+   resists high yaw rates. Without it, the lever-arm-amplified rudder can
+   spin the hull faster than upstream-physics would allow."
+  parameter Dr_cube::Real = 0
 
   body = MultibodyComponents.PlanarMechanics.Body(m = mass, I = Iz, render = false)
   forcer = MultibodyComponents.PlanarMechanics.WorldForceTorque(
@@ -77,7 +81,7 @@ relations
   # motion regardless of direction.
   forcer.force_x = Fx_extra - Du * u - Du_quad * u * abs(u)
   forcer.force_y = Fy_extra - Dv * v - Dv_quad * v * abs(v)
-  forcer.torque = Mz_extra - Dr * r - Dr_quad * r * abs(r)
+  forcer.torque = Mz_extra - Dr * r - Dr_quad * r * abs(r) - Dr_cube * r * r * r
 
   # Wire the body, the forcer, and the external frame_a connector together at one node.
   connect(frame_a, body.frame_a, forcer.frame_b)

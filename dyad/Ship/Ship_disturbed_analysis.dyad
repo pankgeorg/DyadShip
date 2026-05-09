@@ -17,7 +17,7 @@ test component FullShipDisturbed
   hull = Hull3DOF(mass = 1e6, Iz = 1e8,
                   Du = 5000, Du_quad = 4000,
                   Dv = 1e6,  Dv_quad = 10000,
-                  Dr = 1e7,  Dr_quad = 5e5)
+                  Dr = 1e7,  Dr_quad = 5e5, Dr_cube = 1e9)
 
   prop = DyadShip.Propulsion.Propeller1Q(Diameter = 4, P_D = 1.0, Ae_Ao = 0.55, Z = 4)
   shaft = RotationalComponents.Components.Inertia(J = 5000)
