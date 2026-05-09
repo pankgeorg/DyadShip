@@ -2,8 +2,8 @@
 3-DOF (surge / sway / yaw) hull dynamics using the MMG (Mathematical
 Maneuvering Group) standard hydrodynamic model.
 
-Ported from `ShipSIM.Components.HidrodynamicXYY` [sic; upstream typo].
-References: Yasukawa 2015, Jialun 2020, Taimuri 2020. Hydrodynamic
+Ported from `ShipSIM.Components.HidrodynamicXYY`. References: Yasukawa
+2015, Jialun 2020, Taimuri 2020. Hydrodynamic
 derivatives default to empirical formulae in
 - Clarke et al. (1982): linear sway/yaw derivatives
 - Smitt (1970): linear sway-from-yaw
@@ -89,7 +89,7 @@ component HullMMG
   parameter Y_vrr::Real   = -(5.95 * (1 - Cb) * Draft / B)                                         # Kijima 1990a
   parameter Y_vvr::Real   = (1.5 * Draft * Cb / B - 0.65)                                          # Kijima 1990a
 
-  # N (yaw) — linear and cross terms; this is what was missing from Hull3DOF
+  # N (yaw) — linear and cross terms
   parameter N_v::Real     = (-π * (Draft / Lpp)^2 * (0.5 + 2.4 * Draft / Lpp)) * (Lpp / Draft)     # Clarke 1982
   parameter N_vvv::Real   = (0.0348 - 0.5283 * (1 - Cb) * Draft / B) * (Lpp / Draft)               # Lee & Shin 1998
   parameter N_r::Real     = -π * (Draft / Lpp)^2 * ((1.3192 - 0.68228 * Cb - 0.00019 * (Lpp / Draft)^2) / π) * (Lpp / Draft)  # Khattab 1984
@@ -164,18 +164,16 @@ relations
   NonDimXY = 0.5 * SeaDensity * U * U * Lpp * Draft
   NonDimN = NonDimXY * Lpp
 
-  # MMG damping force/moment polynomials.
+  # Coriolis cross-coupling on surge / sway (added-mass v·r and u·r).
   X_damp = NonDimXY * (X_vv * v_nd^2 + X_vvvv * v_nd^4 + X_rr * r_nd^2 + X_vr * v_nd * r_nd)
-          - mass * my / 100 * v * r              # Coriolis cross-coupling (surge)
+          - mass * my / 100 * v * r
   Y_damp = NonDimXY * (Y_v * v_nd + Y_vvv * v_nd^3 + Y_r * r_nd + Y_rrr * r_nd^3 + Y_vrr * v_nd * r_nd^2 + Y_vvr * v_nd^2 * r_nd)
-          + mass * mx / 100 * u * r              # Coriolis cross-coupling (sway)
+          + mass * mx / 100 * u * r
   N_damp = NonDimN * (N_v * v_nd + N_vvv * v_nd^3 + N_r * r_nd + N_rrr * r_nd^3 + N_vrr * v_nd * r_nd^2 + N_vvr * v_nd^2 * r_nd)
 
-  # Net body-frame force/moment, fed to the WorldForceTorque(FrameB).
   forcer.force_x = Fx_extra + R_surge + X_damp
   forcer.force_y = Fy_extra + Y_damp
   forcer.torque = Mz_extra + N_damp
 
-  # Wire the body, the forcer, and the external frame_a connector together.
   connect(frame_a, body.frame_a, forcer.frame_b)
 end

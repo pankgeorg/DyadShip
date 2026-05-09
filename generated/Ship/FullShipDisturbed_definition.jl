@@ -5,7 +5,7 @@
 
 
 @doc Markdown.doc"""
-   FullShipDisturbed(; name)
+   FullShipDisturbed(; name, target_x, target_y, base_torque)
 
 Closed-loop ship under wind and sea-state disturbances. Same hull / propeller /
 rudder / autopilot stack as `FullShip`, with:
@@ -20,6 +20,14 @@ rudder / autopilot stack as `FullShip`, with:
 This analysis is the regression test for the autopilot — it should keep the
 ship on heading and reach the waypoint despite the disturbance.
 
+## Parameters: 
+
+| Name         | Description                         | Units  |   Default value |
+| ------------ | ----------------------------------- | ------ | --------------- |
+| `target_x`         |                          | m  |   10000 |
+| `target_y`         |                          | m  |   1000 |
+| `base_torque`         |                          | N.m  |   80000 |
+
 ## Variables
 
 | Name         | Description                         | Units  | 
@@ -27,7 +35,7 @@ ship on heading and reach the waypoint despite the disturbance.
 | `wind_world_x`         |                          | m/s  | 
 | `wind_world_y`         |                          | m/s  | 
 """
-@component function FullShipDisturbed(; name = nothing, kwargs...)
+@component function FullShipDisturbed(; name = nothing, target_x=Float64(10000), target_y=Float64(1000), base_torque=Float64(80000), kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -60,6 +68,15 @@ ship on heading and reach the waypoint despite the disturbance.
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+  __local__target_x = target_x
+  append!(__params, @parameters (target_x::Real))
+  __initial_conditions[target_x] = __local__target_x
+  __local__target_y = target_y
+  append!(__params, @parameters (target_y::Real))
+  __initial_conditions[target_y] = __local__target_y
+  __local__base_torque = base_torque
+  append!(__params, @parameters (base_torque::Real))
+  __initial_conditions[base_torque] = __local__base_torque
 
   ### Final Path Parameters
 
@@ -97,10 +114,6 @@ ship on heading and reach the waypoint despite the disturbance.
   src_overrides = Dict(Symbol(replace(string(k), r"^src__" => "")) => v for (k, v) in __overrides if startswith(string(k), "src__"))
   filter!(p -> !startswith(string(first(p)), "src__"), __overrides)
   push!(__systems, @named src = RotationalComponents.Sources.TorqueSource(src_overrides...))
-  # Subcomponent k_tau of type BlockComponents.Sources.Constant
-  k_tau_overrides = Dict(Symbol(replace(string(k), r"^k_tau__" => "")) => v for (k, v) in __overrides if startswith(string(k), "k_tau__"))
-  filter!(p -> !startswith(string(first(p)), "k_tau__"), __overrides)
-  push!(__systems, @named k_tau = BlockComponents.Sources.Constant(k=80000, k_tau_overrides...))
   # Subcomponent ground of type RotationalComponents.Components.Fixed
   ground_overrides = Dict(Symbol(replace(string(k), r"^ground__" => "")) => v for (k, v) in __overrides if startswith(string(k), "ground__"))
   filter!(p -> !startswith(string(first(p)), "ground__"), __overrides)
@@ -109,10 +122,10 @@ ship on heading and reach the waypoint despite the disturbance.
   rudder_overrides = Dict(Symbol(replace(string(k), r"^rudder__" => "")) => v for (k, v) in __overrides if startswith(string(k), "rudder__"))
   filter!(p -> !startswith(string(first(p)), "rudder__"), __overrides)
   push!(__systems, @named rudder = DyadShip.Propulsion.Rudder(rudder_overrides...))
-  # Subcomponent pilot of type DyadShip.Ship.SimpleAutoPilot
+  # Subcomponent pilot of type DyadShip.Ship.HeadingAutoPilot
   pilot_overrides = Dict(Symbol(replace(string(k), r"^pilot__" => "")) => v for (k, v) in __overrides if startswith(string(k), "pilot__"))
   filter!(p -> !startswith(string(first(p)), "pilot__"), __overrides)
-  push!(__systems, @named pilot = DyadShip.Ship.SimpleAutoPilot(k_rudder=0, Td_rudder=1, Tf_rudder=1, Deadband_rudder=0, pilot_overrides...))
+  push!(__systems, @named pilot = DyadShip.Ship.HeadingAutoPilot(k_p=30, k_i=1, Deadband=π / 180, pilot_overrides...))
   # Subcomponent prop_arm of type MultibodyComponents.PlanarMechanics.FixedTranslation
   prop_arm_overrides = Dict(Symbol(replace(string(k), r"^prop_arm__" => "")) => v for (k, v) in __overrides if startswith(string(k), "prop_arm__"))
   filter!(p -> !startswith(string(first(p)), "prop_arm__"), __overrides)
@@ -159,6 +172,7 @@ ship on heading and reach the waypoint despite the disturbance.
   __assertions = []
 
   ### Equations
+  push!(__eqs, src.tau ~ base_torque * pilot.throttle)
   push!(__eqs, wind_world_x ~ getindex(getproperty(env, :WindVector), 1))
   push!(__eqs, wind_world_y ~ getindex(getproperty(env, :WindVector), 2))
   push!(__eqs, apparent.BodyVelX ~ hull.vx_world)
@@ -179,12 +193,9 @@ ship on heading and reach the waypoint despite the disturbance.
   push!(__eqs, rudder.Wake_Fraction ~ prop.Wake_Fraction)
   push!(__eqs, pilot.pos_x ~ hull.pos_x)
   push!(__eqs, pilot.pos_y ~ hull.pos_y)
-  push!(__eqs, pilot.vel_x ~ cos(hull.psi))
-  push!(__eqs, pilot.vel_y ~ sin(hull.psi))
-  push!(__eqs, pilot.target_x ~ 10000)
-  push!(__eqs, pilot.target_y ~ 1000)
-  push!(__eqs, pilot.target_speed ~ 5)
-  push!(__eqs, connect(k_tau.y, src.tau))
+  push!(__eqs, pilot.psi ~ hull.psi)
+  push!(__eqs, pilot.target_x ~ target_x)
+  push!(__eqs, pilot.target_y ~ target_y)
   push!(__eqs, connect(src.support, ground.spline))
   push!(__eqs, connect(src.spline, shaft.spline_a))
   push!(__eqs, connect(shaft.spline_b, prop.flange))

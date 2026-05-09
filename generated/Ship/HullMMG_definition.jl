@@ -10,8 +10,8 @@
 3-DOF (surge / sway / yaw) hull dynamics using the MMG (Mathematical
 Maneuvering Group) standard hydrodynamic model.
 
-Ported from `ShipSIM.Components.HidrodynamicXYY` [sic; upstream typo].
-References: Yasukawa 2015, Jialun 2020, Taimuri 2020. Hydrodynamic
+Ported from `ShipSIM.Components.HidrodynamicXYY`. References: Yasukawa
+2015, Jialun 2020, Taimuri 2020. Hydrodynamic
 derivatives default to empirical formulae in
 - Clarke et al. (1982): linear sway/yaw derivatives
 - Smitt (1970): linear sway-from-yaw

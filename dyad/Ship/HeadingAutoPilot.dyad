@@ -1,0 +1,67 @@
+"""
+PI autopilot on heading error, with anti-windup, deadband, and a
+distance-based throttle ramp.
+
+The autopilot reads the hull's heading `psi` directly (so course-error
+is well-defined at zero speed and during turns). The rudder command is
+saturated at `±Rudder_max`; while saturated, or while the error is
+inside `±Deadband`, the integrator is frozen. The throttle output ramps
+linearly from 1 (at `Throttle_full_dist`) to 0 (at `Throttle_off_dist`)
+so the engine idles on approach and stops near the target.
+
+Sign convention: with positive `k_p`, a positive `course_difference`
+(target to the left of current heading) drives a positive rudder
+command. If the rudder/hull plant has the opposite convention, set
+`k_p < 0`.
+"""
+component HeadingAutoPilot
+  "Proportional gain [deg of rudder per rad of heading error]"
+  parameter k_p::Real = 30
+  "Integral gain [deg/rad·s]. Set 0 to disable integral action."
+  parameter k_i::Real = 1
+  "Maximum |rudder| output [deg]"
+  parameter Rudder_max::Real = 35
+  "Cap on the integral state [deg]. Bounds the integral wind-up."
+  parameter Integral_max::Real = 30
+  "Course-error deadband [rad]. While |course_diff| < Deadband the rudder is set to zero AND the integral is frozen."
+  parameter Deadband::Angle = 0.0
+
+  "Distance-to-target [m] above which the throttle output is 1 (full power)."
+  parameter Throttle_full_dist::Length = 300.0
+  "Distance-to-target [m] below which the throttle output is 0 (engine off)."
+  parameter Throttle_off_dist::Length = 100.0
+
+  pos_x = RealInput()
+  pos_y = RealInput()
+  psi = RealInput()
+  target_x = RealInput()
+  target_y = RealInput()
+
+  rudder = RealOutput()
+  course_difference = RealOutput()
+  bearing = RealOutput()
+  distance_to_target = RealOutput()
+  "Throttle factor in [0, 1]. Full power above Throttle_full_dist, ramps linearly to zero at Throttle_off_dist."
+  throttle = RealOutput()
+
+  variable integ::Real
+  variable rudder_raw::Real
+relations
+  initial integ = 0
+
+  bearing = atan(target_y - pos_y, target_x - pos_x)
+  distance_to_target = sqrt((target_x - pos_x)^2 + (target_y - pos_y)^2)
+  course_difference = atan(sin(bearing - psi), cos(bearing - psi))
+
+  rudder_raw = k_p * course_difference + k_i * clamp(integ, -Integral_max, Integral_max)
+  rudder = clamp(rudder_raw, -Rudder_max, Rudder_max)
+
+  # Freeze the integrator when the rudder is saturated or the error is in deadband.
+  der(integ) = ifelse(abs(rudder_raw) >= Rudder_max, 0,
+                ifelse(abs(course_difference) < Deadband, 0, course_difference))
+
+  throttle = clamp(
+    (distance_to_target - Throttle_off_dist) / (Throttle_full_dist - Throttle_off_dist),
+    0, 1
+  )
+end

@@ -13,20 +13,20 @@ This analysis is the regression test for the autopilot — it should keep the
 ship on heading and reach the waypoint despite the disturbance.
 """
 test component FullShipDisturbed
+  parameter target_x::Length = 10000
+  parameter target_y::Length = 1000
+  parameter base_torque::Torque = 80000
+
   world = MultibodyComponents.PlanarMechanics.World(g = 0, render = false)
   hull = HullMMG(mass = 1e6, Iz = 1e8, Lpp = 100, B = 20, Draft = 4, Cb = 0.693)
 
   prop = DyadShip.Propulsion.Propeller1Q(Diameter = 4, P_D = 1.0, Ae_Ao = 0.55, Z = 4)
   shaft = RotationalComponents.Components.Inertia(J = 5000)
   src = RotationalComponents.Sources.TorqueSource()
-  k_tau = BlockComponents.Sources.Constant(k = 80000)
   ground = RotationalComponents.Components.Fixed()
 
   rudder = DyadShip.Propulsion.Rudder()
-  # See Ship_analysis.dyad for why the gains differ from the pilot's defaults.
-  # See Ship_analysis.dyad for why we pass cos/sin(ψ) as vel and use these gains.
-  pilot = SimpleAutoPilot(k_rudder = 0, Td_rudder = 1, Tf_rudder = 1,
-                          Deadband_rudder = 0)
+  pilot = HeadingAutoPilot(k_p = 30, k_i = 1, Deadband = π / 180)
 
   prop_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r = [-50, 0], render = false)
   rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r = [-52, 0], render = false)
@@ -48,7 +48,7 @@ relations
   initial shaft.w = 0
 
   # Mechanical shaft.
-  connect(k_tau.y, src.tau)
+  src.tau = base_torque * pilot.throttle
   connect(src.support, ground.spline)
   connect(src.spline, shaft.spline_a)
   connect(shaft.spline_b, prop.flange)
@@ -82,14 +82,11 @@ relations
   rudder.Propeller_flow_diameter = prop.Propeller_flow_diameter
   rudder.Wake_Fraction = prop.Wake_Fraction
 
-  # Autopilot.
   pilot.pos_x = hull.pos_x
   pilot.pos_y = hull.pos_y
-  pilot.vel_x = cos(hull.psi)
-  pilot.vel_y = sin(hull.psi)
-  pilot.target_x = 10000
-  pilot.target_y = 1000
-  pilot.target_speed = 5
+  pilot.psi = hull.psi
+  pilot.target_x = target_x
+  pilot.target_y = target_y
   connect(pilot.rudder, rudder.Rudder_Order)
 end
 
