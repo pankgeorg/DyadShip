@@ -75,7 +75,7 @@ toward the target.
   # Subcomponent hull of type DyadShip.Ship.Hull3DOF
   hull_overrides = Dict(Symbol(replace(string(k), r"^hull__" => "")) => v for (k, v) in __overrides if startswith(string(k), "hull__"))
   filter!(p -> !startswith(string(first(p)), "hull__"), __overrides)
-  push!(__systems, @named hull = DyadShip.Ship.Hull3DOF(mass=1000000, Iz=100000000, Du=5000, Du_quad=4000, Dv=1000000, Dv_quad=10000, Dr=10000000, Dr_quad=500000, hull_overrides...))
+  push!(__systems, @named hull = DyadShip.Ship.Hull3DOF(mass=1000000, Iz=100000000, Du=5000, Du_quad=4000, Dv=1000000, Dv_quad=10000, Dr=10000000, Dr_quad=500000, Dr_cube=1000000000, hull_overrides...))
   # Subcomponent prop of type DyadShip.Propulsion.Propeller1Q
   prop_overrides = Dict(Symbol(replace(string(k), r"^prop__" => "")) => v for (k, v) in __overrides if startswith(string(k), "prop__"))
   filter!(p -> !startswith(string(first(p)), "prop__"), __overrides)
