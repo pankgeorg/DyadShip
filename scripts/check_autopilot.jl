@@ -36,6 +36,10 @@ println("  done. t ∈ [$(sol_dist.t[1]), $(sol_dist.t[end])], $(length(sol_dist
 
 # Pull state and command time series via the System reference.
 function ts(sol, sys)
+    shaft_w = sol[sys.shaft.w]
+    # Engine power = src.tau (input torque) * shaft.w. The TorqueSource
+    # convention is `spline.tau = -tau`, so the actual mechanical power
+    # delivered to the shaft is k_tau · w (the constant input torque is 80 kN·m).
     return (
         t = sol.t,
         pos_x = sol[sys.hull.pos_x],
@@ -47,6 +51,9 @@ function ts(sol, sys)
         cmd   = sol[sys.pilot.rudder],
         thrust = sol[sys.prop.Thrust],
         rpm    = sol[sys.prop.rpm],
+        shaft_w = shaft_w,
+        P_engine = 80_000.0 .* shaft_w,        # W, applied torque × shaft speed
+        P_thrust = sol[sys.prop.Thrust] .* sol[sys.hull.u],  # W, useful propulsive power
     )
 end
 
@@ -190,10 +197,43 @@ plot!(p_sea, dist.t, dist.wx ./ 1e3; label = "Fx_wind [kN]", lw = 1.5, ls = :das
 plot!(p_sea, dist.t, dist.wy ./ 1e3; label = "Fy_wind [kN]", lw = 1.5, ls = :dash)
 plot!(p_sea, dist.t, dist.wn ./ 1e6; label = "Mz_wind [MN·m]", lw = 1.5, ls = :dash)
 
+# Power-velocity scatter (operating envelope).
+p_pv = scatter(
+    c.u, c.P_engine ./ 1e3; ms = 1.5, alpha = 0.4, c = :steelblue, label = "engine in (clean)",
+    xlabel = "surge u [m/s]", ylabel = "power [kW]",
+    title = "Power vs surge speed",
+    legend = :topleft,
+)
+scatter!(p_pv, d.u, d.P_engine ./ 1e3; ms = 1.5, alpha = 0.4, c = :crimson, label = "engine in (disturbed)")
+scatter!(p_pv, c.u, c.P_thrust ./ 1e3; ms = 1.5, alpha = 0.4, c = :navy, label = "thrust·u (clean)", marker = :diamond)
+scatter!(p_pv, d.u, d.P_thrust ./ 1e3; ms = 1.5, alpha = 0.4, c = :firebrick, label = "thrust·u (disturbed)", marker = :diamond)
+
+# Resistance vs speed: the modeled drag, plus what a "realistic" combined
+# linear+quadratic curve would look like. Real-ship resistance grows roughly
+# as Du·u + Cq·u² (and cubic wave-making above hull speed); the current model
+# is purely linear, so the ship has unrealistically little drag at high u.
+u_grid = range(0, 25, 200)
+DU = 5000.0                               # current Hull3DOF parameter (linear, N·s/m)
+CQ = 1500.0                               # rough quadratic placeholder (N·s²/m²)
+drag_lin = DU .* u_grid                   # current model
+drag_quad = CQ .* u_grid .^ 2             # form-drag suggestion
+drag_real = drag_lin .+ drag_quad         # combined illustration
+p_drag = plot(u_grid, drag_lin ./ 1e3; lw = 2, c = :steelblue, label = "linear (modeled, Du=5000)",
+    xlabel = "surge u [m/s]", ylabel = "resistance [kN]",
+    title = "Surge resistance — modeled vs typical",
+    legend = :topleft,
+)
+plot!(p_drag, u_grid, drag_quad ./ 1e3; lw = 1.5, c = :gray, ls = :dash, label = "quadratic (form drag)")
+plot!(p_drag, u_grid, drag_real ./ 1e3; lw = 2, c = :black, ls = :dot, label = "linear + quadratic")
+hline!(p_drag, [122]; lw = 1.5, c = :gold, ls = :dash, label = "thrust @ 73 RPM")
+# Mark hull speed (~1.34·√L_wl in m/s for L=100 m).
+hull_speed = 1.34 * sqrt(100 / 3.28)
+vline!(p_drag, [hull_speed]; lw = 1, c = :purple, ls = :dot, label = "hull speed ≈ $(round(hull_speed; digits=1)) m/s")
+
 # Composite figure.
-p_all = plot(p_map, p_psi, p_rud, p_u, p_prop, p_sea;
-    layout = @layout([a{0.5w} [b; c]; [d; e]; f]),
-    size = (1400, 1300),
+p_all = plot(p_map, p_psi, p_rud, p_u, p_prop, p_sea, p_pv, p_drag;
+    layout = @layout([a{0.5w} [b; c]; [d; e]; f; [g h]]),
+    size = (1400, 1700),
 )
 savefig(p_all, joinpath(ASSETS, "autopilot_check.png"))
 println("Wrote $(joinpath(ASSETS, "autopilot_check.png"))")
@@ -205,6 +245,8 @@ savefig(p_psi, joinpath(ASSETS, "autopilot_heading.png"))
 savefig(p_u,   joinpath(ASSETS, "autopilot_surge.png"))
 savefig(p_sea, joinpath(ASSETS, "autopilot_disturbances.png"))
 savefig(p_prop, joinpath(ASSETS, "autopilot_propulsion.png"))
+savefig(p_pv,   joinpath(ASSETS, "autopilot_power_velocity.png"))
+savefig(p_drag, joinpath(ASSETS, "autopilot_resistance.png"))
 println("Wrote individual plots to $(ASSETS).")
 
 # Quick numerical summary.

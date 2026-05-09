@@ -26,10 +26,14 @@ Outputs `u`, `v`, `r` are the body-frame surge / sway / yaw rate; `pos_x`, `pos_
 component Hull3DOF
   parameter mass::Mass = 5e6
   parameter Iz::MomentOfInertia = 5e9
-  "Linear surge drag coefficient (≥ 0)"
+  "Linear surge drag coefficient (N·s/m, ≥ 0)"
   parameter Du::Real = 0
+  "Quadratic surge drag coefficient (N·s²/m², ≥ 0). Form/wave drag scales with u²."
+  parameter Du_quad::Real = 0
   parameter Dv::Real = 0
+  parameter Dv_quad::Real = 0
   parameter Dr::Real = 0
+  parameter Dr_quad::Real = 0
 
   body = MultibodyComponents.PlanarMechanics.Body(m = mass, I = Iz, render = false)
   forcer = MultibodyComponents.PlanarMechanics.WorldForceTorque(
@@ -69,9 +73,11 @@ relations
   v = -sin(body.phi) * body.v[1] + cos(body.phi) * body.v[2]
 
   # Drag + extras, in body frame, fed through the WorldForceTorque (resolve in frame_b).
-  forcer.force_x = Fx_extra - Du * u
-  forcer.force_y = Fy_extra - Dv * v
-  forcer.torque = Mz_extra - Dr * r
+  # Total drag = linear + quadratic. Quadratic uses u·|u| so the sign opposes
+  # motion regardless of direction.
+  forcer.force_x = Fx_extra - Du * u - Du_quad * u * abs(u)
+  forcer.force_y = Fy_extra - Dv * v - Dv_quad * v * abs(v)
+  forcer.torque = Mz_extra - Dr * r - Dr_quad * r * abs(r)
 
   # Wire the body, the forcer, and the external frame_a connector together at one node.
   connect(frame_a, body.frame_a, forcer.frame_b)

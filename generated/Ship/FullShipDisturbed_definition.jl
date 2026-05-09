@@ -84,7 +84,7 @@ ship on heading and reach the waypoint despite the disturbance.
   # Subcomponent hull of type DyadShip.Ship.Hull3DOF
   hull_overrides = Dict(Symbol(replace(string(k), r"^hull__" => "")) => v for (k, v) in __overrides if startswith(string(k), "hull__"))
   filter!(p -> !startswith(string(first(p)), "hull__"), __overrides)
-  push!(__systems, @named hull = DyadShip.Ship.Hull3DOF(mass=1000000, Iz=100000000, Du=5000, Dv=1000000, Dr=10000000, hull_overrides...))
+  push!(__systems, @named hull = DyadShip.Ship.Hull3DOF(mass=1000000, Iz=100000000, Du=5000, Du_quad=4000, Dv=1000000, Dv_quad=10000, Dr=10000000, Dr_quad=500000, hull_overrides...))
   # Subcomponent prop of type DyadShip.Propulsion.Propeller1Q
   prop_overrides = Dict(Symbol(replace(string(k), r"^prop__" => "")) => v for (k, v) in __overrides if startswith(string(k), "prop__"))
   filter!(p -> !startswith(string(first(p)), "prop__"), __overrides)
@@ -112,7 +112,7 @@ ship on heading and reach the waypoint despite the disturbance.
   # Subcomponent pilot of type DyadShip.Ship.SimpleAutoPilot
   pilot_overrides = Dict(Symbol(replace(string(k), r"^pilot__" => "")) => v for (k, v) in __overrides if startswith(string(k), "pilot__"))
   filter!(p -> !startswith(string(first(p)), "pilot__"), __overrides)
-  push!(__systems, @named pilot = DyadShip.Ship.SimpleAutoPilot(k_rudder=-0.5, Td_rudder=5, Tf_rudder=4, pilot_overrides...))
+  push!(__systems, @named pilot = DyadShip.Ship.SimpleAutoPilot(k_rudder=-0.5, Td_rudder=5, Tf_rudder=4, Deadband_rudder=0.01745, pilot_overrides...))
   # Subcomponent prop_arm of type MultibodyComponents.PlanarMechanics.FixedTranslation
   prop_arm_overrides = Dict(Symbol(replace(string(k), r"^prop_arm__" => "")) => v for (k, v) in __overrides if startswith(string(k), "prop_arm__"))
   filter!(p -> !startswith(string(first(p)), "prop_arm__"), __overrides)

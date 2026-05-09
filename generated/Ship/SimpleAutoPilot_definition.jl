@@ -5,7 +5,7 @@
 
 
 @doc Markdown.doc"""
-   SimpleAutoPilot(; name, k_rudder, Td_rudder, Rudder_max, k_shaft, Td_shaft, Shaft_max, Shaft_min, Tf_rudder, Tf_shaft)
+   SimpleAutoPilot(; name, k_rudder, Td_rudder, Rudder_max, k_shaft, Td_shaft, Shaft_max, Shaft_min, Tf_rudder, Tf_shaft, Deadband_rudder)
 
 Simple ship autopilot with one target waypoint and one target speed.
 
@@ -48,6 +48,10 @@ Outputs:
 | `Shaft_min`         | Minimum shaft output                         | --  |   1e-4 |
 | `Tf_rudder`         | Filter time constant for derivative approximation (rudder loop)                         | --  |   1.0 |
 | `Tf_shaft`         | Filter time constant for derivative approximation (shaft loop)                         | --  |   0.1 |
+| `Deadband_rudder`         | Course-error deadband [rad]. The rudder command stays at zero while
+  |course_difference| < Deadband_rudder; this stops the autopilot from
+  chasing tiny errors and prevents the limit-cycle oscillation that
+  otherwise arises with a strongly-effective rudder.                         | rad  |   0.0 |
 
 ## Connectors
 
@@ -73,7 +77,7 @@ Outputs:
 | `rudder_raw`         |                          | --  | 
 | `shaft_raw`         |                          | --  | 
 """
-@component function SimpleAutoPilot(; name = nothing, k_rudder=Float64(10), Td_rudder=Float64(40), Rudder_max=Float64(35), k_shaft=Float64(5000), Td_shaft=0.0001, Shaft_max=Float64(300), Shaft_min=0.0001, Tf_rudder=Float64(1), Tf_shaft=0.1, kwargs...)
+@component function SimpleAutoPilot(; name = nothing, k_rudder=Float64(10), Td_rudder=Float64(40), Rudder_max=Float64(35), k_shaft=Float64(5000), Td_shaft=0.0001, Shaft_max=Float64(300), Shaft_min=0.0001, Tf_rudder=Float64(1), Tf_shaft=0.1, Deadband_rudder=Float64(0), kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -133,6 +137,12 @@ Outputs:
   __local__Tf_shaft = Tf_shaft
   append!(__params, @parameters (Tf_shaft::Real), [description = "Filter time constant for derivative approximation (shaft loop)"])
   __initial_conditions[Tf_shaft] = __local__Tf_shaft
+  __local__Deadband_rudder = Deadband_rudder
+  append!(__params, @parameters (Deadband_rudder::Real), [description = "Course-error deadband [rad]. The rudder command stays at zero while
+  |course_difference| < Deadband_rudder; this stops the autopilot from
+  chasing tiny errors and prevents the limit-cycle oscillation that
+  otherwise arises with a strongly-effective rudder."])
+  __initial_conditions[Deadband_rudder] = __local__Deadband_rudder
 
   ### Final Path Parameters
   append!(__vars, @variables (pos_x(t)::Real), [input = true])
@@ -192,7 +202,7 @@ Outputs:
   push!(__eqs, distance_to_target ~ sqrt((target_x - pos_x) ^ 2 + (target_y - pos_y) ^ 2))
   push!(__eqs, course_difference ~ atan(sin(atan(target_y - pos_y, target_x - pos_x) - atan(vel_y, vel_x)), cos(atan(target_y - pos_y, target_x - pos_x) - atan(vel_y, vel_x))))
   push!(__eqs, Tf_rudder * ModelingToolkit.D_nounits(course_diff_filt) ~ course_difference - course_diff_filt)
-  push!(__eqs, rudder_raw ~ k_rudder * (course_difference + Td_rudder * (course_difference - course_diff_filt) / Tf_rudder))
+  push!(__eqs, rudder_raw ~ ifelse(abs(course_difference) < Deadband_rudder, 0, k_rudder * (course_difference + Td_rudder * (course_difference - course_diff_filt) / Tf_rudder)))
   push!(__eqs, rudder ~ clamp(rudder_raw, -Rudder_max, Rudder_max))
   push!(__eqs, Tf_shaft * ModelingToolkit.D_nounits(speed_err_filt) ~ (target_speed - speed_module) - speed_err_filt)
   push!(__eqs, shaft_raw ~ k_shaft * ((target_speed - speed_module) + Td_shaft * ((target_speed - speed_module) - speed_err_filt) / Tf_shaft))
