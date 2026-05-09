@@ -1,0 +1,181 @@
+"""
+3-DOF (surge / sway / yaw) hull dynamics using the MMG (Mathematical
+Maneuvering Group) standard hydrodynamic model.
+
+Ported from `ShipSIM.Components.HidrodynamicXYY` [sic; upstream typo].
+References: Yasukawa 2015, Jialun 2020, Taimuri 2020. Hydrodynamic
+derivatives default to empirical formulae in
+- Clarke et al. (1982): linear sway/yaw derivatives
+- Smitt (1970): linear sway-from-yaw
+- Khattab (1984): linear yaw damping
+- Lee & Shin (1998): cubic and cross terms
+- Kijima (1990a): mixed v·r terms
+- Yoshimura & Masumoto (2011): surge cross-coupling and N_rrr
+
+The hull is a `MultibodyComponents.PlanarMechanics.Body` with mass and
+yaw inertia. Hydrodynamic damping forces are applied through a
+`WorldForceTorque(resolve_in_frame = FrameB())` so the input components
+are interpreted in body coordinates.
+
+Structure of the damping force/moment (body frame):
+```math
+F_x = F_{x,extra} - R(u) + \\rho_{XY} (X_{vv} v_{nd}^2 + X_{vvvv} v_{nd}^4 + X_{rr} r_{nd}^2 + X_{vr} v_{nd} r_{nd})
+F_y = F_{y,extra} + \\rho_{XY} (Y_v v_{nd} + Y_{vvv} v_{nd}^3 + Y_r r_{nd} + Y_{rrr} r_{nd}^3 + Y_{vrr} v_{nd} r_{nd}^2 + Y_{vvr} v_{nd}^2 r_{nd})
+M_z = M_{z,extra} + \\rho_N  (N_v v_{nd} + N_{vvv} v_{nd}^3 + N_r r_{nd} + N_{rrr} r_{nd}^3 + N_{vrr} v_{nd} r_{nd}^2 + N_{vvr} v_{nd}^2 r_{nd})
+```
+where `v_nd = v/U`, `r_nd = r·Lpp/U`, `U = sqrt(u² + v² + ε)`, and
+ρ_XY = 0.5·ρ·Lpp·d·U², ρ_N = ρ_XY·Lpp.
+
+`R(u)` is a cubic resistance curve; defaults are the upstream Modelica
+example values for a 100 m hull (towing-tank-fit polynomial in |u|).
+
+Limitations vs upstream:
+- Dynamic added mass (`mx d/dt(u) − my v r` etc.) is not modelled. The
+  `mass` and `Iz` parameters should already include the rigid-body +
+  added-mass total. Only the *cross-coupling* added-mass terms (the
+  v·r and u·r contributions) are kept, since they don't introduce new
+  derivatives.
+- Per upstream's known issue, the resistance curve is a function of
+  surge speed only (not of total apparent speed U).
+"""
+component HullMMG
+  # ─── Hull form ───────────────────────────────────────────────────
+  "Length between perpendiculars [m]"
+  parameter Lpp::Length = 100
+  "Moulded beam [m]"
+  parameter B::Length = 20
+  "Mean moulded draft [m]"
+  parameter Draft::Length = 4
+  "Block coefficient [-]"
+  parameter Cb::Real = 0.693
+
+  # ─── Mass / inertia (assumed to include added mass) ──────────────
+  parameter mass::Mass = 1e6
+  parameter Iz::MomentOfInertia = 1e8
+
+  # ─── Fluid ───────────────────────────────────────────────────────
+  parameter SeaDensity::Density = 1025
+
+  # ─── Resistance curve (R = R3·u²·|u| + R2·u·|u| + R1·|u|) ────────
+  # Defaults from upstream Modelica's Resistance_Curve.
+  parameter R3::Real = 914.37
+  parameter R2::Real = -5286.3
+  parameter R1::Real = 19657.0
+
+  # ─── Apparent-speed floor (avoid divide-by-zero) ─────────────────
+  parameter U_floor::Velocity = 0.1
+
+  # ─── Coupling added-mass coefficients (% of displacement) ────────
+  # Brix 1993 (mx ≈ 5%) and Zhou 1983 (my, Jz). Used only for the
+  # static -Δ·my·v·r and -Δ·mx·u·r cross terms.
+  final parameter mx::Real = 1.0 / (π * sqrt(Lpp^2 / (B * Draft * Cb * SeaDensity)) - 14)
+  final parameter my::Real = 0.882 - 0.54 * Cb * (1 - 1.6 * Draft / B)
+                              - 0.156 * (1 - 0.673 * Cb) * Lpp / B
+                              + 0.826 * (Draft / B) * (Lpp / B) * (1 - 0.678 * Draft / B)
+                              - 0.638 * Cb * (Draft / B) * (Lpp / B) * (1 - 0.669 * Draft / B)
+
+  # ─── Hydrodynamic derivatives ────────────────────────────────────
+  # X (surge) — cross-coupling only; resistance curve handles |u|^n
+  parameter X_vv::Real    = 1.15 * Cb * B / Lpp - 0.18                       # Yoshimura & Masumoto 2011
+  parameter X_vvvv::Real  = -6.68 * Cb * B / Lpp + 1.1                       # Yoshimura & Masumoto 2011
+  parameter X_rr::Real    = (-0.0027 + 0.0076 * Cb * Draft / B) * (Lpp / Draft)   # Lee & Shin 1998
+  parameter X_vr::Real    = -0.117 * my / 100 * (0.5 + Cb) * (Lpp / Draft)        # Lee & Shin 1998
+
+  # Y (sway) — linear and cross terms
+  parameter Y_v::Real     = (-π * (Draft / Lpp)^2 * (1 + 0.4 * Cb * B / Draft)) * (Lpp / Draft)    # Clarke 1982
+  parameter Y_vvv::Real   = (-0.6469 * (1 - Cb) * (Draft / B) + 0.0027) * (Lpp / Draft)            # Lee & Shin 1998
+  parameter Y_r::Real     = (-π * (Draft / Lpp)^2 * (-0.32)) * (Lpp / Draft)                       # Smitt 1970
+  parameter Y_rrr::Real   = (-0.0233 * Cb * Draft / B + 0.0063) * (Lpp / Draft)                    # Lee & Shin 1998
+  parameter Y_vrr::Real   = -(5.95 * (1 - Cb) * Draft / B)                                         # Kijima 1990a
+  parameter Y_vvr::Real   = (1.5 * Draft * Cb / B - 0.65)                                          # Kijima 1990a
+
+  # N (yaw) — linear and cross terms; this is what was missing from Hull3DOF
+  parameter N_v::Real     = (-π * (Draft / Lpp)^2 * (0.5 + 2.4 * Draft / Lpp)) * (Lpp / Draft)     # Clarke 1982
+  parameter N_vvv::Real   = (0.0348 - 0.5283 * (1 - Cb) * Draft / B) * (Lpp / Draft)               # Lee & Shin 1998
+  parameter N_r::Real     = -π * (Draft / Lpp)^2 * ((1.3192 - 0.68228 * Cb - 0.00019 * (Lpp / Draft)^2) / π) * (Lpp / Draft)  # Khattab 1984
+  parameter N_rrr::Real   = 0.25 * Cb * B / Lpp - 0.056                                            # Yoshimura & Masumoto 2011
+  parameter N_vrr::Real   = (0.5 * Draft * Cb / B) - 0.05                                          # Kijima 1990a
+  parameter N_vvr::Real   = -(57.5 * (Cb * B / Lpp)^2 - 18.4 * (Cb * B / Lpp) + 1.6)               # Kijima 1990a
+
+  # ─── Subcomponents ───────────────────────────────────────────────
+  body = MultibodyComponents.PlanarMechanics.Body(m = mass, I = Iz, render = false)
+  forcer = MultibodyComponents.PlanarMechanics.WorldForceTorque(
+    resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB()
+  )
+
+  "Hull CG / reference frame for connecting accessories"
+  frame_a = Frame2D()
+
+  # External disturbances (wind, wave drift, …) — body-frame inputs
+  Fx_extra = RealInput()
+  Fy_extra = RealInput()
+  Mz_extra = RealInput()
+
+  # Outputs
+  pos_x = RealOutput()
+  pos_y = RealOutput()
+  psi = RealOutput()
+  u = RealOutput()
+  v = RealOutput()
+  r = RealOutput()
+  vx_world = RealOutput()
+  vy_world = RealOutput()
+  U = RealOutput()                # apparent speed magnitude
+  R_surge = RealOutput()          # resistance force [N], should be < 0 for u > 0
+
+  # Internal scratch
+  variable v_nd::Real
+  variable r_nd::Real
+  variable NonDimXY::Real
+  variable NonDimN::Real
+  variable X_damp::Force          # surge damping (cross-coupling only)
+  variable Y_damp::Force          # sway damping
+  variable N_damp::Torque         # yaw damping
+relations
+  initial body.r = [0, 0]
+  initial body.v = [0, 0]
+  initial body.phi = 0
+  initial body.w = 0
+
+  # World-frame outputs
+  pos_x = body.r[1]
+  pos_y = body.r[2]
+  psi = body.phi
+  vx_world = body.v[1]
+  vy_world = body.v[2]
+  r = body.w
+
+  # Body-frame surge / sway
+  u = cos(body.phi) * body.v[1] + sin(body.phi) * body.v[2]
+  v = -sin(body.phi) * body.v[1] + cos(body.phi) * body.v[2]
+
+  # Apparent speed magnitude with floor
+  U = sqrt(u * u + v * v + U_floor * U_floor)
+
+  # Non-dimensional sway and yaw rate (Froude-style)
+  v_nd = v / U
+  r_nd = r * Lpp / U
+
+  # Resistance: opposes motion in body-frame x. With sign(u) splitting,
+  # R_surge < 0 when u > 0. Cubic + quadratic + linear in |u|.
+  R_surge = -1 * (R3 * u * u * abs(u) + R2 * u * abs(u) + R1 * u)
+
+  # MMG normalization
+  NonDimXY = 0.5 * SeaDensity * U * U * Lpp * Draft
+  NonDimN = NonDimXY * Lpp
+
+  # MMG damping force/moment polynomials.
+  X_damp = NonDimXY * (X_vv * v_nd^2 + X_vvvv * v_nd^4 + X_rr * r_nd^2 + X_vr * v_nd * r_nd)
+          - mass * my / 100 * v * r              # Coriolis cross-coupling (surge)
+  Y_damp = NonDimXY * (Y_v * v_nd + Y_vvv * v_nd^3 + Y_r * r_nd + Y_rrr * r_nd^3 + Y_vrr * v_nd * r_nd^2 + Y_vvr * v_nd^2 * r_nd)
+          + mass * mx / 100 * u * r              # Coriolis cross-coupling (sway)
+  N_damp = NonDimN * (N_v * v_nd + N_vvv * v_nd^3 + N_r * r_nd + N_rrr * r_nd^3 + N_vrr * v_nd * r_nd^2 + N_vvr * v_nd^2 * r_nd)
+
+  # Net body-frame force/moment, fed to the WorldForceTorque(FrameB).
+  forcer.force_x = Fx_extra + R_surge + X_damp
+  forcer.force_y = Fy_extra + Y_damp
+  forcer.torque = Mz_extra + N_damp
+
+  # Wire the body, the forcer, and the external frame_a connector together.
+  connect(frame_a, body.frame_a, forcer.frame_b)
+end
