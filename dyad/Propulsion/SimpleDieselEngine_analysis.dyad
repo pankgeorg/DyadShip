@@ -1,0 +1,24 @@
+"""
+Diesel engine driving an external inertia. RPM demand steps from 1500 to 1800 at t=2s;
+the PI controller should bring the shaft to ~1800 RPM in a few seconds. Energy and fuel
+integrators should accumulate accordingly.
+"""
+test component DieselEngineRamp
+  engine = SimpleDieselEngine()
+  inertia = RotationalComponents.Components.Inertia(J = 50)
+  ground = RotationalComponents.Components.Damper(d = 10)   # acts as a load
+  fixed = RotationalComponents.Components.Fixed()
+  step = BlockComponents.Sources.Step(height = 300, start_time = 2.0, offset = 1500)
+relations
+  initial inertia.phi = 0
+  initial inertia.w = 1500 * 2 * π / 60
+  connect(step.y, engine.RPM_demand)
+  connect(engine.flange, inertia.spline_a)
+  connect(inertia.spline_b, ground.spline_a)
+  connect(ground.spline_b, fixed.spline)
+end
+
+analysis SimpleDieselEngineTransient
+  extends TransientAnalysis(stop = 30.0)
+  model = DieselEngineRamp()
+end

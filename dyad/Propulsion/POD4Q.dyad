@@ -1,0 +1,93 @@
+"""
+Azimuthing-pod 4-quadrant propeller, simplified.
+
+Ported from `ShipSIM.Components.Propulsion.POD4Q`.
+
+A POD is a propeller that can rotate about a vertical axis (azimuth) so the thrust
+direction is steerable. The upstream Modelica model wires:
+- A rotational `Position`-driven azimuth servo (with limiter and slew rate),
+- A 4Q Wageningen propeller (`WageningenB_4Q_Matrix` polynomial),
+- Multibody Frame_a + a Revolute joint + WorldForceAndTorque to apply thrust.
+
+This Dyad port composes:
+- A first-order servo on the azimuth command (matching `Rudder` and `WingSail` patterns).
+- A simplified 4Q Kt/Kq (same shape as `Propeller4Q`), driven by the POD's local surge
+  speed (taken as `ShipSpeed` real input).
+- A 2D `Frame2D` connector applying thrust along the rotated POD axis.
+
+Limitations:
+- The thrust is applied in the body frame after a rotation by the *POD's* azimuth angle
+  (so positive azimuth angle rotates the thrust vector). The lever-arm-driven yaw
+  contribution from the propeller's mounting offset is omitted; the caller can compose
+  it via a `MultibodyComponents.PlanarMechanics.FixedTranslation`.
+"""
+component POD4Q
+  parameter Diameter::Length = 4
+  parameter P_D::Real = 1
+  parameter Ae_Ao::Real = 0.55
+  parameter SeaDensity::Density = 1025
+  parameter WakeFraction::Real = 0.10
+  parameter ThrustDeduction::Real = 0.2
+
+  parameter MaxPODAngle::Real = 180     # degrees, full azimuth rotation
+  parameter POD_Tau::Real = 0.4
+
+  parameter Kt0::Real = 0.45
+  parameter Kt1::Real = -0.30
+  parameter Kt2::Real = -0.20
+  parameter Kq0::Real = 0.060
+  parameter Kq1::Real = -0.040
+  parameter Kq2::Real = -0.020
+  parameter w_floor::Real = 1e-3
+
+  flange = Spline()
+  frame_a = Frame2D()
+  ShipSpeed = RealInput()
+  POD_Order = RealInput()
+  Thrust = RealOutput()
+  POD_position = RealOutput()
+
+  variable pod_state::Real     # filtered azimuth angle, deg
+  variable beta::Angle         # azimuth in rad
+  variable w::AngularVelocity
+  variable w_eff::AngularVelocity
+  variable AdvanceSpeed::Velocity
+  variable J::Real
+  variable J_abs::Real
+  variable rev_sign::Real
+  variable astern_sign::Real
+  variable Kt_eff::Real
+  variable Kq_eff::Real
+  variable Thrust_Kt::Force
+  variable Torque_Kq::Torque
+relations
+  initial pod_state = 0
+
+  POD_Tau * der(pod_state) = clamp(POD_Order, -MaxPODAngle, MaxPODAngle) - pod_state
+  POD_position = pod_state
+  beta = pod_state * π / 180
+
+  w = der(flange.phi)
+  flange.tau = Torque_Kq
+  w_eff = sqrt(w^2 + w_floor^2)
+
+  AdvanceSpeed = ShipSpeed * (1 - WakeFraction)
+  J = AdvanceSpeed / (w_eff * Diameter / (2 * π))
+  J_abs = sqrt(J^2 + 1e-9)
+  rev_sign = ifelse(w >= 0, 1, -1)
+  astern_sign = ifelse(J >= 0, 1, -1)
+
+  Kt_eff = (Kt0 + Kt1 * J_abs + Kt2 * J_abs^2) * rev_sign * astern_sign
+  Kq_eff = (Kq0 + Kq1 * J_abs + Kq2 * J_abs^2) * rev_sign
+
+  Thrust_Kt = Kt_eff * SeaDensity * (w_eff / (2 * π))^2 * Diameter^4
+  Torque_Kq = Kq_eff * SeaDensity * (w_eff / (2 * π))^2 * Diameter^5
+  Thrust = Thrust_Kt * (1 - ThrustDeduction)
+
+  # Apply thrust along the POD's rotated axis: the POD is rotated by `beta` from the
+  # body's +x. World-axis force is the body rotation by frame_a.phi composed with the
+  # POD rotation by `beta`.
+  frame_a.fx + cos(frame_a.phi + beta) * Thrust = 0
+  frame_a.fy + sin(frame_a.phi + beta) * Thrust = 0
+  frame_a.tau = 0
+end

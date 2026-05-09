@@ -1,0 +1,107 @@
+"""
+Wing-sail force model (alternative propulsion).
+
+Ported from `ShipSIM.Components.AlternativePropulsion.WingSail`.
+
+Same simplification approach as `Rudder`:
+- Multibody (Frame_a/Frame_b, Revolute joint, FixedShape visualizers, WorldForce/Torque)
+  is dropped. The sail angle is filtered with a first-order servo to a clamped command.
+- The Cl/Cd/Cm vs angle-of-attack 2D table lookup is replaced by quadratic-in-α fits.
+- Apparent wind components (in the sail frame) are taken as real inputs rather than
+  computed from a multibody Frame_a + ApparentSpeedXY + outer Environment.
+
+Inputs:
+- `Sail_Order` — commanded sail angle [deg]
+- `WindSpeedX_in`, `WindSpeedY_in` — apparent wind components in the sail's local frame
+  before sail rotation (i.e. the body frame the sail base is mounted on)
+
+Outputs:
+- `Sail_position` — current sail angle [deg]
+- `Lift`, `Drag`, `Moment`
+- `Force_X`, `Force_Y` — body-frame force components (for integration into the hull).
+"""
+component WingSail
+  parameter C::Length = 7
+  parameter s::Length = 20
+  "Distance from leading edge to sail axis [m, + aft]"
+  parameter AxisPos::Length = 0.35 * 7      # = 0.35·C
+  parameter MaxSailAngle::Real = 90         # degrees, ± about feathered
+  "First-order servo time constant for sail rotation [s]"
+  parameter Sail_Tau::Real = 1.0            # ≈ 1 / MaxSailAngularSpeed (1 deg/s)
+
+  parameter AirDensity::Density = 1.29
+  parameter AirKViscosity::KinematicViscosity = 1.48e-5
+
+  # Quadratic-in-α (rad) Cl/Cd/Cm. Defaults near a thick symmetric foil at moderate Re.
+  parameter Cl0::Real = 0.0
+  parameter Cl1::Real = 5.5
+  parameter Cl2::Real = -0.0
+  parameter Cd0::Real = 0.02
+  parameter Cd1::Real = 0.0
+  parameter Cd2::Real = 1.5
+  parameter Cm0::Real = 0.0
+  parameter Cm1::Real = -0.6
+  parameter Cm2::Real = 0.0
+
+  Sail_Order = RealInput()
+  WindSpeedX_in = RealInput()
+  WindSpeedY_in = RealInput()
+
+  "Hull frame the sail mounts to (PlanarMechanics)"
+  frame_a = Frame2D()
+
+  Sail_position = RealOutput()
+  Lift = RealOutput()
+  Drag = RealOutput()
+  Moment = RealOutput()
+  Force_X = RealOutput()
+  Force_Y = RealOutput()
+
+  variable sail_angle_state::Real
+  variable Alpha::Angle
+  variable Beta::Angle
+  variable WindSpeed_local_x::Velocity
+  variable WindSpeed_local_y::Velocity
+  variable WindSpeed::Velocity
+  variable Cl::Real
+  variable Cd::Real
+  variable Cm::Real
+
+  parameter Surf::Area = C * s
+relations
+  initial sail_angle_state = 0
+  Sail_Tau * der(sail_angle_state) = clamp(Sail_Order, -MaxSailAngle, MaxSailAngle) - sail_angle_state
+  Sail_position = sail_angle_state
+  Alpha = Sail_position * π / 180
+
+  # Local wind (in sail's frame after sail rotation).
+  WindSpeed_local_x = cos(Alpha) * WindSpeedX_in + sin(Alpha) * WindSpeedY_in
+  WindSpeed_local_y = -sin(Alpha) * WindSpeedX_in + cos(Alpha) * WindSpeedY_in
+  WindSpeed = sqrt(WindSpeed_local_x^2 + WindSpeed_local_y^2 + 1e-9)
+
+  Beta = atan(WindSpeed_local_y, -WindSpeed_local_x)
+
+  Cl = Cl0 + Cl1 * Beta + Cl2 * Beta^2
+  Cd = Cd0 + Cd1 * Beta + Cd2 * Beta^2
+  Cm = Cm0 + Cm1 * Beta + Cm2 * Beta^2
+
+  Lift = 0.5 * AirDensity * Surf * WindSpeed^2 * Cl
+  Drag = 0.5 * AirDensity * Surf * WindSpeed^2 * Cd
+  Moment = 0.5 * AirDensity * Surf * C * WindSpeed^2 * Cm
+
+  # Forces back in the *body* frame (rotate by -Alpha).
+  Force_X = cos(Alpha) * (Drag * (WindSpeed_local_x / WindSpeed) - Lift * (WindSpeed_local_y / WindSpeed))
+          - sin(Alpha) * (Drag * (WindSpeed_local_y / WindSpeed) + Lift * (WindSpeed_local_x / WindSpeed))
+  Force_Y = sin(Alpha) * (Drag * (WindSpeed_local_x / WindSpeed) - Lift * (WindSpeed_local_y / WindSpeed))
+          + cos(Alpha) * (Drag * (WindSpeed_local_y / WindSpeed) + Lift * (WindSpeed_local_x / WindSpeed))
+
+  # Apply forces to the hull frame. `Force_X`/`Force_Y` are in the ship's *body* frame
+  # (the sail rotation is already factored into them); `frame_a.fx`/`fy` are in the
+  # *world* frame, so rotate by `frame_a.phi` before assigning.
+  # Yaw moment from the sail's lever arm is conservatively zero — compose at the ship
+  # level via `MultibodyComponents.PlanarMechanics.FixedTranslation` between hull CG
+  # and sail mount.
+  frame_a.fx + cos(frame_a.phi) * Force_X - sin(frame_a.phi) * Force_Y = 0
+  frame_a.fy + sin(frame_a.phi) * Force_X + cos(frame_a.phi) * Force_Y = 0
+  frame_a.tau = 0
+end

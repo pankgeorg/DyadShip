@@ -1,0 +1,16 @@
+"""
+Heat-up of a long cylindrical rod: insulated ends, outer surface clamped at 373.15 K.
+The rod starts at 273.15 K and the outer node should reach surface temperature first,
+with inner nodes lagging according to their thermal time constant.
+"""
+test component CylinderHeatup
+  cyl = CylinderTransient(R = 0.05, L = 1.0, k = 50, rhoCp = 4e6, T_start = 273.15, N = 5)
+  hot = ThermalComponents.Sources.FixedTemperature(T = 373.15)
+relations
+  connect(hot.port, cyl.port_b)
+end
+
+analysis CylinderTransientAnalysis
+  extends TransientAnalysis(stop = 600.0)
+  model = CylinderHeatup()
+end

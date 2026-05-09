@@ -1,0 +1,12 @@
+"""
+Sweep one full day at the summer solstice. Sun should rise around t=4 h, peak at noon,
+set around t=20 h, with peak `IrradianceOnPanel` near `irradiance_ref`.
+"""
+test component SolarSweep
+  sun = SolarIrradiation()
+end
+
+analysis SolarSweepTransient
+  extends TransientAnalysis(stop = 86400.0)
+  model = SolarSweep()
+end

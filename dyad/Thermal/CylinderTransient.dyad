@@ -1,0 +1,49 @@
+"""
+Transient heat conduction in an insulated-ends cylinder, equal-area radial discretization.
+
+Ported from `ShipSIM.Components.Others.HeatTransfer.CylinderTransient`.
+
+The cylinder is split into `N` concentric rings of equal volume; each ring carries a
+`HeatCapacitor` of capacity `C_node = ρ·Cp·V_ring = ρ·Cp·(π·R²·L)/N`. Inter-ring and
+last-ring-to-outer-surface conductances are computed by the Julia helper
+`DyadShip.discretize_cylinder_conductances(R, L, k, N)`, which mirrors the upstream
+`Functions.HeatTransfer.DiscretizeCylinder(R, N, 4)` shape.
+
+`port_b` is the *outer* surface (where convection / radiation typically attach). The
+ends are insulated (matching upstream).
+
+Limitations vs upstream:
+- Internal-heat-port (with `HeatSplitter` to distribute volumetrically) is dropped — the
+  model is purely conductive end to end. A volumetric source can be added later via a
+  conditional connector.
+- `Tavg` and `Energy` outputs dropped.
+"""
+component CylinderTransient
+  # Structural so derived params propagate cleanly through component-array comprehensions.
+  structural parameter R::Real = 0.05
+  structural parameter L::Real = 1.0
+  structural parameter k::Real = 200
+  structural parameter rhoCp::Real = 4e6
+  structural parameter T_start::Real = 273.15
+  structural parameter N::Integer = 5
+
+  port_b = HeatPort()
+
+  structural parameter A::Real = π * R^2
+  structural parameter V_ring::Real = A * L / N
+  structural parameter C_node::Real = rhoCp * V_ring
+  structural parameter G_array::Real[N] = discretize_cylinder_conductances(R, L, k, N)
+
+  caps = [ThermalComponents.Components.HeatCapacitor(C = C_node, T0 = T_start) for i in 1:N]
+  conds = [ThermalComponents.Components.ThermalConductor(G = G_array[i]) for i in 1:N]
+relations
+  # Inter-ring conductors: conds[i] connects caps[i] to caps[i+1] for i < N.
+  for i in 1:(N - 1)
+    connect(caps[i].port, conds[i].port_a)
+    connect(conds[i].port_b, caps[i + 1].port)
+  end
+
+  # Outer-surface conductor: conds[N] connects caps[N] to port_b.
+  connect(caps[N].port, conds[N].port_a)
+  connect(conds[N].port_b, port_b)
+end

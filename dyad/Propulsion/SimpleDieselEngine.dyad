@@ -1,0 +1,123 @@
+"""
+Simple ship diesel engine: speed-controlled torque source with torque-vs-RPM limit and SFOC.
+
+Ported from `ShipSIM.Components.Machines.SimpleDieselEngine`.
+
+The original Modelica model wires together:
+- A `SlewRateLimiter` and `Limiter` on the RPM demand input.
+- A `LimPID` (PI in this case) tracking the limited RPM with output torque.
+- A `VariableLimiter` whose upper bound is the max-torque-vs-RPM curve and lower bound is 0,
+  fed by a `CombiTable1Ds` (RPM → max torque).
+- A `Torque` source on a rotational shaft, plus an internal `Inertia(J=15)` and a
+  multi-sensor that taps shaft power.
+- Two integrators (`Joules`, `Fuel_g`), gain blocks, and a `CombiTable1Ds` for the
+  specific-fuel-oil-consumption (SFOC) curve, producing kWh, total fuel and instantaneous
+  fuel consumption outputs.
+
+This Dyad port preserves the structure but replaces the table-lookup blocks with
+piecewise-linear interpolation expressed as parameterized arrays. The key flow:
+
+  RPM_demand → slew/limit → PI → variable limiter (0..MaxTorque(RPM)) → torque on shaft
+
+External inertia and external connections to a load are the responsibility of the caller.
+The component itself ends in a `Spline` connector that the caller must drive (typically by
+attaching an `Inertia` and a load such as a propeller).
+
+Simplifications:
+- No slew-rate limiter on the RPM demand — the BlockComponents library doesn't (yet) ship a
+  rate limiter component; if the simulation needs it the caller can add their own.
+- The piecewise-linear MaxTorque(RPM) and SFOC(kW) tables are encoded as parameter arrays
+  with explicit "RPM[i] → tau[i]" pairs and use Julia's `LinearInterpolation` from
+  `DataInterpolations` indirectly via `BlockComponents.Tables.Interpolation`. To keep this
+  port compile-clean *without* needing any external CSV dataset, this version uses a closed
+  form: max torque is approximated as a piecewise-linear sweep using nested `ifelse`.
+- `Inst_Fuel`, `Fuel`, `KWh` outputs use the same SFOC mapping but as a closed-form
+  piecewise-linear approximation.
+
+Defaults match the upstream `MaxTorqueTable = [600,1500; 800,2000; 900,2750; 1100,5300;
+1200,5500; 2100,5500; 2300,500]` and `SFOCtable = [605,185; 907.5,179; 1028.5,178; 1210,182]`.
+"""
+component SimpleDieselEngine
+  "Recommended engine inertia [kg·m²] — use this when sizing the external `Inertia` block."
+  parameter J_engine::Real = 15
+  "Min RPM (clamps demand)"
+  parameter RPM_min::Real = 0
+  "Max RPM (clamps demand)"
+  parameter RPM_max::Real = 2200
+
+  "PI gain"
+  parameter k_PI::Real = 300
+  "PI integral time constant"
+  parameter Ti_PI::Real = 0.5
+  "PI output upper limit (matches original yMax = 6000)"
+  parameter tau_max_abs::Real = 6000
+
+  RPM_demand = RealInput()
+  KWh = RealOutput()
+  Fuel = RealOutput()        # cumulative fuel [kg]
+  Inst_Fuel = RealOutput()   # instantaneous fuel rate [kg/s]
+  flange = Spline()
+
+  variable rpm::Real
+  variable rpm_demand_clamped::Real
+  variable shaft_w::AngularVelocity
+  variable err_int::Real
+  variable tau_pi::Real
+  variable max_tau::Real
+  variable tau_cmd::Real
+  variable shaft_power::Power            # = w * tau_applied (mechanical power) [W]
+  variable shaft_power_kW::Real
+  variable joules::Real                  # cumulative shaft energy [J]
+  variable sfoc::Real                    # specific fuel consumption [g/kWh]
+  variable fuel_g::Real                  # cumulative fuel [g]
+relations
+  initial err_int = 0
+  initial joules = 0
+  initial fuel_g = 0
+  initial flange.phi = 0
+
+  shaft_w = der(flange.phi)
+  rpm = shaft_w * 60 / (2 * π)
+
+  rpm_demand_clamped = clamp(RPM_demand, RPM_min, RPM_max)
+
+  # Simple PI controller. err = rpm_demand_clamped - rpm.
+  Ti_PI * der(err_int) = rpm_demand_clamped - rpm
+  tau_pi = clamp(k_PI * ((rpm_demand_clamped - rpm) + err_int), -tau_max_abs, tau_max_abs)
+
+  # Max torque as piecewise-linear in RPM (data points: 600→1500, 800→2000, 900→2750,
+  # 1100→5300, 1200→5500, 2100→5500, 2300→500). Below 600 RPM we hold 1500; above 2300
+  # we hold 500. clamp() between segments via nested ifelse.
+  max_tau =
+    ifelse(rpm <= 600, 1500,
+    ifelse(rpm <= 800,  1500 + (2000 - 1500) * (rpm - 600) / (800 - 600),
+    ifelse(rpm <= 900,  2000 + (2750 - 2000) * (rpm - 800) / (900 - 800),
+    ifelse(rpm <= 1100, 2750 + (5300 - 2750) * (rpm - 900) / (1100 - 900),
+    ifelse(rpm <= 1200, 5300 + (5500 - 5300) * (rpm - 1100) / (1200 - 1100),
+    ifelse(rpm <= 2100, 5500,
+    ifelse(rpm <= 2300, 5500 + (500 - 5500) * (rpm - 2100) / (2300 - 2100),
+    500)))))))
+
+  tau_cmd = clamp(tau_pi, 0, max_tau)
+  flange.tau = -tau_cmd     # the engine drives the shaft, so spline.tau is the negative
+                            # of the produced engine torque (sign convention as in MTK).
+
+  shaft_power = shaft_w * tau_cmd
+  shaft_power_kW = shaft_power / 1000
+
+  der(joules) = shaft_power
+  KWh = joules / 3.6e6      # J → kWh
+
+  # SFOC piecewise-linear in shaft kW: 605→185, 907.5→179, 1028.5→178, 1210→182
+  sfoc =
+    ifelse(shaft_power_kW <= 605,    185,
+    ifelse(shaft_power_kW <= 907.5,  185 + (179 - 185) * (shaft_power_kW - 605) / (907.5 - 605),
+    ifelse(shaft_power_kW <= 1028.5, 179 + (178 - 179) * (shaft_power_kW - 907.5) / (1028.5 - 907.5),
+    ifelse(shaft_power_kW <= 1210,   178 + (182 - 178) * (shaft_power_kW - 1028.5) / (1210 - 1028.5),
+    182))))
+
+  # Instantaneous fuel mass rate: SFOC [g/kWh] · shaft_power [kW] / 3600 [s/h] / 1000 [g/kg]
+  Inst_Fuel = sfoc * shaft_power_kW / 3600 / 1000
+  der(fuel_g) = sfoc * shaft_power_kW / 3600
+  Fuel = fuel_g / 1000
+end

@@ -1,0 +1,57 @@
+"""
+External wall heat-transfer block: sun irradiation + radiation + wind convection.
+
+Simplified port of `ShipSIM.Components.Others.HeatTransfer.ConvRadSunWall`. The upstream
+model wired together internal sub-components from `Components.Others.HeatTransfer.Internal.*`
+(BodyRadiation, FreeConvection, ConvRadSimplified) plus our `IrradiationOnPlane` and
+`SunScreen` ports. Without those sub-libraries on hand, this version implements the
+combined heat flux directly:
+
+```math
+Q_\\mathrm{net} = \\alpha_\\mathrm{abs} \\cdot S_\\mathrm{eff} \\cdot \\sigma_\\mathrm{shade} \\cdot A
+                + h_c \\cdot A \\cdot (T_\\mathrm{air} - T_\\mathrm{wall})
+                + \\varepsilon \\sigma A (T_\\mathrm{sky}^4 - T_\\mathrm{wall}^4)
+```
+
+where:
+- `S_eff` is the irradiance on the wall plane (real input — typically computed via the
+  separately-ported `IrradiationOnPlane`).
+- `sigma_shade` is the un-shaded fraction (0..1, real input — typically from `SunScreen`).
+- `h_c` is the convective heat-transfer coefficient (real input — wind-dependent).
+- `T_air` and `T_sky` are the ambient and effective sky temperatures (real inputs).
+
+The component has one HeatPort `port_wall` connecting to the wall material's outermost
+node (typically the boundary of a `PlateTransient`).
+
+Limitations vs upstream:
+- Wall area `A`, absorptivity `alpha_abs`, emissivity `epsilon` exposed as parameters.
+  No automatic computation from `Length × Height`-style geometry — caller supplies `A`.
+- Sun-screen and IrradianceOnPlane wiring is the caller's responsibility (this Dyad
+  block consumes their *outputs*, not their internal frames).
+"""
+component ConvRadSunWall
+  parameter A::Area = 1.0
+  parameter alpha_abs::Real = 0.7    # solar absorptivity, 0..1
+  parameter epsilon::Real = 0.9       # IR emissivity, 0..1
+  "Stefan-Boltzmann constant [W/(m²·K⁴)]"
+  parameter sigma::Real = 5.670374e-8
+
+  S_panel = RealInput()    # irradiance on the wall plane [W/m²]
+  shade_factor = RealInput()
+  h_c = RealInput()
+  T_air = RealInput()
+  T_sky = RealInput()
+
+  port_wall = HeatPort()
+
+  variable Q_solar::HeatFlowRate
+  variable Q_conv::HeatFlowRate
+  variable Q_rad::HeatFlowRate
+  variable Q_total::HeatFlowRate
+relations
+  Q_solar = alpha_abs * S_panel * shade_factor * A
+  Q_conv = h_c * A * (T_air - port_wall.T)
+  Q_rad = epsilon * sigma * A * (T_sky^4 - port_wall.T^4)
+  Q_total = Q_solar + Q_conv + Q_rad
+  port_wall.Q_flow = -Q_total
+end

@@ -1,0 +1,64 @@
+"""
+Solar irradiation for a fixed geographic location and date — a clear-sky model.
+
+Ported from `ShipSIM.Components.Others.Solar.SolarIrradiation`.
+
+The original Modelica model:
+- Maintained a `discrete Integer dayOfYear` that incremented via `when` events when local
+  hour wrapped past 24.
+- Read an optional `tableOnFile` of measured irradiance to compute a cloud-correction
+  ratio (`SolarIrradiationRatio`).
+- Provided three signals: `IrradianceOnPanel(W/m²)`, `SunHeight(deg)`, `SunVector[3]`.
+
+This Dyad port:
+- Drops the discrete day-of-year counter and `when` event; the day of the year is fixed
+  per simulation via `day_of_year` (1..365). The starting reference is treated as
+  midnight of that day in the local time zone.
+- Drops the optional measured-irradiance table; the output is the clear-sky reference
+  irradiance directly. If the user wants cloud correction, multiply `IrradianceOnPanel`
+  by an externally-supplied `SolarIrradiationRatio` real input downstream.
+- Uses Julia helpers `DyadShip.sun_height_deg(...)` and `DyadShip.sun_vector_world(...)`
+  which encode the same astronomy formulae as upstream (declination, true mean time,
+  hour angle, altitude, azimuth).
+- Exposes `IrradianceOnPanel` only when `Calculation_on_Panel = true` AND the panel
+  inclination + azimuth inputs are wired. For now this port always uses a horizontal
+  panel; an inclined-plane variant follows the same shape.
+
+Limitations:
+- Astronomy formulae preserved verbatim; no atmospheric extinction model beyond the
+  reference irradiance scale.
+- 3-vector inputs/outputs are exposed as triples of scalar `RealOutput`s, since Dyad
+  does not have array connectors.
+"""
+component SolarIrradiation
+  "Latitude in radians (positive North). Default ≈ 43.4° N (Galicia, Spain)."
+  parameter latitude::Angle = 0.7579392485634024
+  "Longitude in radians (positive East). Default ≈ -8.24° (Galicia)."
+  parameter longitude::Angle = -0.1438785943756596
+  "Time zone offset from UTC in hours."
+  parameter time_zone::Real = 1
+  "Day of year (1..365). Defaults to summer solstice."
+  parameter day_of_year::Real = 172
+  "Reference clear-sky horizontal irradiance [W/m²]."
+  parameter irradiance_ref::Real = 1000
+
+  SunHeight = RealOutput()
+  SunVector_x = RealOutput()
+  SunVector_y = RealOutput()
+  SunVector_z = RealOutput()
+  IrradianceOnPanel = RealOutput()
+  IsDay = RealOutput()    # 1.0 when sun is above horizon, 0 otherwise
+
+  variable sv::Real[3]
+relations
+  SunHeight = sun_height_deg(time, latitude, longitude, day_of_year, time_zone)
+  sv = sun_vector_world(time, latitude, longitude, day_of_year, time_zone, irradiance_ref)
+  SunVector_x = sv[1]
+  SunVector_y = sv[2]
+  SunVector_z = sv[3]
+  # Horizontal-panel irradiance equals the magnitude of the vertical (Z) component of
+  # the sun ray (since the panel normal is +Z). Negative because SunVector points from
+  # sun to ground (downward when above horizon).
+  IrradianceOnPanel = ifelse(SunHeight > 0, -sv[3], 0)
+  IsDay = ifelse(SunHeight > 0, 1, 0)
+end

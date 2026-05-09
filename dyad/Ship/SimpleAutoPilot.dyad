@@ -1,0 +1,96 @@
+"""
+Simple ship autopilot with one target waypoint and one target speed.
+
+Two PD-style controllers — one for rudder angle, one for propeller shaft RPM — drive the
+ship toward a single target waypoint at a target speed.
+
+Differences from `ShipSIM.Components.AutoPilot.SimpleAutoPilot`:
+- The original cycled through a static waypoint table using `discrete Integer i` and `when`
+  events. Dyad does not (yet) expose discrete event semantics in the same way, so this
+  port takes the active waypoint and target speed as plain real-input ports. A waypoint
+  switcher can be implemented as a separate (Julia or Dyad) block on top of this.
+- The PD action is realized with explicit equations and a small filtered derivative,
+  rather than `Modelica.Blocks.Continuous.LimPID(controllerType=PD)`. The output is then
+  hard-clamped to `[Rudder_min, Rudder_max]` and `[Shaft_min, Shaft_max]`. This keeps the
+  ported model self-contained.
+
+Inputs:
+- `pos_x`, `pos_y` — current ship world position [m]
+- `vel_x`, `vel_y` — current ship world velocity [m/s]
+- `target_x`, `target_y` — current waypoint world position [m]
+- `target_speed` — desired ship speed magnitude [m/s]
+
+Outputs:
+- `rudder` — commanded rudder angle, clamped to ±`Rudder_max` [deg or rad — depends on
+  downstream convention; original uses 35 deg, so consider the units of `k_rudder`]
+- `shaft_speed` — commanded propeller shaft RPM, clamped to `[Shaft_min, Shaft_max]`
+- `course_difference` — signed angle between current course and waypoint bearing [rad]
+- `distance_to_target` — current distance to the active waypoint [m]
+"""
+component SimpleAutoPilot
+  "Proportional gain for rudder loop"
+  parameter k_rudder::Real = 10
+  "Derivative time constant for rudder loop"
+  parameter Td_rudder::Real = 40
+  "Maximum |rudder| output"
+  parameter Rudder_max::Real = 35
+
+  "Proportional gain for shaft loop"
+  parameter k_shaft::Real = 5000
+  "Derivative time constant for shaft loop"
+  parameter Td_shaft::Real = 1e-4
+  "Maximum shaft output"
+  parameter Shaft_max::Real = 300
+  "Minimum shaft output"
+  parameter Shaft_min::Real = 1e-4
+
+  "Filter time constant for derivative approximation (rudder loop)"
+  parameter Tf_rudder::Real = 1.0
+  "Filter time constant for derivative approximation (shaft loop)"
+  parameter Tf_shaft::Real = 0.1
+
+  pos_x = RealInput()
+  pos_y = RealInput()
+  vel_x = RealInput()
+  vel_y = RealInput()
+  target_x = RealInput()
+  target_y = RealInput()
+  target_speed = RealInput()
+
+  rudder = RealOutput()
+  shaft_speed = RealOutput()
+
+  variable course_difference::Real
+  variable distance_to_target::Real
+  variable speed_module::Real
+  # Filtered derivatives (state of first-order filter)
+  variable course_diff_filt::Real
+  variable speed_err_filt::Real
+  # Pre-saturation control signals
+  variable rudder_raw::Real
+  variable shaft_raw::Real
+relations
+  initial course_diff_filt = 0
+  initial speed_err_filt = 0
+
+  # Geometry
+  speed_module = sqrt(vel_x^2 + vel_y^2 + 1e-9)
+  distance_to_target = sqrt((target_x - pos_x)^2 + (target_y - pos_y)^2)
+
+  # Signed angle between current velocity vector and bearing to target.
+  # atan2 difference, wrapped to (-π, π] using atan(sin(d), cos(d)).
+  course_difference = atan(
+    sin(atan(target_y - pos_y, target_x - pos_x) - atan(vel_y, vel_x)),
+    cos(atan(target_y - pos_y, target_x - pos_x) - atan(vel_y, vel_x))
+  )
+
+  # Filtered derivative of course_difference: x' = (u - x)/T;  d_filt = (u - x)/T
+  Tf_rudder * der(course_diff_filt) = course_difference - course_diff_filt
+  rudder_raw = k_rudder * (course_difference + Td_rudder * (course_difference - course_diff_filt) / Tf_rudder)
+  rudder = clamp(rudder_raw, -Rudder_max, Rudder_max)
+
+  # Speed loop: error = target_speed - speed_module
+  Tf_shaft * der(speed_err_filt) = (target_speed - speed_module) - speed_err_filt
+  shaft_raw = k_shaft * ((target_speed - speed_module) + Td_shaft * ((target_speed - speed_module) - speed_err_filt) / Tf_shaft)
+  shaft_speed = clamp(shaft_raw, Shaft_min, Shaft_max)
+end

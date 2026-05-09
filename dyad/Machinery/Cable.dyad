@@ -1,0 +1,45 @@
+"""
+Simple 2D cable (tension-only spring between two `Frame2D`s).
+
+Ported from `ShipSIM.SubComponents.Cable`.
+
+The original Modelica cable was 3D multibody (`Frame_a`/`Frame_b`) applying a tension
+along the line connecting the two frames, plus a `when` event for breakage. This Dyad
+port uses 2D `PlanarMechanics` (`Frame2D` connectors); the cable supports tension only
+(does not push). The break flag is *not* implemented because Dyad does not yet expose
+Modelica-style discrete `when` events; consumers who need breakage can compute it
+externally.
+
+The unstretched length `SetLength` is taken as a real input (matching upstream's
+`SetLenght` connector).
+"""
+component Cable
+  extends MultibodyComponents.PlanarMechanics.PartialTwoFrames
+  "Cable spring constant [N/m]"
+  parameter k::TranslationalSpringConstant
+  "Unstretched length input [m]"
+  SetLength = RealInput()
+
+  variable dx::Real
+  variable dy::Real
+  variable Length::Real
+  variable Force::Force
+  variable nx::Real
+  variable ny::Real
+relations
+  dx = frame_b.x - frame_a.x
+  dy = frame_b.y - frame_a.y
+  Length = sqrt(dx^2 + dy^2 + 1e-9)
+  nx = dx / Length
+  ny = dy / Length
+
+  Force = ifelse(Length - SetLength > 0, k * (Length - SetLength), 0)
+
+  # Apply equal and opposite forces at the two frames.
+  frame_a.fx = -Force * nx
+  frame_a.fy = -Force * ny
+  frame_a.tau = 0
+  frame_b.fx = Force * nx
+  frame_b.fy = Force * ny
+  frame_b.tau = 0
+end

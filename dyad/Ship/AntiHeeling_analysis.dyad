@@ -1,0 +1,31 @@
+"""
+Anti-heeling system response to a step heel input. After the startup delay (5 s),
+a sustained 0.2° heel input pushes the AntiHeeling system to ramp the pump and the
+internal `M_tks` integrator toward the saturation `M_max`. The connected `Tank`
+fills/drains accordingly.
+
+This analysis exercises both `AntiHeeling` and `Tank` together, with the AH system
+seeing the ship heel and driving the pump that fills the Tank.
+"""
+test component AntiHeelingDemo
+  ah = AntiHeeling(startup_delay = 5)
+  tank_starboard = Tank(CoG_trans = 8.77)
+  heel_in = BlockComponents.Sources.Step(height = 0.2, start_time = 10, offset = 0)
+
+  # Anchor the AH frame at the origin so the moment has somewhere to discharge. No
+  # `PlanarMechanics.World` is needed because there are no `Body` components in this
+  # test — the `Fixed` + `frame_a` pair is purely kinematic.
+  fixed = MultibodyComponents.PlanarMechanics.Fixed()
+relations
+  connect(heel_in.y, ah.ship_heel)
+  connect(ah.frame_a, fixed.frame_b)
+
+  # Tank reads the moment and pump-flow outputs from AH.
+  tank_starboard.M_input = ah.M_adr
+  tank_starboard.Q_input = ah.pump_flow
+end
+
+analysis AntiHeelingTransient
+  extends TransientAnalysis(stop = 60.0)
+  model = AntiHeelingDemo()
+end

@@ -1,0 +1,48 @@
+"""
+Time-series temperature applied to a `HeatPort`.
+
+Ported from `ShipSIM.Components.Others.HeatTransfer.TemperatureDataset`.
+
+The original Modelica model wired:
+- `Modelica.Blocks.Tables.CombiTable1D(fileName=…, tableName=…, tableOnFile=true)` reading
+  a (sec, K) table from a .txt file, with `time` as input.
+- `Modelica.Thermal.HeatTransfer.Sources.PrescribedTemperature` consuming the table
+  output and exposing a `HeatPort_b`.
+
+The Dyad port composes the same pipeline using:
+- `BlockComponents.Tables.Interpolation` reading a `DyadData.DyadTimeseries` (CSV) — the
+  `dataset` parameter is the only structural parameter; the rest is data-driven.
+- `ThermalComponents.Sources.PrescribedTemperature` translating the interpolated value
+  to a `HeatPort` (with the standard built-in `HeatPort` connector).
+
+The default dataset path is `dyad://DyadShip/temperature_24h.csv` (a 24-hour synthetic
+temperature swing in `assets/`). Users with a longer or differently-named dataset can
+override the `dataset` structural parameter at the call site.
+
+The original's `tableOnFile = true` always-load-from-disk behaviour is replaced by
+`DyadData`'s URI-based loader. Linear interpolation between rows + boundary-value
+extrapolation outside the data range is hard-coded to match the upstream
+`HoldLastPoint` behaviour.
+"""
+component TemperatureDataset
+  "Time-series of (time [s], temperature [K]) — defaults to the bundled 24-h sample."
+  structural parameter dataset::DyadData.DyadTimeseries = DyadData.DyadTimeseries(
+    "dyad://DyadShip/temperature_24h.csv",
+    independent_var = "time",
+    dependent_vars = ["T"]
+  )
+
+  port_AirTemp = HeatPort()
+
+  TemperatureData = BlockComponents.Tables.Interpolation(
+    interpolation_type = BlockComponents.Tables.InterpolationType.LinearInterpolation(),
+    extrapolation_type = BlockComponents.Tables.ExtrapolationType.Constant(),
+    dataset = dataset
+  )
+
+  prescribedTemperature = ThermalComponents.Sources.PrescribedTemperature()
+relations
+  TemperatureData.u = time
+  connect(TemperatureData.y, prescribedTemperature.T)
+  connect(prescribedTemperature.port, port_AirTemp)
+end

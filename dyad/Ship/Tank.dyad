@@ -1,0 +1,57 @@
+"""
+Anti-heeling tank.
+
+Ported from `ShipSIM.Components.AntiHeelingSystem.Tank`.
+
+The tank receives an input vector `[M_input, Q]` (heeling moment seen by the ship and the
+pump flow rate in m³/h) and integrates a fill volume bounded by [0.05·V, 0.85·V]. The
+sign of the heeling moment together with the sign of `CoG_trans` selects whether the pump
+fills (positive direction) or empties (negative direction) the tank.
+
+Differences from upstream:
+- The Modelica original uses a single `RealInput[2]` for `(M_input, Q)`. Dyad doesn't
+  support array-typed connectors as cleanly, so this version takes them as two separate
+  scalar inputs.
+- The hard-clip of `inter_volume` to `[0.05·V, 0.85·V]` is preserved verbatim using
+  `clamp` (Dyad has no `if/elseif` cascade for an algebraic equation; `clamp` plays the
+  same role).
+- `der_m_esc` (derivative of moment input) is calculated but not used downstream, just as
+  in the original. We drop it.
+"""
+component Tank
+  "Transversal position of CoG of tank (sign indicates port/starboard)"
+  parameter CoG_trans::Length = 8.77
+  "Tank volume capacity [m³]"
+  parameter V::Real = 211.47
+  "Tank height [m]"
+  parameter H::Length = 5
+  "Liquid density [t/m³] (Modelica original convention)"
+  parameter rho::Real = 1.025
+  "Initial fill fraction (0..1)"
+  parameter initial_fill_fraction::Real = 0.45
+
+  M_input = RealInput()         # heeling moment seen by ship [t·m]
+  Q_input = RealInput()         # pump flow rate [m³/h]
+
+  Q = RealOutput()              # pass-through of Q_input
+  fill_level = RealOutput()     # 0..100
+  volume = RealOutput()         # m³ in tank, after clamp
+  tank_pressure = RealOutput()  # bar at lowest point
+
+  variable inter_volume::Real
+  variable indi_pos::Real
+  variable indi_moment::Real
+relations
+  initial inter_volume = initial_fill_fraction * V
+
+  Q = Q_input
+
+  indi_pos = ifelse(CoG_trans < 0, -1, 1)
+  indi_moment = ifelse(M_input > 0, 1, -1)
+
+  der(inter_volume) = -indi_pos * indi_moment * Q / 3600
+
+  volume = clamp(inter_volume, 0.05 * V, 0.85 * V)
+  fill_level = volume / V * 100
+  tank_pressure = volume / V * H * rho * 9.81 / 100
+end

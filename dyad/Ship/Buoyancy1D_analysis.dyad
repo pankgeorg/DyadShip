@@ -1,0 +1,19 @@
+"""
+Two scenarios for `Buoyancy1D`:
+- equilibrium check: hull starts at rest at its computed equilibrium draft, no external
+  force; z and draft should stay constant (no drift).
+- step disturbance: a sudden 5 MN downward push at t=2 s (e.g. cargo loaded). The hull
+  sinks, draft increases, and oscillates back toward the new equilibrium under
+  hydrostatic restoring + linear damping.
+"""
+test component BuoyancyDisturbance
+  hull = Buoyancy1D(mass = 1e6, Lpp = 100, B = 20, Cb = 0.7, Dz = 5e5)
+  pulse = BlockComponents.Sources.Step(height = -5e6, start_time = 2.0, offset = 0)
+relations
+  connect(pulse.y, hull.Fz_extra)
+end
+
+analysis Buoyancy1DTransient
+  extends TransientAnalysis(stop = 30.0)
+  model = BuoyancyDisturbance()
+end

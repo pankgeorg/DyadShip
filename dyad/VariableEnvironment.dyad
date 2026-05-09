@@ -1,0 +1,38 @@
+"""
+Environmental conditions with time-varying wind/current inputs.
+
+Variant of `Environment` where wind/current speed and direction are real-input ports rather
+than parameters, so they can be driven by external signal sources during a simulation. The
+sea/air physical properties stay as parameters.
+
+Convention is the same as `Environment`: 0° is +Y, 90° is +X, vector is `-V·{sin θ, cos θ, 0}`.
+"""
+component VariableEnvironment
+  "Seawater density"
+  parameter SeaDensity::Density = 1025
+  "Seawater kinematic viscosity"
+  parameter SeaKViscosity::KinematicViscosity = 1.004e-6
+  "Air density"
+  parameter AirDensity::Density = 1.29
+  "Air kinematic viscosity"
+  parameter AirKViscosity::KinematicViscosity = 1.48e-5
+
+  "Wind speed input [m/s]"
+  WindSpeed = RealInput()
+  "Wind direction input [deg], same convention as Environment"
+  WindDirection = RealInput()
+  "Current speed input [m/s]"
+  CurrentSpeed = RealInput()
+  "Current direction input [deg], same convention as Environment"
+  CurrentDirection = RealInput()
+
+  variable WindVector::Real[3]
+  variable CurrentVector::Real[3]
+relations
+  WindVector[1] = -WindSpeed * sin(WindDirection * π / 180)
+  WindVector[2] = -WindSpeed * cos(WindDirection * π / 180)
+  WindVector[3] = 0
+  CurrentVector[1] = -CurrentSpeed * sin(CurrentDirection * π / 180)
+  CurrentVector[2] = -CurrentSpeed * cos(CurrentDirection * π / 180)
+  CurrentVector[3] = 0
+end

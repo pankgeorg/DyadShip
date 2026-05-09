@@ -1,0 +1,79 @@
+"""
+4-quadrant Wageningen B-series propeller, simplified.
+
+Ported from `ShipSIM.Components.Propulsion.Propeller4Q`.
+
+The 4Q Wageningen model uses Ct(β) and Cq(β) as Fourier series in the inflow angle
+β = atan2(V_a, 0.7·π·n·D), with hundreds of regression coefficients per (P/D, Ae/Ao, Z).
+Without the upstream `Functions.PropellerFunctions.WageningenB_4Q_Matrix` ported as a
+Julia helper, this Dyad port collapses the 4Q response to two mirror-image 1Q models
+glued at the J=0 plane:
+
+- Forward operation (J ≥ 0, w ≥ 0): same quadratic-in-J Kt/Kq as `Propeller1Q`.
+- Astern thrust (J < 0, w ≥ 0): Kt and Kq evaluated at |J| with a sign flip on Kt to
+  capture astern push when the ship moves backward.
+- Reverse rotation (w < 0): Kt/Kq sign-flipped — a crude "reverse propeller" model.
+
+This is *not* a textbook 4Q match; it covers the typical maneuvering use cases
+(forward/reverse/crash-stop) qualitatively. A faithful port belongs in a Julia helper
+along the lines of `wageningen_b_4q(beta, P_D, Ae_Ao, Z)`.
+
+Same `Spline` + `Frame2D` interface as `Propeller1Q`.
+"""
+component Propeller4Q
+  parameter Diameter::Length = 4
+  parameter Z::Real = 4
+  parameter P_D::Real = 1
+  parameter Ae_Ao::Real = 0.55
+  parameter SeaDensity::Density = 1025
+  parameter WakeFraction::Real = 0.25
+  parameter ThrustDeduction::Real = 0.18
+
+  parameter Kt0::Real = 0.45
+  parameter Kt1::Real = -0.30
+  parameter Kt2::Real = -0.20
+  parameter Kq0::Real = 0.060
+  parameter Kq1::Real = -0.040
+  parameter Kq2::Real = -0.020
+  parameter w_floor::Real = 1e-3
+
+  flange = Spline()
+  frame_a = Frame2D()
+  ShipSpeed = RealInput()
+  Thrust = RealOutput()
+
+  variable w::AngularVelocity
+  variable w_eff::AngularVelocity
+  variable AdvanceSpeed::Velocity
+  variable J::Real
+  variable J_abs::Real
+  variable rev_sign::Real           # +1 forward rotation, -1 reverse
+  variable astern_sign::Real        # +1 forward speed, -1 astern
+  variable Kt_eff::Real
+  variable Kq_eff::Real
+  variable Thrust_Kt::Force
+  variable Torque_Kq::Torque
+relations
+  w = der(flange.phi)
+  flange.tau = Torque_Kq
+  w_eff = sqrt(w^2 + w_floor^2)
+
+  AdvanceSpeed = ShipSpeed * (1 - WakeFraction)
+  J = AdvanceSpeed / (w_eff * Diameter / (2 * π))
+  J_abs = sqrt(J^2 + 1e-9)
+
+  rev_sign = ifelse(w >= 0, 1, -1)
+  astern_sign = ifelse(J >= 0, 1, -1)
+
+  Kt_eff = (Kt0 + Kt1 * J_abs + Kt2 * J_abs^2) * rev_sign * astern_sign
+  Kq_eff = (Kq0 + Kq1 * J_abs + Kq2 * J_abs^2) * rev_sign
+
+  Thrust_Kt = Kt_eff * SeaDensity * (w_eff / (2 * π))^2 * Diameter^4
+  Torque_Kq = Kq_eff * SeaDensity * (w_eff / (2 * π))^2 * Diameter^5
+
+  Thrust = Thrust_Kt * (1 - ThrustDeduction)
+
+  frame_a.fx + cos(frame_a.phi) * Thrust = 0
+  frame_a.fy + sin(frame_a.phi) * Thrust = 0
+  frame_a.tau = 0
+end

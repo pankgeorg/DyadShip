@@ -1,0 +1,131 @@
+"""
+Wageningen B-series 1-quadrant propeller, with both signal and 2D-multibody coupling.
+
+Ported from `ShipSIM.Components.Propulsion.Propeller1Q`.
+
+The original Modelica model:
+- Reads ship speed via a multibody `Frame_a` and a sub-component `ApparentSpeedXY`.
+- Looks up Kt and Kq using `Functions.PropellerFunctions.WageningenB_Kt_Kq`, a large
+  polynomial regression over (J, P/D, Ae/Ao, Z).
+- Applies the resulting thrust as a `WorldForceAndTorque` on the multibody frame.
+- Exposes a 3D `Frame_a` and a 1D `flange_a`.
+
+In this port:
+- Both interfaces are exposed:
+  - Mechanical shaft via `flange::Spline` (rotational).
+  - Hull mounting via `frame_a::Frame2D` (PlanarMechanics 2D body frame). The propeller
+    exerts thrust along the connected body's +x axis on `frame_a`.
+- `ShipSpeed::RealInput` is taken externally (so the caller picks the apparent-speed
+  convention — typically `body.v[1]·cos(phi) + body.v[2]·sin(phi) - current`, i.e. surge
+  speed in the body frame minus the current). This decouples the open-water Kt/Kq
+  calculation from the multibody plumbing and matches the upstream signal flow.
+- The Wageningen B regression is replaced by a quadratic-in-J fit. Coefficients are
+  parameters; defaults are a generic mid-aspect-ratio fit.
+- The propeller and added-water inertia are NOT lumped here — the user attaches an
+  external `RotationalComponents.Components.Inertia(J = Inertia + Add_Inertia)` in
+  series. Keeps the model algebraic on the shaft to dodge MTK index-reduction issues.
+- A small `w_floor` keeps the open-water formulas defined at zero RPM.
+
+Limitations vs upstream:
+- Quadratic-in-J Kt/Kq, not the full Wageningen polynomial.
+- 2D planar (surge/sway/yaw) instead of 3D (heave/roll/pitch dropped) — fine for
+  maneuvering studies.
+- No Modelica `assert` warnings.
+"""
+component Propeller1Q
+  parameter Diameter::Length = 4
+  parameter Z::Real = 4
+  parameter P_D::Real = 1
+  parameter Ae_Ao::Real = 0.3
+  parameter Density_Prop::Density = 7600
+  parameter Inertia::Real = 0.0002744 * Ae_Ao * (Ae_Ao + 3) * Density_Prop * Diameter^5
+  parameter Add_Inertia::Real = 0.3 * Inertia
+
+  parameter SeaDensity::Density = 1025
+  parameter WakeFraction::Real = 0.25
+  parameter ThrustDeduction::Real = 0.18
+  parameter RotativeRelative::Real = 1.0
+  parameter Rudder_distance::Length = Diameter * 1.2
+
+  parameter Kt0::Real = 0.45
+  parameter Kt1::Real = -0.30
+  parameter Kt2::Real = -0.20
+  parameter Kq0::Real = 0.060
+  parameter Kq1::Real = -0.040
+  parameter Kq2::Real = -0.020
+
+  parameter w_floor::Real = 1e-3
+
+  "Mechanical shaft connector"
+  flange = Spline()
+  "Body frame the propeller exerts thrust on (PlanarMechanics)"
+  frame_a = Frame2D()
+
+  "Effective ship surge speed in body frame, after current correction [m/s]"
+  ShipSpeed = RealInput()
+
+  "Net thrust transmitted to the hull (Kt-based, with thrust-deduction applied) [N]"
+  Thrust = RealOutput()
+  Propeller_flow_diameter = RealOutput()
+  Propeller_speed = RealOutput()
+  Wake_Fraction = RealOutput()
+
+  variable w::AngularVelocity
+  variable w_eff::AngularVelocity
+  variable AdvanceSpeed::Velocity
+  variable J::Real
+  variable Kt::Real
+  variable Kq::Real
+  variable Thrust_Kt::Force
+  variable Torque_Kq::Torque
+  variable rpm::Real
+
+  variable C_th::Real
+  variable V_inf::Velocity
+  variable r_inf::Length
+  variable r_x::Length
+  variable V_x::Velocity
+  variable Delta_r::Length
+relations
+  Wake_Fraction = WakeFraction
+
+  # Shaft load.
+  w = der(flange.phi)
+  flange.tau = Torque_Kq
+  w_eff = sqrt(w^2 + w_floor^2)
+
+  AdvanceSpeed = ShipSpeed * (1 - WakeFraction)
+  J = AdvanceSpeed / (w_eff * Diameter / (2 * π))
+
+  Kt = Kt0 + Kt1 * J + Kt2 * J^2
+  Kq = Kq0 + Kq1 * J + Kq2 * J^2
+
+  Thrust_Kt = Kt * SeaDensity * (w_eff / (2 * π))^2 * Diameter^4
+  Torque_Kq = Kq * SeaDensity * (w_eff / (2 * π))^2 * Diameter^5
+
+  rpm = w_eff * 60 / (2 * π)
+  Thrust = Thrust_Kt * (1 - ThrustDeduction)
+
+  # Apply thrust along the body's +x axis as a 2D force on the connected frame.
+  # Sign convention: forces flowing INTO a frame add up to zero, so the propeller
+  # exerts -Thrust on `frame_a.fx` along the body axis (pushing the body forward).
+  frame_a.fx + cos(frame_a.phi) * Thrust = 0
+  frame_a.fy + sin(frame_a.phi) * Thrust = 0
+  frame_a.tau = 0
+
+  # Rudder-interaction intermediates (Brix 1993). Same expressions as upstream, but
+  # `AdvanceSpeed^2` is regularized with a small epsilon to keep the calc finite at
+  # zero ship speed (where the slipstream is dominated by the propeller, AdvanceSpeed→0).
+  C_th = sqrt(8 * w_eff^2 * Diameter^2 * abs(Kt) / (π * (AdvanceSpeed^2 + 1e-6)))
+  V_inf = sqrt(AdvanceSpeed^2 + 1e-6) * sqrt(1 + C_th)
+  r_inf = (Diameter / 2) * sqrt(0.5 * (1 + AdvanceSpeed / V_inf))
+  r_x = (Diameter / 2) *
+        (0.14 * (r_inf / (Diameter / 2))^3 + (r_inf / (Diameter / 2)) * (Rudder_distance / (Diameter / 2))^1.5) /
+        (0.14 * (r_inf / (Diameter / 2))^3 + (Rudder_distance / (Diameter / 2))^1.5)
+  V_x = V_inf * (r_inf / r_x)^2
+  Delta_r = 0.15 * Rudder_distance *
+            ((V_inf * r_inf^2 - AdvanceSpeed * r_x^2) /
+             (V_inf * r_inf^2 + AdvanceSpeed * r_x^2))
+  Propeller_flow_diameter = 2 * (r_x + Delta_r)
+  Propeller_speed = (V_x - AdvanceSpeed) * (r_x^2 / (r_x + Delta_r)^2) + AdvanceSpeed
+end

@@ -1,0 +1,59 @@
+"""
+Shadow fraction on a window from a horizontal sun-screen above it.
+
+Ported from `ShipSIM.Components.Others.Solar.SunScreen`.
+
+Geometry:
+- `d` — horizontal distance from the screen (or building edge) to the window plane [m].
+- `h` — vertical distance from the upper window edge to the screen, positive upward [m].
+- `WindowHeight` — vertical extent of the window itself [m].
+
+Input:
+- `SunHeight` — solar altitude above horizon [deg]. Negative or zero ⇒ before sunrise/after sunset.
+
+Output:
+- `SunCoeff` — fraction of the window in *direct* sunlight (0 = fully shaded, 1 = fully lit).
+
+The shadow geometry computes the angle subtended by the screen at the window edge and
+compares it to the solar altitude. The original Modelica branches on `h > 0`, `h < 0`,
+`h == 0`. Dyad has no `if/elseif` cascade for an algebraic equation; we use nested
+`ifelse`. The four-branch saturation on the result (above the screen → no shade, below
+horizon → no light, between thresholds → linear shadow ramp) is preserved verbatim.
+"""
+component SunScreen
+  parameter d::Length
+  parameter h::Length
+  parameter WindowHeight::Length
+
+  SunHeight = RealInput()
+  SunCoeff = RealOutput()
+
+  variable Th_inf::Real
+  variable Th_sup::Real
+  variable A::Real
+  variable I::Real
+  variable P::Real
+  variable p::Real
+  variable i_dist::Real
+  variable sun_rad::Real
+relations
+  Th_inf = atan(h / d)
+  Th_sup = atan((h + WindowHeight) / d)
+  i_dist = sqrt(d^2 + h^2)
+  sun_rad = SunHeight * π / 180
+
+  A = ifelse(h > 0, π - atan(d / h),
+       ifelse(h < 0, -atan(d / h),
+                     π / 2))
+
+  # Compute shaded portion p (only meaningful in the partially-shaded branch; otherwise
+  # set to a placeholder so the algebraic system stays well-defined).
+  I = π / 2 - ifelse(sun_rad > 0, sun_rad, 0)
+  P = π - I - A
+  p = (i_dist / sin(I)) * sin(P)
+
+  SunCoeff = ifelse(sun_rad <= 0, 0,
+              ifelse(sun_rad <= Th_inf, 1,
+               ifelse(sun_rad >= Th_sup, 0,
+                      1 - p / WindowHeight)))
+end

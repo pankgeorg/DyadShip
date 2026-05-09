@@ -1,0 +1,52 @@
+"""
+Apparent (relative) speed from a body's world-frame motion against a free-stream vector.
+
+Ported from `ShipSIM.SubComponents.ApparentSpeedXY`.
+
+The original Modelica module hooks an `AbsoluteVelocity` sensor and a
+`TransformAbsoluteVector` block to a multibody `Frame_a`. It outputs the apparent speed
+vector resolved in the body frame, its magnitude, and the angle of attack.
+
+This Dyad port collapses the multibody plumbing into pure signal I/O. Inputs:
+- `BodyVelX`, `BodyVelY` — the body's world-frame velocity
+- `BodyHeading` — the body's heading [rad] (angle from world +X to body +X)
+- `WorldSpeedX`, `WorldSpeedY` — the medium velocity (e.g. wind, current) in world frame
+
+Outputs:
+- `SpeedLocalX`, `SpeedLocalY` — apparent flow speed in body frame
+- `ApparentSpeed` — magnitude
+- `AttackAngle` — atan2 in [0, 2π)
+- `AttackAngleSigned` — atan2 in (-π, π]
+
+The convention matches upstream: apparent flow = body velocity - medium velocity, then
+rotated into the body frame.
+"""
+component ApparentSpeedXY
+  BodyVelX = RealInput()
+  BodyVelY = RealInput()
+  BodyHeading = RealInput()
+  WorldSpeedX = RealInput()
+  WorldSpeedY = RealInput()
+
+  SpeedLocalX = RealOutput()
+  SpeedLocalY = RealOutput()
+  ApparentSpeed = RealOutput()
+  AttackAngle = RealOutput()
+  AttackAngleSigned = RealOutput()
+
+  variable rel_x::Velocity
+  variable rel_y::Velocity
+relations
+  # Relative velocity in world frame (body - medium).
+  rel_x = BodyVelX - WorldSpeedX
+  rel_y = BodyVelY - WorldSpeedY
+
+  # Rotate world → body frame: SpeedLocal = R(-heading) · rel
+  SpeedLocalX = cos(BodyHeading) * rel_x + sin(BodyHeading) * rel_y
+  SpeedLocalY = -sin(BodyHeading) * rel_x + cos(BodyHeading) * rel_y
+
+  ApparentSpeed = sqrt(SpeedLocalX^2 + SpeedLocalY^2 + 1e-12)
+
+  AttackAngleSigned = atan(SpeedLocalY, SpeedLocalX)
+  AttackAngle = ifelse(AttackAngleSigned < 0, AttackAngleSigned + 2 * π, AttackAngleSigned)
+end

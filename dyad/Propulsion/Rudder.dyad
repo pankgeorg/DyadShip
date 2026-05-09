@@ -1,0 +1,114 @@
+"""
+Simplified ship-rudder force model with PlanarMechanics 2D coupling.
+
+Ported from `ShipSIM.Components.Propulsion.Rudder`.
+
+The original model uses 3D multibody (`Frame_a`, `Revolute`, `WorldForce`, `WorldTorque`),
+2D `CombiTable` lookups on (α, Re) for Cl/Cd/Cm, `ApparentSpeedXY` (multibody-based) for
+the local water flow, and a `Position`-driven servo with slew-rate limiter.
+
+This Dyad port:
+- Replaces 3D multibody with 2D `PlanarMechanics`. Exposes `frame_a::Frame2D`; the
+  caller connects this to the hull body. Forces and yaw moment are applied directly to
+  that frame (in the body's local axes).
+- The rudder *command* `Rudder_Order` is hard-clamped to ±`MaxRudderAngle` and rate-
+  limited by a first-order filter with `Rudder_Tau` ≈ 1 / `MaxRudderAngularSpeed`.
+- Local water flow components `WaterSpeedX_in`, `WaterSpeedY_in` are still real inputs
+  (so the caller decides how to assemble the slipstream). The propeller-slipstream
+  blending over the rudder span is preserved verbatim.
+- Cl, Cd, Cm vs angle-of-attack are quadratic-in-α fits with parameters.
+
+Note: the `Force_X`, `Force_Y`, `Moment` real outputs remain available for non-multibody
+diagnostics; they hold the *same* values written to `frame_a`. Don't double-apply.
+"""
+component Rudder
+  parameter Lpp::Length = 100
+  parameter B::Length = 20
+  parameter Cb::Real = 0.693
+  parameter T::Length = 4
+
+  parameter C::Length = 2
+  parameter s::Length = 3.5
+  parameter MaxRudderAngle::Real = 35
+  parameter Rudder_Tau::Real = 0.4
+
+  parameter a_h::Real = 1.0
+
+  parameter SeaKViscosity::KinematicViscosity = 1.004e-6
+  parameter SeaDensity::Density = 1025
+
+  parameter Cl0::Real = 0.0
+  parameter Cl1::Real = 5.7
+  parameter Cl2::Real = -0.0
+  parameter Cd0::Real = 0.012
+  parameter Cd1::Real = 0.0
+  parameter Cd2::Real = 1.5
+  parameter Cm0::Real = 0.0
+  parameter Cm1::Real = -0.8
+  parameter Cm2::Real = 0.0
+
+  Rudder_Order = RealInput()
+  WaterSpeedX_in = RealInput()
+  WaterSpeedY_in = RealInput()
+  Propeller_speed = RealInput()
+  Propeller_flow_diameter = RealInput()
+  Wake_Fraction = RealInput()
+
+  "Hull frame to apply rudder forces / moment to"
+  frame_a = Frame2D()
+
+  Rudder_position = RealOutput()
+  Drag = RealOutput()
+  Lift = RealOutput()
+  Moment = RealOutput()
+  Force_X = RealOutput()
+  Force_Y = RealOutput()
+
+  variable rudder_angle_state::Real
+  variable Alpha::Angle
+  variable Beta::Angle
+  variable Water_Speed_X::Velocity
+  variable Water_Speed_Y::Velocity
+  variable WaterSpeed::Velocity
+  variable Re::Real
+  variable Cl::Real
+  variable Cd::Real
+  variable Cm::Real
+
+  parameter Surf::Real = C * s
+relations
+  initial rudder_angle_state = 0
+
+  Rudder_Tau * der(rudder_angle_state) = clamp(Rudder_Order, -MaxRudderAngle, MaxRudderAngle) - rudder_angle_state
+  Rudder_position = rudder_angle_state
+  Alpha = -Rudder_position * π / 180
+
+  Water_Speed_X = ifelse(Propeller_flow_diameter >= s,
+                         -Propeller_speed,
+                         -(Propeller_speed * Propeller_flow_diameter
+                           + WaterSpeedX_in * (1 - Wake_Fraction) * (s - Propeller_flow_diameter)) / s)
+  Water_Speed_Y = -WaterSpeedY_in
+  WaterSpeed = sqrt(Water_Speed_X^2 + Water_Speed_Y^2 + 1e-9)
+  Re = WaterSpeed * C / SeaKViscosity
+
+  Beta = atan(Water_Speed_Y, -Water_Speed_X) - Alpha
+
+  Cl = Cl0 + Cl1 * Beta + Cl2 * Beta^2
+  Cd = Cd0 + Cd1 * Beta + Cd2 * Beta^2
+  Cm = Cm0 + Cm1 * Beta + Cm2 * Beta^2
+
+  Lift = 0.5 * SeaDensity * Surf * WaterSpeed^2 * Cl * (1 + a_h)
+  Drag = 0.5 * SeaDensity * Surf * WaterSpeed^2 * Cd
+  Moment = 0.5 * SeaDensity * Surf * C * WaterSpeed^2 * Cm
+
+  Force_X = Drag * (Water_Speed_X / WaterSpeed) - Lift * (Water_Speed_Y / WaterSpeed)
+  Force_Y = Drag * (Water_Speed_Y / WaterSpeed) + Lift * (Water_Speed_X / WaterSpeed)
+
+  # Apply forces to the hull frame. `Force_X`/`Force_Y` are in the rudder's *body* frame;
+  # `frame_a.fx`/`fy` are in the *world* frame (per PlanarMechanics' Body convention),
+  # so rotate by `frame_a.phi` before assigning. Yaw moment `tau` is a scalar (rotation-
+  # invariant in 2D) and needs no rotation.
+  frame_a.fx + cos(frame_a.phi) * Force_X - sin(frame_a.phi) * Force_Y = 0
+  frame_a.fy + sin(frame_a.phi) * Force_X + cos(frame_a.phi) * Force_Y = 0
+  frame_a.tau + Moment = 0
+end

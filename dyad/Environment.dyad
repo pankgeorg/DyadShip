@@ -1,0 +1,47 @@
+"""
+Environmental conditions: sea/air physical properties and constant wind/current vectors.
+
+Ported from `ShipSIM.Components.Environment`. The Modelica model used `inner` semantics so the
+component was implicitly visible to every other component in the model. Dyad has no
+`inner/outer`, so consumers connect to this component's outputs explicitly via signal connectors.
+
+The wind/current direction conventions follow the original ShipSIM definition:
+direction is the angle the medium *comes from*, measured in degrees, with 0=N(+Y), 90=E(+X),
+180=S, 270=W. The world-frame vector is therefore:
+
+```math
+\vec{V} = \begin{bmatrix} -V \sin(\theta) \\ -V \cos(\theta) \\ 0 \end{bmatrix}
+```
+
+where `V` is the speed and `θ = direction · π / 180` is the angle in radians.
+"""
+component Environment
+  "Seawater density"
+  parameter SeaDensity::Density = 1025
+  "Seawater kinematic viscosity"
+  parameter SeaKViscosity::KinematicViscosity = 1.004e-6
+  "Air density"
+  parameter AirDensity::Density = 1.29
+  "Air kinematic viscosity"
+  parameter AirKViscosity::KinematicViscosity = 1.48e-5
+  "Direction wind comes from [deg], 0=N(+Y), 90=E(+X)"
+  parameter WindDirection::Real = 0
+  "Wind speed"
+  parameter WindSpeed::Velocity = 0
+  "Direction current comes from [deg], same convention as wind"
+  parameter CurrentDirection::Real = 0
+  "Current speed"
+  parameter CurrentSpeed::Velocity = 0
+
+  "World-frame wind vector {Vx,Vy,Vz}"
+  variable WindVector::Real[3]
+  "World-frame current vector {Vx,Vy,Vz}"
+  variable CurrentVector::Real[3]
+relations
+  WindVector[1] = -WindSpeed * sin(WindDirection * π / 180)
+  WindVector[2] = -WindSpeed * cos(WindDirection * π / 180)
+  WindVector[3] = 0
+  CurrentVector[1] = -CurrentSpeed * sin(CurrentDirection * π / 180)
+  CurrentVector[2] = -CurrentSpeed * cos(CurrentDirection * π / 180)
+  CurrentVector[3] = 0
+end

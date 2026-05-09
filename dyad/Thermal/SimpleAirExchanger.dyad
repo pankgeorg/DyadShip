@@ -1,0 +1,38 @@
+"""
+Simple air-to-air heat exchanger.
+
+Ported from `ShipSIM.Components.Others.HeatTransfer.SimpleAirExchanger`.
+
+The component takes two `HeatPort`s (`External_Air` and `Internal_Air`) and a real input
+`AirFlow` (in m³/h). It transfers heat from internal to external air with effectiveness
+`Efficiency`. The heat flow into the internal air is:
+
+```math
+Q_\mathrm{in} = (1 - \\eta) \cdot (T_{ext} - T_{int}) \cdot \\dot V \cdot c_{p,vol}
+```
+
+where `c_{p,vol}` ≈ 1208.4 J/(m³·K) for dry air at typical density × specific heat
+(matches upstream's hard-coded constant 1208.4).
+
+Modelica's `PrescribedHeatFlow` and `RelTemperatureSensor` are not needed in Dyad — we
+just assign `Internal_Air.Q_flow` directly. The flag-port direction means that a positive
+Q_flow into a port is a heat input.
+"""
+component SimpleAirExchanger
+  "Heat-recovery efficiency in 0..1. Typical: 0.75–0.95."
+  parameter Efficiency::Real(min = 0, max = 1) = 0.85
+
+  AirFlow = RealInput()           # m³/h
+  External_Air = HeatPort()
+  Internal_Air = HeatPort()
+
+  variable Q_flow_in::HeatFlowRate
+  variable T_rel::TemperatureDifference
+relations
+  T_rel = External_Air.T - Internal_Air.T
+  # Air flow in m³/s = AirFlow/3600.  Volumetric heat capacity of dry air ≈ 1208.4 J/(m³·K).
+  Q_flow_in = T_rel * (AirFlow / 3600) * 1208.4 * (1 - Efficiency)
+
+  Internal_Air.Q_flow = -Q_flow_in     # heat flows INTO internal_air
+  External_Air.Q_flow = Q_flow_in
+end

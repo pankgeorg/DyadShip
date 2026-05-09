@@ -1,0 +1,27 @@
+"""
+Test the simplified Rudder under a step rudder order with constant water flow. Forces
+discharge into a fixed mounting frame (since the test isn't running the full hull).
+
+Setup:
+- Rudder order steps from 0 to +20° at t=1 s.
+- Free-stream water speed = 5 m/s along +X.
+- No propeller slipstream.
+"""
+test component RudderStep
+  rudder = Rudder()
+  step = BlockComponents.Sources.Step(height = 20, start_time = 1.0, offset = 0)
+  fixed = MultibodyComponents.PlanarMechanics.Fixed()
+relations
+  connect(step.y, rudder.Rudder_Order)
+  rudder.WaterSpeedX_in = 5
+  rudder.WaterSpeedY_in = 0
+  rudder.Propeller_speed = 0
+  rudder.Propeller_flow_diameter = 0.001
+  rudder.Wake_Fraction = 0.25
+  connect(rudder.frame_a, fixed.frame_b)
+end
+
+analysis RudderTransient
+  extends TransientAnalysis(stop = 5.0)
+  model = RudderStep()
+end

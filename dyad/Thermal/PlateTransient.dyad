@@ -1,0 +1,75 @@
+"""
+Transient heat conduction in a plate, discretized into N uniform layers.
+
+Ported from `ShipSIM.Components.Others.HeatTransfer.PlateTransient`.
+
+The original Modelica model used `ShipSIM.Functions.HeatTransfer.DiscretizePlate(e, N, …)`
+to compute capacitance / resistance arrays and `2N-1` capacitors + conductors.
+For uniform discretization (which is what `DiscretizePlate` actually returns) the math
+collapses to: each layer has thickness `dx = e / nNodes`, capacitance
+`C_node = ρ·Cp·Asur·dx`, and inter-node conductance `G = k·Asur / dx`. Boundary
+conductances at the two faces are `G_face = k·Asur / (dx/2)` (half-thickness from face
+to first node center).
+
+Dyad port:
+- Uses Dyad component arrays for the `nNodes` `HeatCapacitor`s and `nNodes-1` interior
+  `ThermalConductor`s, plus two boundary conductors (`face_a` and `face_b`).
+- Initial temperature `T0` applied to every node.
+- `nNodes` is a `structural parameter` so a user can pick the discretization.
+
+Limitations vs upstream:
+- Internal heat generation (`useInternalHeatPort`, `port_InternalHeat`) is dropped — it
+  was a `parameter Boolean` toggling a `port_InternalHeat::HeatPort_a` and a uniform
+  source. Adding it would need conditional connectors; left for a follow-up.
+- `Tavg` and `Energy` outputs are dropped (can be derived externally from the node
+  temperatures if needed).
+"""
+component PlateTransient
+  # All inputs are structural so derived final-parameters can be propagated through the
+  # component array comprehensions (avoids the MTK substitution-failure pattern observed
+  # when these were ordinary parameters).
+  "Plate thickness [m]"
+  structural parameter e::Real = 0.01
+  "Plate surface area [m²]"
+  structural parameter Asur::Real = 1.0
+  "Material thermal conductivity [W/(m·K)]"
+  structural parameter k::Real = 200
+  "Material volumetric heat capacity (ρ·Cp) [J/(m³·K)]"
+  structural parameter rhoCp::Real = 2.4e6
+  "Initial uniform temperature [K]"
+  structural parameter T_init::Real = 293.15
+  "Number of discretization layers (uniform)"
+  structural parameter nNodes::Integer = 5
+  "Number of interior conductors = nNodes - 1 (must be set consistently when overriding nNodes)"
+  structural parameter nInterior::Integer = 4
+
+  "External face A (one side of the plate)"
+  port_a = HeatPort()
+  "External face B (other side)"
+  port_b = HeatPort()
+
+  # Uniform discretization geometry, all structural so they're literals at compile time.
+  structural parameter dx::Real = e / nNodes
+  structural parameter C_node::Real = rhoCp * Asur * dx
+  structural parameter G_internal::Real = k * Asur / dx
+  structural parameter G_face::Real = k * Asur / (dx / 2)
+
+  caps = [ThermalComponents.Components.HeatCapacitor(C = C_node, T0 = T_init) for i in 1:nNodes]
+  cond_internal = [ThermalComponents.Components.ThermalConductor(G = G_internal) for i in 1:nInterior]
+  cond_face_a = ThermalComponents.Components.ThermalConductor(G = G_face)
+  cond_face_b = ThermalComponents.Components.ThermalConductor(G = G_face)
+relations
+  # Boundary face A → first node.
+  connect(port_a, cond_face_a.port_a)
+  connect(cond_face_a.port_b, caps[1].port)
+
+  # Internal links: cond_internal[i] connects caps[i] ↔ caps[i+1].
+  for i in 1:nInterior
+    connect(caps[i].port, cond_internal[i].port_a)
+    connect(cond_internal[i].port_b, caps[i + 1].port)
+  end
+
+  # Boundary face B ← last node.
+  connect(caps[nNodes].port, cond_face_b.port_a)
+  connect(cond_face_b.port_b, port_b)
+end

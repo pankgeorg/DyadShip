@@ -1,0 +1,17 @@
+"""
+Heat-up transient: plate at 273 K with one face suddenly held at 373 K (boiling water),
+the other face insulated. After several minutes, all nodes converge to 373 K.
+"""
+test component PlateHeatup
+  plate = PlateTransient(e = 0.01, Asur = 1.0, k = 50, rhoCp = 4e6, T_init = 273.15)
+  hot = ThermalComponents.Sources.FixedTemperature(T = 373.15)
+  insulated = ThermalComponents.Sources.FixedHeatFlow(Q_flow = 0)
+relations
+  connect(hot.port, plate.port_a)
+  connect(insulated.port, plate.port_b)
+end
+
+analysis PlateTransientAnalysis
+  extends TransientAnalysis(stop = 600.0)
+  model = PlateHeatup()
+end

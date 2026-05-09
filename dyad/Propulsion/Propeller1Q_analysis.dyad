@@ -1,0 +1,32 @@
+"""
+Test driving the simplified `Propeller1Q` with a constant torque source. The shaft is
+made up of an external `Inertia` lumped between the source and the propeller load. Ship
+speed is held at 5 m/s and frame_a is rigidly fixed at the origin (so the thrust force
+flows out into the Fixed frame and the open-water computation runs at the prescribed
+ShipSpeed). With Kq positive at small J, the spin-up reaches a steady-state RPM.
+"""
+test component Propeller1QSpinUp
+  prop = Propeller1Q(Diameter = 4, P_D = 1.0, Ae_Ao = 0.55, Z = 4)
+  shaft = RotationalComponents.Components.Inertia(J = 5000)
+  src = RotationalComponents.Sources.TorqueSource()
+  k_tau = BlockComponents.Sources.Constant(k = 100000)
+  ground = RotationalComponents.Components.Fixed()
+
+  # Multibody: anchor the propeller's frame at the origin so the thrust force has
+  # somewhere to discharge.
+  fixed = MultibodyComponents.PlanarMechanics.Fixed()
+relations
+  initial shaft.phi = 0
+  initial shaft.w = 0
+  prop.ShipSpeed = 5
+  connect(k_tau.y, src.tau)
+  connect(src.support, ground.spline)
+  connect(src.spline, shaft.spline_a)
+  connect(shaft.spline_b, prop.flange)
+  connect(prop.frame_a, fixed.frame_b)
+end
+
+analysis Propeller1QTransient
+  extends TransientAnalysis(stop = 30.0)
+  model = Propeller1QSpinUp()
+end

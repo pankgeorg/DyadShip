@@ -1,0 +1,71 @@
+"""
+Full multibody ship analysis: hull + propeller + rudder + autopilot, with PlanarMechanics
+2D coupling. The propeller pushes the hull forward, the autopilot commands a rudder
+deflection to steer the hull toward a target waypoint, the rudder applies a yaw moment.
+
+Setup:
+- Hull: 1e6 kg, Iz = 1e8 kg·m², linear surge/sway/yaw drag.
+- Propeller driven by a constant 80 kN·m torque source.
+- Autopilot tracks (10000, 1000) with target speed 5 m/s.
+- Rudder: 7 m² area, no propeller slipstream (slipstream blending is parameterized but
+  the rudder receives the ship's frame velocity directly through the WaterSpeed inputs).
+
+Expected: hull moves toward the target, rudder modulates heading, surge speed climbs
+toward the target.
+"""
+test component FullShip
+  world = MultibodyComponents.PlanarMechanics.World(g = 0, render = false)
+  hull = Hull3DOF(mass = 1e6, Iz = 1e8, Du = 5000, Dv = 1e6, Dr = 1e7)
+
+  prop = DyadShip.Propulsion.Propeller1Q(Diameter = 4, P_D = 1.0, Ae_Ao = 0.55, Z = 4)
+  shaft = RotationalComponents.Components.Inertia(J = 5000)
+  src = RotationalComponents.Sources.TorqueSource()
+  k_tau = BlockComponents.Sources.Constant(k = 80000)
+  ground = RotationalComponents.Components.Fixed()
+
+  rudder = DyadShip.Propulsion.Rudder()
+  pilot = SimpleAutoPilot()
+relations
+  initial shaft.phi = 0
+  initial shaft.w = 0
+
+  # Mechanical shaft: torque source → inertia → propeller load.
+  connect(k_tau.y, src.tau)
+  connect(src.support, ground.spline)
+  connect(src.spline, shaft.spline_a)
+  connect(shaft.spline_b, prop.flange)
+
+  # All hull-mounted force components live at the same body frame.
+  connect(prop.frame_a, hull.frame_a, rudder.frame_a)
+
+  # Propeller surge speed in body frame (same as hull.u).
+  prop.ShipSpeed = hull.u
+
+  # Rudder receives water flow in the body frame (-hull.u for X, -hull.v for Y, since the
+  # convention in Rudder is "water moving past the rudder" — opposite of body velocity).
+  rudder.WaterSpeedX_in = hull.u
+  rudder.WaterSpeedY_in = hull.v
+  rudder.Propeller_speed = prop.Propeller_speed
+  rudder.Propeller_flow_diameter = prop.Propeller_flow_diameter
+  rudder.Wake_Fraction = prop.Wake_Fraction
+
+  # Autopilot reads world-frame ship state and commands rudder.
+  pilot.pos_x = hull.pos_x
+  pilot.pos_y = hull.pos_y
+  pilot.vel_x = hull.vx_world
+  pilot.vel_y = hull.vy_world
+  pilot.target_x = 10000
+  pilot.target_y = 1000
+  pilot.target_speed = 5
+  connect(pilot.rudder, rudder.Rudder_Order)
+
+  # No external disturbance.
+  hull.Fx_extra = 0
+  hull.Fy_extra = 0
+  hull.Mz_extra = 0
+end
+
+analysis ShipTransient
+  extends TransientAnalysis(stop = 200.0)
+  model = FullShip()
+end

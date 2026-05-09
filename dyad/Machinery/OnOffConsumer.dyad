@@ -1,0 +1,55 @@
+"""
+On-off electrical consumer with start-up + cycle power signatures.
+
+Ported from `ShipSIM.Components.Electrical.OnOffConsumer`.
+
+The Modelica original extended `RandomStart`, which kept a `discrete Real NextStep`
+state and used `when time >= pre(NextStep) then …` events seeded by a normal-noise RNG
+to flip a `Work::BooleanOutput` between on and off cycles. With no Modelica `when`
+events in Dyad, this port drops the random scheduler and takes the on/off state as an
+external real-input `WorkSignal` (1 = on, 0 = off; intermediate values scale linearly).
+The user can drive `WorkSignal` from `BlockComponents.Sources.Square` for a periodic
+duty cycle, or from any random / scheduling source they implement themselves.
+
+The two power-shape tables (`StartTable`, `CycleTable`) are replaced by a single
+parameterized cycle that ramps to nominal power over `StartTime` seconds and then
+oscillates around 1.0 at `CycleAmplitude` and `CycleFrequency`. Same conceptual purpose:
+output = NominalPower · Kr · cycle_factor(time_since_on) when on, 0 when off.
+
+Limitations vs upstream:
+- No randomness in the on/off pattern.
+- No optional `Integrators` sub-component (`getIntegrators = true`); the user can
+  feed `y` into a `BlockComponents.Continuous.Integrator` externally.
+- A precise replay of the upstream's table-based start signature would need the user
+  to provide their own external time-shaped signal multiplied by `WorkSignal`.
+"""
+component OnOffConsumer
+  parameter NominalPower::Real = 1000
+  "Percentage of nominal power used [0..1]"
+  parameter Kr::Real = 0.85
+  "Start-up rise time [s] — the unit ramps from 0 to nominal over this period after `Work` flips on."
+  parameter StartTime::Real = 5
+  "Steady-cycle small-amplitude variation around nominal."
+  parameter CycleAmplitude::Real = 0.1
+  "Steady-cycle frequency [Hz]."
+  parameter CycleFrequency::Real = 1.0
+
+  WorkSignal = RealInput()
+  y = RealOutput()
+
+  variable time_on::Real      # tracks how long the consumer has been on
+  variable shape::Real
+relations
+  initial time_on = 0
+
+  # Time-since-on integrator: increments only when WorkSignal > 0.5; resets toward 0
+  # when WorkSignal goes back below 0.5 (continuous approximation).
+  der(time_on) = ifelse(WorkSignal > 0.5, 1, -time_on)
+
+  # Shape: ramp to 1.0 over StartTime, then small steady oscillation.
+  shape = ifelse(time_on < StartTime,
+                 time_on / StartTime,
+                 1 + CycleAmplitude * sin(2 * π * CycleFrequency * (time_on - StartTime)))
+
+  y = WorkSignal * NominalPower * Kr * shape
+end

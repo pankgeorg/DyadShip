@@ -1,0 +1,44 @@
+"""
+Continuous peak-hold approximation of the original event-based `PeakSampler`.
+
+Ported from `ShipSIM.Components.DataProcessing.PeakSampler`.
+
+The Modelica original used a `ZeroCrossing(der(u))` event with `when … then y = u; end when`
+to capture the value of `u` at every local extremum. Dyad does not (yet) expose
+Modelica-style discrete `when` events, so this port uses a *continuous* peak-hold
+filter:
+
+```math
+\dot y = \max(\dot u, -\\alpha (y - u))
+```
+
+i.e. the output `y` rises at the same rate as `u` whenever `u` is increasing, and decays
+slowly toward `u` when `u` is decreasing. With a large `alpha` the filter approximates
+the running maximum; with `alpha = 0` it captures only the most-recent rising peak. The
+default `alpha = 0` is closest to the upstream behavior (peak-hold), but cannot reset
+between successive peaks the way the discrete original could.
+
+Limitations vs upstream:
+- Captures only running maxima, not the alternating max/min of the upstream model.
+- Cannot reset between peaks without external intervention. To track each peak
+  individually, post-process the output of this sampler externally (e.g. a Julia
+  rolling-window max).
+"""
+component PeakSampler
+  "Decay rate toward u when u is decreasing. Set to 0 for pure peak-hold."
+  parameter alpha::Real = 0
+  "Initial output value at t = 0. Pick > min(u) to keep the filter armed."
+  parameter y_start::Real = 0
+
+  u = RealInput()
+  y = RealOutput()
+
+  variable y_state::Real
+relations
+  initial y_state = y_start
+
+  # Continuous peak-hold. ifelse picks the rising-rate of u when y is below u, otherwise
+  # decays toward u with rate alpha.
+  der(y_state) = ifelse(u > y_state, (u - y_state) * 1e3, -alpha * (y_state - u))
+  y = y_state
+end
