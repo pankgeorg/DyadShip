@@ -1,32 +1,18 @@
 """
-Heading-aware PI autopilot for a ship.
+PI autopilot on heading error, with anti-windup, deadband, and a
+distance-based throttle ramp.
 
-Replaces `SimpleAutoPilot`'s PD-on-velocity-direction with a PI on
-heading-error directly. Designed against the lever-arm-corrected hull
-where the rudder is much more effective than `SimpleAutoPilot` was tuned
-against.
-
-Differences from `SimpleAutoPilot`:
-
-- Reads the hull's heading `psi` directly instead of computing the
-  velocity direction `atan(vel_y, vel_x)`. The velocity direction is
-  meaningless at zero speed and lags `psi` during turns; using `psi`
-  removes both pathologies.
-- PI on `course_diff` (P + integral). The integral term lets the
-  autopilot apply a bias to hold a steady course against a sustained
-  disturbance (wind, current).
-- Anti-windup: while the rudder command is saturated, the integral
-  state is frozen so it doesn't blow up and overshoot once the
-  saturation clears.
-- Course-error wrapping uses `atan(sin(d), cos(d))` so the PI sees
-  `course_diff ∈ (−π, π]` regardless of how many full turns `psi` has
-  accumulated.
+The autopilot reads the hull's heading `psi` directly (so course-error
+is well-defined at zero speed and during turns). The rudder command is
+saturated at `±Rudder_max`; while saturated, or while the error is
+inside `±Deadband`, the integrator is frozen. The throttle output ramps
+linearly from 1 (at `Throttle_full_dist`) to 0 (at `Throttle_off_dist`)
+so the engine idles on approach and stops near the target.
 
 Sign convention: with positive `k_p`, a positive `course_difference`
-(target is to the *left* of current heading) drives a positive rudder
-command. The mapping from rudder command to yaw-rate sign is determined
-by the rudder/hull plant; if the analysis shows the autopilot turning
-the wrong way, set `k_p < 0`.
+(target to the left of current heading) drives a positive rudder
+command. If the rudder/hull plant has the opposite convention, set
+`k_p < 0`.
 """
 component HeadingAutoPilot
   "Proportional gain [deg of rudder per rad of heading error]"
@@ -58,35 +44,22 @@ component HeadingAutoPilot
   "Throttle factor in [0, 1]. Full power above Throttle_full_dist, ramps linearly to zero at Throttle_off_dist."
   throttle = RealOutput()
 
-  "Integrator state on course error [deg]"
   variable integ::Real
-  "Pre-saturation rudder command [deg]"
   variable rudder_raw::Real
-  "1 if integrator is active, 0 if frozen (anti-windup + deadband)"
-  variable integ_active::Real
 relations
   initial integ = 0
 
   bearing = atan(target_y - pos_y, target_x - pos_x)
   distance_to_target = sqrt((target_x - pos_x)^2 + (target_y - pos_y)^2)
-
-  # Wrap (bearing − psi) into (−π, π].
   course_difference = atan(sin(bearing - psi), cos(bearing - psi))
 
-  # Pre-saturation command. P + I, clamp the integrator at Integral_max
-  # to prevent runaway wind-up.
   rudder_raw = k_p * course_difference + k_i * clamp(integ, -Integral_max, Integral_max)
-
-  # Anti-windup + deadband: integrate course_diff only when the
-  # output is *not* saturated AND we're outside the deadband.
-  integ_active = ifelse(abs(rudder_raw) >= Rudder_max, 0,
-                  ifelse(abs(course_difference) < Deadband, 0, 1))
-  der(integ) = integ_active * course_difference
-
-  # Saturated rudder output.
   rudder = clamp(rudder_raw, -Rudder_max, Rudder_max)
 
-  # Throttle: linear ramp from 1 (at Throttle_full_dist) to 0 (at Throttle_off_dist).
+  # Freeze the integrator when the rudder is saturated or the error is in deadband.
+  der(integ) = ifelse(abs(rudder_raw) >= Rudder_max, 0,
+                ifelse(abs(course_difference) < Deadband, 0, course_difference))
+
   throttle = clamp(
     (distance_to_target - Throttle_off_dist) / (Throttle_full_dist - Throttle_off_dist),
     0, 1

@@ -34,26 +34,27 @@ sol_dist = res_dist.sol
 sys_dist = res_dist.sys
 println("  done. t ∈ [$(sol_dist.t[1]), $(sol_dist.t[end])], $(length(sol_dist.t)) samples.")
 
-# Pull state and command time series via the System reference.
 function ts(sol, sys)
     shaft_w = sol[sys.shaft.w]
-    # Engine power = src.tau (input torque) * shaft.w. The TorqueSource
-    # convention is `spline.tau = -tau`, so the actual mechanical power
-    # delivered to the shaft is k_tau · w (the constant input torque is 80 kN·m).
+    src_tau = sol[sys.src.tau]      # the `tau` input signal (now scaled by pilot.throttle)
+    thrust = sol[sys.prop.Thrust]
+    u = sol[sys.hull.u]
     return (
         t = sol.t,
         pos_x = sol[sys.hull.pos_x],
         pos_y = sol[sys.hull.pos_y],
-        psi   = sol[sys.hull.psi],
-        u     = sol[sys.hull.u],
-        v     = sol[sys.hull.v],
-        rud   = sol[sys.rudder.Rudder_position],
-        cmd   = sol[sys.pilot.rudder],
-        thrust = sol[sys.prop.Thrust],
-        rpm    = sol[sys.prop.rpm],
+        psi = sol[sys.hull.psi],
+        u = u,
+        v = sol[sys.hull.v],
+        vx_world = sol[sys.hull.vx_world],
+        vy_world = sol[sys.hull.vy_world],
+        rud = sol[sys.rudder.Rudder_position],
+        cmd = sol[sys.pilot.rudder],
+        thrust = thrust,
+        rpm = sol[sys.prop.rpm],
         shaft_w = shaft_w,
-        P_engine = 80_000.0 .* shaft_w,        # W, applied torque × shaft speed
-        P_thrust = sol[sys.prop.Thrust] .* sol[sys.hull.u],  # W, useful propulsive power
+        P_engine = src_tau .* shaft_w,
+        P_thrust = thrust .* u,
     )
 end
 
@@ -72,30 +73,18 @@ end
 c = ts(sol_clean, sys_clean)
 d = ts(sol_dist,  sys_dist)
 
-# Track on map.
 target_x, target_y = 10000.0, 1000.0
 
-# Wind config in the disturbed analysis (matches Ship_disturbed_analysis.dyad).
+# Wind config from the disturbed analysis (kept in sync with Ship_disturbed_analysis.dyad).
 WIND_SPEED = 15.0
-WIND_FROM_DEG = 45.0     # 0 = N(+Y), 90 = E(+X)
-# World-frame wind vector (Environment convention: blows toward -sin(θ), -cos(θ))
+WIND_FROM_DEG = 45.0      # 0 = N(+Y), 90 = E(+X)
 wind_θ = deg2rad(WIND_FROM_DEG)
 wind_vec_world = (-WIND_SPEED * sin(wind_θ), -WIND_SPEED * cos(wind_θ))
 
-# Apparent wind in body frame at the disturbed run's final sample.
-apparent_world = (wind_vec_world[1] - (d.pos_x[end] > 0 ? 0.0 : 0.0),  # placeholder, replaced below
-                  0.0)
-let
-    # Recompute apparent wind world vector as wind - ship_velocity at final sample.
-    # Approximate ship velocity from finite difference of position.
-    n = length(d.t)
-    if n >= 2
-        Δt = d.t[end] - d.t[end-1]
-        vx = (d.pos_x[end] - d.pos_x[end-1]) / max(Δt, 1e-9)
-        vy = (d.pos_y[end] - d.pos_y[end-1]) / max(Δt, 1e-9)
-        global apparent_world = (wind_vec_world[1] - vx, wind_vec_world[2] - vy)
-    end
-end
+# Apparent wind = wind − ship_velocity at the disturbed run's final sample.
+# Use the body's actual world-frame velocity rather than finite-differencing position.
+apparent_world = (wind_vec_world[1] - d.vx_world[end],
+                  wind_vec_world[2] - d.vy_world[end])
 
 p_map = plot(
     c.pos_x, c.pos_y; label = "clean", lw = 2, c = :steelblue,
@@ -208,25 +197,18 @@ scatter!(p_pv, d.u, d.P_engine ./ 1e3; ms = 1.5, alpha = 0.4, c = :crimson, labe
 scatter!(p_pv, c.u, c.P_thrust ./ 1e3; ms = 1.5, alpha = 0.4, c = :navy, label = "thrust·u (clean)", marker = :diamond)
 scatter!(p_pv, d.u, d.P_thrust ./ 1e3; ms = 1.5, alpha = 0.4, c = :firebrick, label = "thrust·u (disturbed)", marker = :diamond)
 
-# Resistance vs speed: the modeled drag, plus what a "realistic" combined
-# linear+quadratic curve would look like. Real-ship resistance grows roughly
-# as Du·u + Cq·u² (and cubic wave-making above hull speed); the current model
-# is purely linear, so the ship has unrealistically little drag at high u.
-u_grid = range(0, 25, 200)
-DU = 5000.0                               # current Hull3DOF parameter (linear, N·s/m)
-CQ = 1500.0                               # rough quadratic placeholder (N·s²/m²)
-drag_lin = DU .* u_grid                   # current model
-drag_quad = CQ .* u_grid .^ 2             # form-drag suggestion
-drag_real = drag_lin .+ drag_quad         # combined illustration
-p_drag = plot(u_grid, drag_lin ./ 1e3; lw = 2, c = :steelblue, label = "linear (modeled, Du=5000)",
+# Resistance vs speed using the HullMMG resistance polynomial
+# R(u) = R3·u²·|u| + R2·u·|u| + R1·u  (fit to the upstream towing-tank curve).
+u_grid = range(0, 15, 200)
+R3 = 914.37; R2 = -5286.3; R1 = 19657.0
+drag_mmg = @. R3 * u_grid^2 * abs(u_grid) + R2 * u_grid * abs(u_grid) + R1 * u_grid
+p_drag = plot(u_grid, drag_mmg ./ 1e3; lw = 2, c = :steelblue, label = "HullMMG R(u)",
     xlabel = "surge u [m/s]", ylabel = "resistance [kN]",
-    title = "Surge resistance — modeled vs typical",
+    title = "Surge resistance — modeled",
     legend = :topleft,
 )
-plot!(p_drag, u_grid, drag_quad ./ 1e3; lw = 1.5, c = :gray, ls = :dash, label = "quadratic (form drag)")
-plot!(p_drag, u_grid, drag_real ./ 1e3; lw = 2, c = :black, ls = :dot, label = "linear + quadratic")
-hline!(p_drag, [122]; lw = 1.5, c = :gold, ls = :dash, label = "thrust @ 73 RPM")
-# Mark hull speed (~1.34·√L_wl in m/s for L=100 m).
+hline!(p_drag, [122]; lw = 1.5, c = :gold, ls = :dash, label = "thrust @ ~73 RPM")
+# Mark hull speed (1.34·√L_wl with L_wl ≈ Lpp in m).
 hull_speed = 1.34 * sqrt(100 / 3.28)
 vline!(p_drag, [hull_speed]; lw = 1, c = :purple, ls = :dot, label = "hull speed ≈ $(round(hull_speed; digits=1)) m/s")
 

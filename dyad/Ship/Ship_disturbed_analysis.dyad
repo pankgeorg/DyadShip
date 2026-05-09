@@ -13,6 +13,10 @@ This analysis is the regression test for the autopilot — it should keep the
 ship on heading and reach the waypoint despite the disturbance.
 """
 test component FullShipDisturbed
+  parameter target_x::Length = 10000
+  parameter target_y::Length = 1000
+  parameter base_torque::Torque = 80000
+
   world = MultibodyComponents.PlanarMechanics.World(g = 0, render = false)
   hull = HullMMG(mass = 1e6, Iz = 1e8, Lpp = 100, B = 20, Draft = 4, Cb = 0.693)
 
@@ -20,11 +24,9 @@ test component FullShipDisturbed
   shaft = RotationalComponents.Components.Inertia(J = 5000)
   src = RotationalComponents.Sources.TorqueSource()
   ground = RotationalComponents.Components.Fixed()
-  parameter base_torque::Real = 80000
 
   rudder = DyadShip.Propulsion.Rudder()
-  # PI on heading. See HeadingAutoPilot.dyad and Ship_analysis.dyad.
-  pilot = HeadingAutoPilot(k_p = 30, k_i = 1, Deadband = 0.0175)
+  pilot = HeadingAutoPilot(k_p = 30, k_i = 1, Deadband = π / 180)
 
   prop_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r = [-50, 0], render = false)
   rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r = [-52, 0], render = false)
@@ -80,12 +82,11 @@ relations
   rudder.Propeller_flow_diameter = prop.Propeller_flow_diameter
   rudder.Wake_Fraction = prop.Wake_Fraction
 
-  # Autopilot.
   pilot.pos_x = hull.pos_x
   pilot.pos_y = hull.pos_y
   pilot.psi = hull.psi
-  pilot.target_x = 10000
-  pilot.target_y = 1000
+  pilot.target_x = target_x
+  pilot.target_y = target_y
   connect(pilot.rudder, rudder.Rudder_Order)
 end
 

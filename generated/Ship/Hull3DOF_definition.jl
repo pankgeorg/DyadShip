@@ -5,7 +5,7 @@
 
 
 @doc Markdown.doc"""
-   Hull3DOF(; name, mass, Iz, Du, Du_quad, Dv, Dv_quad, Dr, Dr_quad, Dr_cube)
+   Hull3DOF(; name, mass, Iz, Du, Du_quad, Dv, Dv_quad, Dr, Dr_quad)
 
 Generic 3-DOF (surge/sway/yaw) ship hull dynamics.
 
@@ -43,9 +43,6 @@ Outputs `u`, `v`, `r` are the body-frame surge / sway / yaw rate; `pos_x`, `pos_
 | `Dv_quad`         |                          | --  |   0 |
 | `Dr`         |                          | --  |   0 |
 | `Dr_quad`         |                          | --  |   0 |
-| `Dr_cube`         | Cubic yaw drag coefficient. Mimics the MMG `N_rrr·r³` damping that
-  resists high yaw rates. Without it, the lever-arm-amplified rudder can
-  spin the hull faster than upstream-physics would allow.                         | --  |   0 |
 
 ## Connectors
 
@@ -63,7 +60,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
  * `vx_world` - This connector represents a real signal as an output from a component ([`RealOutput`](@ref))
  * `vy_world` - This connector represents a real signal as an output from a component ([`RealOutput`](@ref))
 """
-@component function Hull3DOF(; name = nothing, mass=Float64(5000000), Iz=Float64(5000000000), Du=Float64(0), Du_quad=Float64(0), Dv=Float64(0), Dv_quad=Float64(0), Dr=Float64(0), Dr_quad=Float64(0), Dr_cube=Float64(0), kwargs...)
+@component function Hull3DOF(; name = nothing, mass=Float64(5000000), Iz=Float64(5000000000), Du=Float64(0), Du_quad=Float64(0), Dv=Float64(0), Dv_quad=Float64(0), Dr=Float64(0), Dr_quad=Float64(0), kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -120,11 +117,6 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   __local__Dr_quad = Dr_quad
   append!(__params, @parameters (Dr_quad::Real))
   __initial_conditions[Dr_quad] = __local__Dr_quad
-  __local__Dr_cube = Dr_cube
-  append!(__params, @parameters (Dr_cube::Real), [description = "Cubic yaw drag coefficient. Mimics the MMG `N_rrr·r³` damping that
-  resists high yaw rates. Without it, the lever-arm-amplified rudder can
-  spin the hull faster than upstream-physics would allow."])
-  __initial_conditions[Dr_cube] = __local__Dr_cube
 
   ### Final Path Parameters
   append!(__vars, @variables (Fx_extra(t)::Real), [input = true])
@@ -182,7 +174,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   push!(__eqs, v ~ -sin(body.phi) * getindex(getproperty(body, :v), 1) + cos(body.phi) * getindex(getproperty(body, :v), 2))
   push!(__eqs, forcer.force_x ~ Fx_extra - Du * u - Du_quad * u * abs(u))
   push!(__eqs, forcer.force_y ~ Fy_extra - Dv * v - Dv_quad * v * abs(v))
-  push!(__eqs, forcer.torque ~ Mz_extra - Dr * r - Dr_quad * r * abs(r) - Dr_cube * r * r * r)
+  push!(__eqs, forcer.torque ~ Mz_extra - Dr * r - Dr_quad * r * abs(r))
   push!(__eqs, connect(frame_a, body.frame_a, forcer.frame_b))
 
   # Return completely constructed System

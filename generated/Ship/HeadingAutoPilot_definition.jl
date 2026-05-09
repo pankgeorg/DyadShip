@@ -7,34 +7,20 @@
 @doc Markdown.doc"""
    HeadingAutoPilot(; name, k_p, k_i, Rudder_max, Integral_max, Deadband, Throttle_full_dist, Throttle_off_dist)
 
-Heading-aware PI autopilot for a ship.
+PI autopilot on heading error, with anti-windup, deadband, and a
+distance-based throttle ramp.
 
-Replaces `SimpleAutoPilot`'s PD-on-velocity-direction with a PI on
-heading-error directly. Designed against the lever-arm-corrected hull
-where the rudder is much more effective than `SimpleAutoPilot` was tuned
-against.
-
-Differences from `SimpleAutoPilot`:
-
-- Reads the hull's heading `psi` directly instead of computing the
-  velocity direction `atan(vel_y, vel_x)`. The velocity direction is
-  meaningless at zero speed and lags `psi` during turns; using `psi`
-  removes both pathologies.
-- PI on `course_diff` (P + integral). The integral term lets the
-  autopilot apply a bias to hold a steady course against a sustained
-  disturbance (wind, current).
-- Anti-windup: while the rudder command is saturated, the integral
-  state is frozen so it doesn't blow up and overshoot once the
-  saturation clears.
-- Course-error wrapping uses `atan(sin(d), cos(d))` so the PI sees
-  `course_diff ∈ (−π, π]` regardless of how many full turns `psi` has
-  accumulated.
+The autopilot reads the hull's heading `psi` directly (so course-error
+is well-defined at zero speed and during turns). The rudder command is
+saturated at `±Rudder_max`; while saturated, or while the error is
+inside `±Deadband`, the integrator is frozen. The throttle output ramps
+linearly from 1 (at `Throttle_full_dist`) to 0 (at `Throttle_off_dist`)
+so the engine idles on approach and stops near the target.
 
 Sign convention: with positive `k_p`, a positive `course_difference`
-(target is to the *left* of current heading) drives a positive rudder
-command. The mapping from rudder command to yaw-rate sign is determined
-by the rudder/hull plant; if the analysis shows the autopilot turning
-the wrong way, set `k_p < 0`.
+(target to the left of current heading) drives a positive rudder
+command. If the rudder/hull plant has the opposite convention, set
+`k_p < 0`.
 
 ## Parameters: 
 
@@ -65,9 +51,8 @@ the wrong way, set `k_p < 0`.
 
 | Name         | Description                         | Units  | 
 | ------------ | ----------------------------------- | ------ | 
-| `integ`         | Integrator state on course error [deg]                         | --  | 
-| `rudder_raw`         | Pre-saturation rudder command [deg]                         | --  | 
-| `integ_active`         | 1 if integrator is active, 0 if frozen (anti-windup + deadband)                         | --  | 
+| `integ`         |                          | --  | 
+| `rudder_raw`         |                          | --  | 
 """
 @component function HeadingAutoPilot(; name = nothing, k_p=Float64(30), k_i=Float64(1), Rudder_max=Float64(35), Integral_max=Float64(30), Deadband=Float64(0), Throttle_full_dist=Float64(300), Throttle_off_dist=Float64(100), kwargs...)
   isnothing(name) && throw(ArgumentError("""
@@ -137,17 +122,14 @@ the wrong way, set `k_p < 0`.
   append!(__vars, @variables (throttle(t)::Real), [output = true])
 
   ### Variables (declarations)
-  append!(__vars, @variables (integ(t)::Real), [description = "Integrator state on course error [deg]"])
-  append!(__vars, @variables (rudder_raw(t)::Real), [description = "Pre-saturation rudder command [deg]"])
-  append!(__vars, @variables (integ_active(t)::Real), [description = "1 if integrator is active, 0 if frozen (anti-windup + deadband)"])
+  append!(__vars, @variables (integ(t)::Real))
+  append!(__vars, @variables (rudder_raw(t)::Real))
 
   ### Variables (assignments)
   __ovr_integ = pop!(__overrides, "integ", nothing); isnothing(__ovr_integ) || push!(__eqs, integ ~ __ovr_integ)
   __ovr_integ__initial = pop!(__overrides, "integ__initial", nothing); isnothing(__ovr_integ__initial) || (__initial_conditions[integ] = __ovr_integ__initial)
   __ovr_rudder_raw = pop!(__overrides, "rudder_raw", nothing); isnothing(__ovr_rudder_raw) || push!(__eqs, rudder_raw ~ __ovr_rudder_raw)
   __ovr_rudder_raw__initial = pop!(__overrides, "rudder_raw__initial", nothing); isnothing(__ovr_rudder_raw__initial) || (__initial_conditions[rudder_raw] = __ovr_rudder_raw__initial)
-  __ovr_integ_active = pop!(__overrides, "integ_active", nothing); isnothing(__ovr_integ_active) || push!(__eqs, integ_active ~ __ovr_integ_active)
-  __ovr_integ_active__initial = pop!(__overrides, "integ_active__initial", nothing); isnothing(__ovr_integ_active__initial) || (__initial_conditions[integ_active] = __ovr_integ_active__initial)
 
   ### Constants
   __constants = Any[]
@@ -170,9 +152,8 @@ the wrong way, set `k_p < 0`.
   push!(__eqs, distance_to_target ~ sqrt((target_x - pos_x) ^ 2 + (target_y - pos_y) ^ 2))
   push!(__eqs, course_difference ~ atan(sin(bearing - psi), cos(bearing - psi)))
   push!(__eqs, rudder_raw ~ k_p * course_difference + k_i * clamp(integ, -Integral_max, Integral_max))
-  push!(__eqs, integ_active ~ ifelse(abs(rudder_raw) >= Rudder_max, 0, ifelse(abs(course_difference) < Deadband, 0, 1)))
-  push!(__eqs, ModelingToolkit.D_nounits(integ) ~ integ_active * course_difference)
   push!(__eqs, rudder ~ clamp(rudder_raw, -Rudder_max, Rudder_max))
+  push!(__eqs, ModelingToolkit.D_nounits(integ) ~ ifelse(abs(rudder_raw) >= Rudder_max, 0, ifelse(abs(course_difference) < Deadband, 0, course_difference)))
   push!(__eqs, throttle ~ clamp((distance_to_target - Throttle_off_dist) / (Throttle_full_dist - Throttle_off_dist), 0, 1))
 
   # Return completely constructed System

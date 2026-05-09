@@ -24,22 +24,12 @@ using DyadInterface: AbstractTransientAnalysisSpec, TransientAnalysisSpec
   var"respecialize"::Bool = false
   var"verbose"::DEVerbosity.Type = DEVerbosity.Standard()
   var"log_file"::String = ""
-  # Full multibody ship analysis: hull + propeller + rudder + autopilot, with PlanarMechanics
-  # 2D coupling. The propeller pushes the hull forward, the autopilot commands a rudder
-  # deflection to steer the hull toward a target waypoint, the rudder applies a yaw moment.
-  # 
-  # Setup:
-  # - Hull: 1e6 kg, Iz = 1e8 kg·m², linear surge/sway/yaw drag.
-  # - Propeller driven by a constant 80 kN·m torque source, mounted 50 m aft of CG.
-  # - Rudder mounted 52 m aft of CG (just behind the propeller). Forces from each
-  #   device pass through a `FixedTranslation` so the lever-arm yaw moment is
-  #   applied to the hull (in addition to the device's own hydrodynamic moment).
-  # - Autopilot tracks (10000, 1000) with target speed 5 m/s.
-  # - Rudder: 7 m² area, no propeller slipstream (slipstream blending is parameterized but
-  #   the rudder receives the ship's frame velocity directly through the WaterSpeed inputs).
-  # 
-  # Expected: hull moves toward the target, rudder modulates heading, surge speed climbs
-  # toward the target.
+  # Closed-loop ship analysis: hull + propeller + rudder + autopilot, in
+  # PlanarMechanics 2D. The propeller is driven by a torque source that the
+  # autopilot scales by its `throttle` output (full power far from target,
+  # ramped down on approach). The autopilot steers via the rudder; both the
+  # prop and rudder are mounted aft of the CG via `FixedTranslation`, so
+  # their forces produce the correct lever-arm yaw moment.
   var"model"::Union{Nothing, System} = DyadShip.Ship.FullShip(; name=:FullShip)
 end
 
