@@ -35,25 +35,11 @@ test component FullShip
   ground = RotationalComponents.Components.Fixed()
 
   rudder = DyadShip.Propulsion.Rudder()
-  # Gains retuned for the lever-arm-corrected model. With prop and rudder ~52 m
-  # aft of CG the rudder force produces a much larger yaw moment per degree, so
-  # the original k_rudder = 10 / Td_rudder = 40 saturated the rudder and the
-  # ship spun in place. k=3 / Td=5 keeps the derivative gain reasonable
-  # (k·Td/Tf ≈ 7.5 vs 400 before).
-  # Gains retuned for the lever-arm-corrected model (rudder ~50× more effective
-  # via the 52 m moment arm + propeller slipstream). Vel reference is fed as a
-  # unit vector along the hull's heading instead of the world velocity vector
-  # — the autopilot's `atan(vel_y, vel_x)` course definition is meaningless at
-  # zero speed and drifts behind ψ during turns, producing runaway when the
-  # rudder is strong. Aliasing to ψ makes course-difference ≡ heading-error.
-  # Deadband_rudder = 1° (≈0.0175 rad) keeps the autopilot quiet inside a
-  # ±1° heading-error band, which removes the limit-cycle the strongly-
-  # effective rudder otherwise produces while close to course.
-  # k_rudder = 0 keeps the open-loop baseline (no autopilot) — the closed-loop
-  # PD design is unstable on the lever-arm-corrected plant regardless of sign,
-  # damping, or deadband. Investigation in INVESTIGATION_yaw_resistance.md.
-  pilot = SimpleAutoPilot(k_rudder = 0, Td_rudder = 1, Tf_rudder = 1,
-                          Deadband_rudder = 0)
+  # PI on heading directly — replaces the previous PD-on-velocity-direction
+  # autopilot. See HeadingAutoPilot.dyad. With the MMG hull's correct
+  # damping the proportional gain can be moderate; the integral term lets
+  # the autopilot hold a steady course against persistent disturbances.
+  pilot = HeadingAutoPilot(k_p = 30, k_i = 1, Deadband = 0.0175)
 
   # Mounting offsets aft of the hull CG. With Lpp = 100 m (Rudder default), the
   # propeller sits at the aft perpendicular and the rudder just behind it. The
@@ -88,16 +74,12 @@ relations
   rudder.Propeller_flow_diameter = prop.Propeller_flow_diameter
   rudder.Wake_Fraction = prop.Wake_Fraction
 
-  # Autopilot reads world-frame ship state and commands rudder. Feed a unit
-  # vector along the heading instead of the actual velocity (see comment at
-  # the pilot declaration above).
+  # Autopilot reads heading + position directly.
   pilot.pos_x = hull.pos_x
   pilot.pos_y = hull.pos_y
-  pilot.vel_x = cos(hull.psi)
-  pilot.vel_y = sin(hull.psi)
+  pilot.psi = hull.psi
   pilot.target_x = 10000
   pilot.target_y = 1000
-  pilot.target_speed = 5
   connect(pilot.rudder, rudder.Rudder_Order)
 
   # No external disturbance.

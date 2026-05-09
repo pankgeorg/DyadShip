@@ -109,10 +109,10 @@ ship on heading and reach the waypoint despite the disturbance.
   rudder_overrides = Dict(Symbol(replace(string(k), r"^rudder__" => "")) => v for (k, v) in __overrides if startswith(string(k), "rudder__"))
   filter!(p -> !startswith(string(first(p)), "rudder__"), __overrides)
   push!(__systems, @named rudder = DyadShip.Propulsion.Rudder(rudder_overrides...))
-  # Subcomponent pilot of type DyadShip.Ship.SimpleAutoPilot
+  # Subcomponent pilot of type DyadShip.Ship.HeadingAutoPilot
   pilot_overrides = Dict(Symbol(replace(string(k), r"^pilot__" => "")) => v for (k, v) in __overrides if startswith(string(k), "pilot__"))
   filter!(p -> !startswith(string(first(p)), "pilot__"), __overrides)
-  push!(__systems, @named pilot = DyadShip.Ship.SimpleAutoPilot(k_rudder=0, Td_rudder=1, Tf_rudder=1, Deadband_rudder=0, pilot_overrides...))
+  push!(__systems, @named pilot = DyadShip.Ship.HeadingAutoPilot(k_p=30, k_i=1, Deadband=0.0175, pilot_overrides...))
   # Subcomponent prop_arm of type MultibodyComponents.PlanarMechanics.FixedTranslation
   prop_arm_overrides = Dict(Symbol(replace(string(k), r"^prop_arm__" => "")) => v for (k, v) in __overrides if startswith(string(k), "prop_arm__"))
   filter!(p -> !startswith(string(first(p)), "prop_arm__"), __overrides)
@@ -179,11 +179,9 @@ ship on heading and reach the waypoint despite the disturbance.
   push!(__eqs, rudder.Wake_Fraction ~ prop.Wake_Fraction)
   push!(__eqs, pilot.pos_x ~ hull.pos_x)
   push!(__eqs, pilot.pos_y ~ hull.pos_y)
-  push!(__eqs, pilot.vel_x ~ cos(hull.psi))
-  push!(__eqs, pilot.vel_y ~ sin(hull.psi))
+  push!(__eqs, pilot.psi ~ hull.psi)
   push!(__eqs, pilot.target_x ~ 10000)
   push!(__eqs, pilot.target_y ~ 1000)
-  push!(__eqs, pilot.target_speed ~ 5)
   push!(__eqs, connect(k_tau.y, src.tau))
   push!(__eqs, connect(src.support, ground.spline))
   push!(__eqs, connect(src.spline, shaft.spline_a))
