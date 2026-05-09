@@ -81,10 +81,10 @@ ship on heading and reach the waypoint despite the disturbance.
   world_overrides = Dict(Symbol(replace(string(k), r"^world__" => "")) => v for (k, v) in __overrides if startswith(string(k), "world__"))
   filter!(p -> !startswith(string(first(p)), "world__"), __overrides)
   push!(__systems, @named world = MultibodyComponents.PlanarMechanics.World(g=0, render=false, world_overrides...))
-  # Subcomponent hull of type DyadShip.Ship.Hull3DOF
+  # Subcomponent hull of type DyadShip.Ship.HullMMG
   hull_overrides = Dict(Symbol(replace(string(k), r"^hull__" => "")) => v for (k, v) in __overrides if startswith(string(k), "hull__"))
   filter!(p -> !startswith(string(first(p)), "hull__"), __overrides)
-  push!(__systems, @named hull = DyadShip.Ship.Hull3DOF(mass=1000000, Iz=100000000, Du=5000, Du_quad=4000, Dv=1000000, Dv_quad=10000, Dr=10000000, Dr_quad=500000, Dr_cube=1000000000, hull_overrides...))
+  push!(__systems, @named hull = DyadShip.Ship.HullMMG(mass=1000000, Iz=100000000, Lpp=100, B=20, Draft=4, Cb=0.693, hull_overrides...))
   # Subcomponent prop of type DyadShip.Propulsion.Propeller1Q
   prop_overrides = Dict(Symbol(replace(string(k), r"^prop__" => "")) => v for (k, v) in __overrides if startswith(string(k), "prop__"))
   filter!(p -> !startswith(string(first(p)), "prop__"), __overrides)
