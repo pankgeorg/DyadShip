@@ -8,8 +8,8 @@ using DyadInterface
 using DyadInterface: ODEAlg, DEVerbosity, OptimizationLevel
 using ModelingToolkit: SymbolicT, toggle_namespacing
 using DyadInterface: AbstractTransientAnalysisSpec, TransientAnalysisSpec
-@kwdef mutable struct ShipTransientSpec <: AbstractTransientAnalysisSpec
-  name::Symbol = :ShipTransient
+@kwdef mutable struct ShipDisturbedTransientSpec <: AbstractTransientAnalysisSpec
+  name::Symbol = :ShipDisturbedTransient
   var"alg"::ODEAlg.Type = ODEAlg.Auto()
   var"start"::Float64 = 0
   var"stop"::Float64 = 3600
@@ -24,26 +24,22 @@ using DyadInterface: AbstractTransientAnalysisSpec, TransientAnalysisSpec
   var"respecialize"::Bool = false
   var"verbose"::DEVerbosity.Type = DEVerbosity.Standard()
   var"log_file"::String = ""
-  # Full multibody ship analysis: hull + propeller + rudder + autopilot, with PlanarMechanics
-  # 2D coupling. The propeller pushes the hull forward, the autopilot commands a rudder
-  # deflection to steer the hull toward a target waypoint, the rudder applies a yaw moment.
+  # Closed-loop ship under wind and sea-state disturbances. Same hull / propeller /
+  # rudder / autopilot stack as `FullShip`, with:
   # 
-  # Setup:
-  # - Hull: 1e6 kg, Iz = 1e8 kg·m², linear surge/sway/yaw drag.
-  # - Propeller driven by a constant 80 kN·m torque source, mounted 50 m aft of CG.
-  # - Rudder mounted 52 m aft of CG (just behind the propeller). Forces from each
-  #   device pass through a `FixedTranslation` so the lever-arm yaw moment is
-  #   applied to the hull (in addition to the device's own hydrodynamic moment).
-  # - Autopilot tracks (10000, 1000) with target speed 5 m/s.
-  # - Rudder: 7 m² area, no propeller slipstream (slipstream blending is parameterized but
-  #   the rudder receives the ship's frame velocity directly through the WaterSpeed inputs).
+  # - Constant world-frame wind (15 m/s from the NE, i.e. +Y/+X), routed through
+  #   `ApparentSpeedXY` and `ShipWind` so the apparent wind seen by the
+  #   superstructure tracks the ship's heading and motion.
+  # - Sea state approximated as low-frequency sinusoidal disturbance forces and
+  #   yaw moment fed into the hull's `Fx_extra`/`Fy_extra`/`Mz_extra`. Amplitudes
+  #   are loosely Beaufort 5/6 (≈ 100 kN / 2 MN·m wave drift).
   # 
-  # Expected: hull moves toward the target, rudder modulates heading, surge speed climbs
-  # toward the target.
-  var"model"::Union{Nothing, System} = DyadShip.Ship.FullShip(; name=:FullShip)
+  # This analysis is the regression test for the autopilot — it should keep the
+  # ship on heading and reach the waypoint despite the disturbance.
+  var"model"::Union{Nothing, System} = DyadShip.Ship.FullShipDisturbed(; name=:FullShipDisturbed)
 end
 
-function DyadInterface.run_analysis(spec::ShipTransientSpec)
+function DyadInterface.run_analysis(spec::ShipDisturbedTransientSpec)
   overrides = Dict{SymbolicT, SymbolicT}()
   no_namespace_model = toggle_namespacing(spec.model, false)
   base_spec = TransientAnalysisSpec(;
@@ -52,5 +48,5 @@ function DyadInterface.run_analysis(spec::ShipTransientSpec)
   run_analysis(base_spec)
 end
 
-ShipTransient(;kwargs...) = run_analysis(ShipTransientSpec(;kwargs...))
-export ShipTransient, ShipTransientSpec
+ShipDisturbedTransient(;kwargs...) = run_analysis(ShipDisturbedTransientSpec(;kwargs...))
+export ShipDisturbedTransient, ShipDisturbedTransientSpec
