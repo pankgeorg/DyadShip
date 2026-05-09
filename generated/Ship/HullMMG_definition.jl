@@ -5,7 +5,7 @@
 
 
 @doc Markdown.doc"""
-   HullMMG(; name, Lpp, B, Draft, Cb, mass, Iz, SeaDensity, R3, R2, R1, U_floor, X_vv, X_vvvv, X_rr, X_vr, Y_v, Y_vvv, Y_r, Y_rrr, Y_vrr, Y_vvr, N_v, N_vvv, N_r, N_rrr, N_vrr, N_vvr)
+   HullMMG(; name, Lpp, B, Draft, Cb, mass, Iz, SeaDensity, R3, R2, R1, U_floor, render, body_radius, X_vv, X_vvvv, X_rr, X_vr, Y_v, Y_vvv, Y_r, Y_rrr, Y_vrr, Y_vvr, N_v, N_vvv, N_r, N_rrr, N_vrr, N_vvr)
 
 3-DOF (surge / sway / yaw) hull dynamics using the MMG (Mathematical
 Maneuvering Group) standard hydrodynamic model.
@@ -61,6 +61,8 @@ Limitations vs upstream:
 | `R2`         |                          | --  |   -5286.3 |
 | `R1`         |                          | --  |   19657.0 |
 | `U_floor`         |                          | m/s  |   0.1 |
+| `render`         | Whether the internal Body's sphere shape should render                         | --  |   false |
+| `body_radius`         | Body sphere radius for animation [m] — scale with world extent for visibility                         | m  |   5.0 |
 | `X_vv`         |                          | --  |   1.15 * Cb * B / Lpp - 0.18 |
 | `X_vvvv`         |                          | --  |   -6.68 * Cb * B / Lpp + 1.1 |
 | `X_rr`         |                          | --  |   (-0.0027 + 0.0076 * Cb * Draft / B) * (Lpp / Draft) |
@@ -108,7 +110,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 | `Y_damp`         |                          | N  | 
 | `N_damp`         |                          | N.m  | 
 """
-@component function HullMMG(; name = nothing, Lpp=Float64(100), B=Float64(20), Draft=Float64(4), Cb=0.693, mass=Float64(1000000), Iz=Float64(100000000), SeaDensity=Float64(1025), R3=914.37, R2=-5286.3, R1=Float64(19657), U_floor=0.1, X_vv=1.15 * Cb * B / Lpp - 0.18, X_vvvv=-6.68 * Cb * B / Lpp + 1.1, X_rr=(-0.0027 + 0.0076 * Cb * Draft / B) * (Lpp / Draft), X_vr=nothing, Y_v=(-π * (Draft / Lpp) ^ 2 * (1 + 0.4 * Cb * B / Draft)) * (Lpp / Draft), Y_vvv=(-0.6469 * (1 - Cb) * (Draft / B) + 0.0027) * (Lpp / Draft), Y_r=(-π * (Draft / Lpp) ^ 2 * (-0.32)) * (Lpp / Draft), Y_rrr=(-0.0233 * Cb * Draft / B + 0.0063) * (Lpp / Draft), Y_vrr=-(5.95 * (1 - Cb) * Draft / B), Y_vvr=(1.5 * Draft * Cb / B - 0.65), N_v=(-π * (Draft / Lpp) ^ 2 * (0.5 + 2.4 * Draft / Lpp)) * (Lpp / Draft), N_vvv=(0.0348 - 0.5283 * (1 - Cb) * Draft / B) * (Lpp / Draft), N_r=-π * (Draft / Lpp) ^ 2 * ((1.3192 - 0.68228 * Cb - 0.00019 * (Lpp / Draft) ^ 2) / π) * (Lpp / Draft), N_rrr=0.25 * Cb * B / Lpp - 0.056, N_vrr=(0.5 * Draft * Cb / B) - 0.05, N_vvr=-(57.5 * (Cb * B / Lpp) ^ 2 - 18.4 * (Cb * B / Lpp) + 1.6), kwargs...)
+@component function HullMMG(; name = nothing, Lpp=Float64(100), B=Float64(20), Draft=Float64(4), Cb=0.693, mass=Float64(1000000), Iz=Float64(100000000), SeaDensity=Float64(1025), R3=914.37, R2=-5286.3, R1=Float64(19657), U_floor=0.1, render=false, body_radius=Float64(5), X_vv=1.15 * Cb * B / Lpp - 0.18, X_vvvv=-6.68 * Cb * B / Lpp + 1.1, X_rr=(-0.0027 + 0.0076 * Cb * Draft / B) * (Lpp / Draft), X_vr=nothing, Y_v=(-π * (Draft / Lpp) ^ 2 * (1 + 0.4 * Cb * B / Draft)) * (Lpp / Draft), Y_vvv=(-0.6469 * (1 - Cb) * (Draft / B) + 0.0027) * (Lpp / Draft), Y_r=(-π * (Draft / Lpp) ^ 2 * (-0.32)) * (Lpp / Draft), Y_rrr=(-0.0233 * Cb * Draft / B + 0.0063) * (Lpp / Draft), Y_vrr=-(5.95 * (1 - Cb) * Draft / B), Y_vvr=(1.5 * Draft * Cb / B - 0.65), N_v=(-π * (Draft / Lpp) ^ 2 * (0.5 + 2.4 * Draft / Lpp)) * (Lpp / Draft), N_vvv=(0.0348 - 0.5283 * (1 - Cb) * Draft / B) * (Lpp / Draft), N_r=-π * (Draft / Lpp) ^ 2 * ((1.3192 - 0.68228 * Cb - 0.00019 * (Lpp / Draft) ^ 2) / π) * (Lpp / Draft), N_rrr=0.25 * Cb * B / Lpp - 0.056, N_vrr=(0.5 * Draft * Cb / B) - 0.05, N_vvr=-(57.5 * (Cb * B / Lpp) ^ 2 - 18.4 * (Cb * B / Lpp) + 1.6), kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -179,6 +181,12 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   __local__U_floor = U_floor
   append!(__params, @parameters (U_floor::Real))
   __initial_conditions[U_floor] = __local__U_floor
+  __local__render = render
+  append!(__params, @parameters (render::Bool), [description = "Whether the internal Body's sphere shape should render"])
+  __initial_conditions[render] = __local__render
+  __local__body_radius = body_radius
+  append!(__params, @parameters (body_radius::Real), [description = "Body sphere radius for animation [m] — scale with world extent for visibility"])
+  __initial_conditions[body_radius] = __local__body_radius
   __local__X_vv = X_vv
   append!(__params, @parameters (X_vv::Real))
   __initial_conditions[X_vv] = __local__X_vv
@@ -276,7 +284,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   # Subcomponent body of type MultibodyComponents.PlanarMechanics.Body
   body_overrides = Dict(Symbol(replace(string(k), r"^body__" => "")) => v for (k, v) in __overrides if startswith(string(k), "body__"))
   filter!(p -> !startswith(string(first(p)), "body__"), __overrides)
-  push!(__systems, @named body = MultibodyComponents.PlanarMechanics.Body(m=mass, I=Iz, render=false, body_overrides...))
+  push!(__systems, @named body = MultibodyComponents.PlanarMechanics.Body(m=mass, I=Iz, render=render, radius=body_radius, body_overrides...))
   # Subcomponent forcer of type MultibodyComponents.PlanarMechanics.WorldForceTorque
   forcer_overrides = Dict(Symbol(replace(string(k), r"^forcer__" => "")) => v for (k, v) in __overrides if startswith(string(k), "forcer__"))
   filter!(p -> !startswith(string(first(p)), "forcer__"), __overrides)

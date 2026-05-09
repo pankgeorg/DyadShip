@@ -1,0 +1,67 @@
+"""
+Render-enabled variant of `FullShip`. Same hull / propulsion / autopilot
+stack, but with shapes turned on for the World, the hull body, and the
+propeller/rudder mounting arms so the Makie render extension has
+something to draw. Stops at 2200 s — slightly past the typical arrival
+time of the clean run, so the recording captures the full approach +
+station-keeping period.
+"""
+test component FullShipRender
+  parameter target_x::Length = 10000
+  parameter target_y::Length = 1000
+  parameter base_torque::Torque = 80000
+
+  world = MultibodyComponents.PlanarMechanics.World(g = 0, render = true)
+  hull = HullMMG(mass = 1e6, Iz = 1e8, Lpp = 100, B = 20, Draft = 4, Cb = 0.693,
+                 render = true, body_radius = 600)
+
+  prop = DyadShip.Propulsion.Propeller1Q(Diameter = 4, P_D = 1.0, Ae_Ao = 0.55, Z = 4)
+  shaft = RotationalComponents.Components.Inertia(J = 5000)
+  src = RotationalComponents.Sources.TorqueSource()
+  ground = RotationalComponents.Components.Fixed()
+
+  rudder = DyadShip.Propulsion.Rudder()
+  pilot = HeadingAutoPilot(k_p = 30, k_i = 1, Deadband = π / 180)
+
+  prop_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(
+    r = [-50, 0], render = true, radius = 100
+  )
+  rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(
+    r = [-52, 0], render = true, radius = 100
+  )
+relations
+  initial shaft.phi = 0
+  initial shaft.w = 0
+
+  src.tau = base_torque * pilot.throttle
+  connect(src.support, ground.spline)
+  connect(src.spline, shaft.spline_a)
+  connect(shaft.spline_b, prop.flange)
+
+  connect(hull.frame_a, prop_arm.frame_a, rudder_arm.frame_a)
+  connect(prop_arm.frame_b, prop.frame_a)
+  connect(rudder_arm.frame_b, rudder.frame_a)
+
+  prop.ShipSpeed = hull.u
+  rudder.WaterSpeedX_in = hull.u
+  rudder.WaterSpeedY_in = hull.v
+  rudder.Propeller_speed = prop.Propeller_speed
+  rudder.Propeller_flow_diameter = prop.Propeller_flow_diameter
+  rudder.Wake_Fraction = prop.Wake_Fraction
+
+  pilot.pos_x = hull.pos_x
+  pilot.pos_y = hull.pos_y
+  pilot.psi = hull.psi
+  pilot.target_x = target_x
+  pilot.target_y = target_y
+  connect(pilot.rudder, rudder.Rudder_Order)
+
+  hull.Fx_extra = 0
+  hull.Fy_extra = 0
+  hull.Mz_extra = 0
+end
+
+analysis ShipRenderTransient
+  extends TransientAnalysis(stop = 2200.0)
+  model = FullShipRender()
+end

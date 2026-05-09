@@ -65,6 +65,12 @@ component HullMMG
   # ─── Apparent-speed floor (avoid divide-by-zero) ─────────────────
   parameter U_floor::Velocity = 0.1
 
+  # ─── Visualization ───────────────────────────────────────────────
+  "Whether the internal Body's sphere shape should render"
+  parameter render::Boolean = false
+  "Body sphere radius for animation [m] — scale with world extent for visibility"
+  parameter body_radius::Length = 5.0
+
   # ─── Coupling added-mass coefficients (% of displacement) ────────
   # Brix 1993 (mx ≈ 5%) and Zhou 1983 (my, Jz). Used only for the
   # static -Δ·my·v·r and -Δ·mx·u·r cross terms.
@@ -98,7 +104,7 @@ component HullMMG
   parameter N_vvr::Real   = -(57.5 * (Cb * B / Lpp)^2 - 18.4 * (Cb * B / Lpp) + 1.6)               # Kijima 1990a
 
   # ─── Subcomponents ───────────────────────────────────────────────
-  body = MultibodyComponents.PlanarMechanics.Body(m = mass, I = Iz, render = false)
+  body = MultibodyComponents.PlanarMechanics.Body(m = mass, I = Iz, render = render, radius = body_radius)
   forcer = MultibodyComponents.PlanarMechanics.WorldForceTorque(
     resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB()
   )
