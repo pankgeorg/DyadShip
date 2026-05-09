@@ -48,8 +48,10 @@ test component FullShip
   # Deadband_rudder = 1° (≈0.0175 rad) keeps the autopilot quiet inside a
   # ±1° heading-error band, which removes the limit-cycle the strongly-
   # effective rudder otherwise produces while close to course.
-  pilot = SimpleAutoPilot(k_rudder = -0.5, Td_rudder = 5, Tf_rudder = 4,
-                          Deadband_rudder = 0.01745)
+  # k_rudder = 0 disables the autopilot; rudder stays at zero so we can
+  # see the open-loop ship response (just thrust + drag, no steering).
+  pilot = SimpleAutoPilot(k_rudder = 0, Td_rudder = 1, Tf_rudder = 1,
+                          Deadband_rudder = 0)
 
   # Mounting offsets aft of the hull CG. With Lpp = 100 m (Rudder default), the
   # propeller sits at the aft perpendicular and the rudder just behind it. The

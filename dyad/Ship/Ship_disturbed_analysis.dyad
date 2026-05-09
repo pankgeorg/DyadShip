@@ -28,8 +28,8 @@ test component FullShipDisturbed
   rudder = DyadShip.Propulsion.Rudder()
   # See Ship_analysis.dyad for why the gains differ from the pilot's defaults.
   # See Ship_analysis.dyad for why we pass cos/sin(ψ) as vel and use these gains.
-  pilot = SimpleAutoPilot(k_rudder = -0.5, Td_rudder = 5, Tf_rudder = 4,
-                          Deadband_rudder = 0.01745)
+  pilot = SimpleAutoPilot(k_rudder = 0, Td_rudder = 1, Tf_rudder = 1,
+                          Deadband_rudder = 0)
 
   prop_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r = [-50, 0], render = false)
   rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r = [-52, 0], render = false)
