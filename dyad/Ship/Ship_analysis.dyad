@@ -5,7 +5,10 @@ deflection to steer the hull toward a target waypoint, the rudder applies a yaw 
 
 Setup:
 - Hull: 1e6 kg, Iz = 1e8 kg·m², linear surge/sway/yaw drag.
-- Propeller driven by a constant 80 kN·m torque source.
+- Propeller driven by a constant 80 kN·m torque source, mounted 50 m aft of CG.
+- Rudder mounted 52 m aft of CG (just behind the propeller). Forces from each
+  device pass through a `FixedTranslation` so the lever-arm yaw moment is
+  applied to the hull (in addition to the device's own hydrodynamic moment).
 - Autopilot tracks (10000, 1000) with target speed 5 m/s.
 - Rudder: 7 m² area, no propeller slipstream (slipstream blending is parameterized but
   the rudder receives the ship's frame velocity directly through the WaterSpeed inputs).
@@ -15,7 +18,14 @@ toward the target.
 """
 test component FullShip
   world = MultibodyComponents.PlanarMechanics.World(g = 0, render = false)
-  hull = Hull3DOF(mass = 1e6, Iz = 1e8, Du = 5000, Dv = 1e6, Dr = 1e7)
+  # Linear + quadratic surge drag. Du_quad = 4000 makes total surge resistance
+  # ~125 kN at u = 5 m/s, matching the ~122 kN propeller thrust → steady-state
+  # surge near 5 m/s instead of the unphysical 24 m/s the linear-only model
+  # allowed. Sway gets a similar quadratic term (broadside drag ≫ surge).
+  hull = Hull3DOF(mass = 1e6, Iz = 1e8,
+                  Du = 5000, Du_quad = 4000,
+                  Dv = 1e6,  Dv_quad = 10000,
+                  Dr = 1e7,  Dr_quad = 5e5)
 
   prop = DyadShip.Propulsion.Propeller1Q(Diameter = 4, P_D = 1.0, Ae_Ao = 0.55, Z = 4)
   shaft = RotationalComponents.Components.Inertia(J = 5000)
@@ -24,7 +34,32 @@ test component FullShip
   ground = RotationalComponents.Components.Fixed()
 
   rudder = DyadShip.Propulsion.Rudder()
-  pilot = SimpleAutoPilot()
+  # Gains retuned for the lever-arm-corrected model. With prop and rudder ~52 m
+  # aft of CG the rudder force produces a much larger yaw moment per degree, so
+  # the original k_rudder = 10 / Td_rudder = 40 saturated the rudder and the
+  # ship spun in place. k=3 / Td=5 keeps the derivative gain reasonable
+  # (k·Td/Tf ≈ 7.5 vs 400 before).
+  # Gains retuned for the lever-arm-corrected model (rudder ~50× more effective
+  # via the 52 m moment arm + propeller slipstream). Vel reference is fed as a
+  # unit vector along the hull's heading instead of the world velocity vector
+  # — the autopilot's `atan(vel_y, vel_x)` course definition is meaningless at
+  # zero speed and drifts behind ψ during turns, producing runaway when the
+  # rudder is strong. Aliasing to ψ makes course-difference ≡ heading-error.
+  # Deadband_rudder = 1° (≈0.0175 rad) keeps the autopilot quiet inside a
+  # ±1° heading-error band, which removes the limit-cycle the strongly-
+  # effective rudder otherwise produces while close to course.
+  # k_rudder = 0 disables the autopilot; rudder stays at zero so we can
+  # see the open-loop ship response (just thrust + drag, no steering).
+  pilot = SimpleAutoPilot(k_rudder = 0, Td_rudder = 1, Tf_rudder = 1,
+                          Deadband_rudder = 0)
+
+  # Mounting offsets aft of the hull CG. With Lpp = 100 m (Rudder default), the
+  # propeller sits at the aft perpendicular and the rudder just behind it. The
+  # FixedTranslation components carry the lever-arm contribution from each
+  # device's force into the hull's yaw equation — without them, only the
+  # device's hydrodynamic moment (rudder Cm, propeller torque) reaches the hull.
+  prop_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r = [-50, 0], render = false)
+  rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r = [-52, 0], render = false)
 relations
   initial shaft.phi = 0
   initial shaft.w = 0
@@ -35,8 +70,10 @@ relations
   connect(src.spline, shaft.spline_a)
   connect(shaft.spline_b, prop.flange)
 
-  # All hull-mounted force components live at the same body frame.
-  connect(prop.frame_a, hull.frame_a, rudder.frame_a)
+  # Hull CG fans out to each force-applier through its own FixedTranslation.
+  connect(hull.frame_a, prop_arm.frame_a, rudder_arm.frame_a)
+  connect(prop_arm.frame_b, prop.frame_a)
+  connect(rudder_arm.frame_b, rudder.frame_a)
 
   # Propeller surge speed in body frame (same as hull.u).
   prop.ShipSpeed = hull.u
@@ -49,11 +86,13 @@ relations
   rudder.Propeller_flow_diameter = prop.Propeller_flow_diameter
   rudder.Wake_Fraction = prop.Wake_Fraction
 
-  # Autopilot reads world-frame ship state and commands rudder.
+  # Autopilot reads world-frame ship state and commands rudder. Feed a unit
+  # vector along the heading instead of the actual velocity (see comment at
+  # the pilot declaration above).
   pilot.pos_x = hull.pos_x
   pilot.pos_y = hull.pos_y
-  pilot.vel_x = hull.vx_world
-  pilot.vel_y = hull.vy_world
+  pilot.vel_x = cos(hull.psi)
+  pilot.vel_y = sin(hull.psi)
   pilot.target_x = 10000
   pilot.target_y = 1000
   pilot.target_speed = 5
@@ -66,6 +105,6 @@ relations
 end
 
 analysis ShipTransient
-  extends TransientAnalysis(stop = 200.0)
+  extends TransientAnalysis(stop = 3600.0)
   model = FullShip()
 end

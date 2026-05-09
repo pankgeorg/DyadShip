@@ -36,19 +36,20 @@ extrapolation outside the data range is hard-coded to match the upstream
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
-| `dataset`         | Time-series of (time [s], temperature [K]) — defaults to the bundled 24-h sample.                         | --  |   DyadData.DyadTimeseries("dyad://DyadShip/temperature_24h.csv", independent_var="time", dependent_vars=["T"]) |
+| `dataset`         | Time-series of (time [s], temperature [K]) — defaults to the bundled 24-h sample.                         | --  |   DyadData.DyadTimeseries("dyad://DyadShip/temperature_24h.csv", independent_var = "time", dependent_vars = ["T"]) |
 
 ## Connectors
 
- * `port_AirTemp` - This connector represents a thermal port with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
+ * `port_AirTemp` - This connector represents a thermal node with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
 """
-@component function TemperatureDataset(; name = nothing, dataset=DyadData.DyadTimeseries("dyad://DyadShip/temperature_24h.csv", independent_var="time", dependent_vars=["T"]), kwargs...)
+@component function TemperatureDataset(; name = nothing, dataset=DyadData.DyadTimeseries("dyad://DyadShip/temperature_24h.csv"; independent_var="time", dependent_vars=["T"]), kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = TemperatureDataset()
+  """))
 
-        @named model = TemperatureDataset()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

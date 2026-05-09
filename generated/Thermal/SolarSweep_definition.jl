@@ -12,11 +12,12 @@ set around t=20 h, with peak `IrradianceOnPanel` near `irradiance_ref`.
 """
 @component function SolarSweep(; name = nothing, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = SolarSweep()
+  """))
 
-        @named model = SolarSweep()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

@@ -56,11 +56,12 @@ horizon → no light, between thresholds → linear shadow ramp) is preserved ve
 """
 @component function SunScreen(; name = nothing, d=nothing, h=nothing, WindowHeight=nothing, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = SunScreen()
+  """))
 
-        @named model = SunScreen()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

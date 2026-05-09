@@ -17,11 +17,12 @@ seeing the ship heel and driving the pump that fills the Tank.
 """
 @component function AntiHeelingDemo(; name = nothing, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = AntiHeelingDemo()
+  """))
 
-        @named model = AntiHeelingDemo()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

@@ -28,9 +28,9 @@ where `V` is the speed and `θ = direction · π / 180` is the angle in radians.
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
 | `SeaDensity`         | Seawater density                         | kg/m3  |   1025 |
-| `SeaKViscosity`         | Seawater kinematic viscosity                         | m2/s  |   0.000001004 |
+| `SeaKViscosity`         | Seawater kinematic viscosity                         | m2/s  |   1.004e-6 |
 | `AirDensity`         | Air density                         | kg/m3  |   1.29 |
-| `AirKViscosity`         | Air kinematic viscosity                         | m2/s  |   0.0000148 |
+| `AirKViscosity`         | Air kinematic viscosity                         | m2/s  |   1.48e-5 |
 | `WindDirection`         | Direction wind comes from [deg], 0=N(+Y), 90=E(+X)                         | --  |   0 |
 | `WindSpeed`         | Wind speed                         | m/s  |   0 |
 | `CurrentDirection`         | Direction current comes from [deg], same convention as wind                         | --  |   0 |
@@ -45,11 +45,12 @@ where `V` is the speed and `θ = direction · π / 180` is the angle in radians.
 """
 @component function Environment(; name = nothing, SeaDensity=Float64(1025), SeaKViscosity=0.000001004, AirDensity=1.29, AirKViscosity=0.0000148, WindDirection=Float64(0), WindSpeed=Float64(0), CurrentDirection=Float64(0), CurrentSpeed=Float64(0), kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = Environment()
+  """))
 
-        @named model = Environment()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

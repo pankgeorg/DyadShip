@@ -41,7 +41,7 @@ Limitations vs upstream:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
-| `A`         |                          | m2  |   1 |
+| `A`         |                          | m2  |   1.0 |
 | `alpha_abs`         |                          | --  |   0.7 |
 | `epsilon`         |                          | --  |   0.9 |
 | `sigma`         | Stefan-Boltzmann constant [W/(m²·K⁴)]                         | --  |   5.670374e-8 |
@@ -53,7 +53,7 @@ Limitations vs upstream:
  * `h_c` - This connector represents a real signal as an input to a component ([`RealInput`](@ref))
  * `T_air` - This connector represents a real signal as an input to a component ([`RealInput`](@ref))
  * `T_sky` - This connector represents a real signal as an input to a component ([`RealInput`](@ref))
- * `port_wall` - This connector represents a thermal port with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
+ * `port_wall` - This connector represents a thermal node with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
 
 ## Variables
 
@@ -66,11 +66,12 @@ Limitations vs upstream:
 """
 @component function ConvRadSunWall(; name = nothing, A=Float64(1), alpha_abs=0.7, epsilon=0.9, sigma=5.670374e-8, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = ConvRadSunWall()
+  """))
 
-        @named model = ConvRadSunWall()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

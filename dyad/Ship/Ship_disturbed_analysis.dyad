@@ -1,0 +1,102 @@
+"""
+Closed-loop ship under wind and sea-state disturbances. Same hull / propeller /
+rudder / autopilot stack as `FullShip`, with:
+
+- Constant world-frame wind (15 m/s from the NE, i.e. +Y/+X), routed through
+  `ApparentSpeedXY` and `ShipWind` so the apparent wind seen by the
+  superstructure tracks the ship's heading and motion.
+- Sea state approximated as low-frequency sinusoidal disturbance forces and
+  yaw moment fed into the hull's `Fx_extra`/`Fy_extra`/`Mz_extra`. Amplitudes
+  are loosely Beaufort 5/6 (≈ 100 kN / 2 MN·m wave drift).
+
+This analysis is the regression test for the autopilot — it should keep the
+ship on heading and reach the waypoint despite the disturbance.
+"""
+test component FullShipDisturbed
+  world = MultibodyComponents.PlanarMechanics.World(g = 0, render = false)
+  hull = Hull3DOF(mass = 1e6, Iz = 1e8,
+                  Du = 5000, Du_quad = 4000,
+                  Dv = 1e6,  Dv_quad = 10000,
+                  Dr = 1e7,  Dr_quad = 5e5)
+
+  prop = DyadShip.Propulsion.Propeller1Q(Diameter = 4, P_D = 1.0, Ae_Ao = 0.55, Z = 4)
+  shaft = RotationalComponents.Components.Inertia(J = 5000)
+  src = RotationalComponents.Sources.TorqueSource()
+  k_tau = BlockComponents.Sources.Constant(k = 80000)
+  ground = RotationalComponents.Components.Fixed()
+
+  rudder = DyadShip.Propulsion.Rudder()
+  # See Ship_analysis.dyad for why the gains differ from the pilot's defaults.
+  # See Ship_analysis.dyad for why we pass cos/sin(ψ) as vel and use these gains.
+  pilot = SimpleAutoPilot(k_rudder = 0, Td_rudder = 1, Tf_rudder = 1,
+                          Deadband_rudder = 0)
+
+  prop_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r = [-50, 0], render = false)
+  rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r = [-52, 0], render = false)
+
+  # Wind chain: constant world-frame wind → apparent-speed converter → ShipWind force.
+  env = DyadShip.Environment(WindSpeed = 15, WindDirection = 45)
+  apparent = DyadShip.ApparentSpeedXY()
+  wind = ShipWind()
+
+  # Sea-state disturbances (wave drift). Periods 16-25 s, amplitudes ~100 kN / 2 MN·m.
+  swell_x = BlockComponents.Sources.Sine(amplitude = 80000, frequency = 0.05, offset = 0, phase = 0, start_time = 0)
+  swell_y = BlockComponents.Sources.Sine(amplitude = 120000, frequency = 0.04, offset = 0, phase = 1.05, start_time = 0)
+  swell_yaw = BlockComponents.Sources.Sine(amplitude = 2.5e6, frequency = 0.06, offset = 0, phase = 0.78, start_time = 0)
+
+  variable wind_world_x::Velocity
+  variable wind_world_y::Velocity
+relations
+  initial shaft.phi = 0
+  initial shaft.w = 0
+
+  # Mechanical shaft.
+  connect(k_tau.y, src.tau)
+  connect(src.support, ground.spline)
+  connect(src.spline, shaft.spline_a)
+  connect(shaft.spline_b, prop.flange)
+
+  # Hull → arms → force-appliers (prop, rudder, wind at hull CG).
+  connect(hull.frame_a, prop_arm.frame_a, rudder_arm.frame_a, wind.frame_a)
+  connect(prop_arm.frame_b, prop.frame_a)
+  connect(rudder_arm.frame_b, rudder.frame_a)
+
+  # Apparent wind (world → body), then into ShipWind.
+  wind_world_x = env.WindVector[1]
+  wind_world_y = env.WindVector[2]
+  apparent.BodyVelX = hull.vx_world
+  apparent.BodyVelY = hull.vy_world
+  apparent.BodyHeading = hull.psi
+  apparent.WorldSpeedX = wind_world_x
+  apparent.WorldSpeedY = wind_world_y
+  wind.ApparentWind = apparent.ApparentSpeed
+  wind.AttackAngle = apparent.AttackAngleSigned
+
+  # Sea state: feed sinusoidal forces and moment into the hull extras.
+  hull.Fx_extra = swell_x.y
+  hull.Fy_extra = swell_y.y
+  hull.Mz_extra = swell_yaw.y
+
+  # Propeller and rudder I/O (same as FullShip).
+  prop.ShipSpeed = hull.u
+  rudder.WaterSpeedX_in = hull.u
+  rudder.WaterSpeedY_in = hull.v
+  rudder.Propeller_speed = prop.Propeller_speed
+  rudder.Propeller_flow_diameter = prop.Propeller_flow_diameter
+  rudder.Wake_Fraction = prop.Wake_Fraction
+
+  # Autopilot.
+  pilot.pos_x = hull.pos_x
+  pilot.pos_y = hull.pos_y
+  pilot.vel_x = cos(hull.psi)
+  pilot.vel_y = sin(hull.psi)
+  pilot.target_x = 10000
+  pilot.target_y = 1000
+  pilot.target_speed = 5
+  connect(pilot.rudder, rudder.Rudder_Order)
+end
+
+analysis ShipDisturbedTransient
+  extends TransientAnalysis(stop = 3600.0)
+  model = FullShipDisturbed()
+end

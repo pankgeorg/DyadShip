@@ -16,7 +16,7 @@ A simple lumped thermal model
 | `T_inf`         | Ambient temperature                         | K  |   300 |
 | `T0`         | Initial temperature                         | K  |   320 |
 | `h`         | Convective heat transfer coefficient                         | W/(m2.K)  |   0.7 |
-| `A`         | Surface area                         | m2  |   1 |
+| `A`         | Surface area                         | m2  |   1.0 |
 | `m`         | Mass of thermal capacitance                         | kg  |   0.1 |
 | `c_p`         | Specific Heat                         | J/(kg.K)  |   1.2 |
 
@@ -28,11 +28,12 @@ A simple lumped thermal model
 """
 @component function Hello(; name = nothing, T_inf=Float64(300), T0=Float64(320), h=0.7, A=Float64(1), m=0.1, c_p=1.2, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = Hello()
+  """))
 
-        @named model = Hello()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

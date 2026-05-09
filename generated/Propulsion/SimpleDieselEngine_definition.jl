@@ -83,11 +83,12 @@ Defaults match the upstream `MaxTorqueTable = [600,1500; 800,2000; 900,2750; 110
 """
 @component function SimpleDieselEngine(; name = nothing, J_engine=Float64(15), RPM_min=Float64(0), RPM_max=Float64(2200), k_PI=Float64(300), Ti_PI=0.5, tau_max_abs=Float64(6000), kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = SimpleDieselEngine()
+  """))
 
-        @named model = SimpleDieselEngine()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

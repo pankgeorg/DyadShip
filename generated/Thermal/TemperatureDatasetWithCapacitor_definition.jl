@@ -12,11 +12,12 @@ the capacitor temperature track the time-table over a 24-hour run.
 """
 @component function TemperatureDatasetWithCapacitor(; name = nothing, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = TemperatureDatasetWithCapacitor()
+  """))
 
-        @named model = TemperatureDatasetWithCapacitor()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

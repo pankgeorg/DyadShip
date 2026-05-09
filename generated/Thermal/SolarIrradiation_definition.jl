@@ -65,11 +65,12 @@ Limitations:
 """
 @component function SolarIrradiation(; name = nothing, latitude=0.7579392485634024, longitude=-0.1438785943756596, time_zone=Float64(1), day_of_year=Float64(172), irradiance_ref=Float64(1000), kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = SolarIrradiation()
+  """))
 
-        @named model = SolarIrradiation()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

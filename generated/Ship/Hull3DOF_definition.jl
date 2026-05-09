@@ -5,7 +5,7 @@
 
 
 @doc Markdown.doc"""
-   Hull3DOF(; name, mass, Iz, Du, Dv, Dr)
+   Hull3DOF(; name, mass, Iz, Du, Du_quad, Dv, Dv_quad, Dr, Dr_quad)
 
 Generic 3-DOF (surge/sway/yaw) ship hull dynamics.
 
@@ -35,11 +35,14 @@ Outputs `u`, `v`, `r` are the body-frame surge / sway / yaw rate; `pos_x`, `pos_
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
-| `mass`         |                          | kg  |   5000000 |
-| `Iz`         |                          | kg.m2  |   5000000000 |
-| `Du`         | Linear surge drag coefficient (≥ 0)                         | --  |   0 |
+| `mass`         |                          | kg  |   5e6 |
+| `Iz`         |                          | kg.m2  |   5e9 |
+| `Du`         | Linear surge drag coefficient (N·s/m, ≥ 0)                         | --  |   0 |
+| `Du_quad`         | Quadratic surge drag coefficient (N·s²/m², ≥ 0). Form/wave drag scales with u².                         | --  |   0 |
 | `Dv`         |                          | --  |   0 |
+| `Dv_quad`         |                          | --  |   0 |
 | `Dr`         |                          | --  |   0 |
+| `Dr_quad`         |                          | --  |   0 |
 
 ## Connectors
 
@@ -57,13 +60,14 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
  * `vx_world` - This connector represents a real signal as an output from a component ([`RealOutput`](@ref))
  * `vy_world` - This connector represents a real signal as an output from a component ([`RealOutput`](@ref))
 """
-@component function Hull3DOF(; name = nothing, mass=Float64(5000000), Iz=Float64(5000000000), Du=Float64(0), Dv=Float64(0), Dr=Float64(0), kwargs...)
+@component function Hull3DOF(; name = nothing, mass=Float64(5000000), Iz=Float64(5000000000), Du=Float64(0), Du_quad=Float64(0), Dv=Float64(0), Dv_quad=Float64(0), Dr=Float64(0), Dr_quad=Float64(0), kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = Hull3DOF()
+  """))
 
-        @named model = Hull3DOF()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
@@ -96,14 +100,23 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   append!(__params, @parameters (Iz::Real))
   __initial_conditions[Iz] = __local__Iz
   __local__Du = Du
-  append!(__params, @parameters (Du::Real), [description = "Linear surge drag coefficient (≥ 0)"])
+  append!(__params, @parameters (Du::Real), [description = "Linear surge drag coefficient (N·s/m, ≥ 0)"])
   __initial_conditions[Du] = __local__Du
+  __local__Du_quad = Du_quad
+  append!(__params, @parameters (Du_quad::Real), [description = "Quadratic surge drag coefficient (N·s²/m², ≥ 0). Form/wave drag scales with u²."])
+  __initial_conditions[Du_quad] = __local__Du_quad
   __local__Dv = Dv
   append!(__params, @parameters (Dv::Real))
   __initial_conditions[Dv] = __local__Dv
+  __local__Dv_quad = Dv_quad
+  append!(__params, @parameters (Dv_quad::Real))
+  __initial_conditions[Dv_quad] = __local__Dv_quad
   __local__Dr = Dr
   append!(__params, @parameters (Dr::Real))
   __initial_conditions[Dr] = __local__Dr
+  __local__Dr_quad = Dr_quad
+  append!(__params, @parameters (Dr_quad::Real))
+  __initial_conditions[Dr_quad] = __local__Dr_quad
 
   ### Final Path Parameters
   append!(__vars, @variables (Fx_extra(t)::Real), [input = true])
@@ -159,9 +172,9 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   push!(__eqs, r ~ body.w)
   push!(__eqs, u ~ cos(body.phi) * getindex(getproperty(body, :v), 1) + sin(body.phi) * getindex(getproperty(body, :v), 2))
   push!(__eqs, v ~ -sin(body.phi) * getindex(getproperty(body, :v), 1) + cos(body.phi) * getindex(getproperty(body, :v), 2))
-  push!(__eqs, forcer.force_x ~ Fx_extra - Du * u)
-  push!(__eqs, forcer.force_y ~ Fy_extra - Dv * v)
-  push!(__eqs, forcer.torque ~ Mz_extra - Dr * r)
+  push!(__eqs, forcer.force_x ~ Fx_extra - Du * u - Du_quad * u * abs(u))
+  push!(__eqs, forcer.force_y ~ Fy_extra - Dv * v - Dv_quad * v * abs(v))
+  push!(__eqs, forcer.torque ~ Mz_extra - Dr * r - Dr_quad * r * abs(r))
   push!(__eqs, connect(frame_a, body.frame_a, forcer.frame_b))
 
   # Return completely constructed System

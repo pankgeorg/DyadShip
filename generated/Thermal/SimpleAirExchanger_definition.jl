@@ -35,8 +35,8 @@ Q_flow into a port is a heat input.
 ## Connectors
 
  * `AirFlow` - This connector represents a real signal as an input to a component ([`RealInput`](@ref))
- * `External_Air` - This connector represents a thermal port with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
- * `Internal_Air` - This connector represents a thermal port with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
+ * `External_Air` - This connector represents a thermal node with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
+ * `Internal_Air` - This connector represents a thermal node with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
 
 ## Variables
 
@@ -47,11 +47,12 @@ Q_flow into a port is a heat input.
 """
 @component function SimpleAirExchanger(; name = nothing, Efficiency=0.85, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = SimpleAirExchanger()
+  """))
 
-        @named model = SimpleAirExchanger()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

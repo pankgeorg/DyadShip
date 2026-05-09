@@ -36,18 +36,18 @@ Outputs:
 | `s`         |                          | m  |   20 |
 | `AxisPos`         | Distance from leading edge to sail axis [m, + aft]                         | m  |   0.35 * 7 |
 | `MaxSailAngle`         |                          | --  |   90 |
-| `Sail_Tau`         | First-order servo time constant for sail rotation [s]                         | --  |   1 |
+| `Sail_Tau`         | First-order servo time constant for sail rotation [s]                         | --  |   1.0 |
 | `AirDensity`         |                          | kg/m3  |   1.29 |
-| `AirKViscosity`         |                          | m2/s  |   0.0000148 |
-| `Cl0`         |                          | --  |   0 |
+| `AirKViscosity`         |                          | m2/s  |   1.48e-5 |
+| `Cl0`         |                          | --  |   0.0 |
 | `Cl1`         |                          | --  |   5.5 |
-| `Cl2`         |                          | --  |   -0 |
+| `Cl2`         |                          | --  |   -0.0 |
 | `Cd0`         |                          | --  |   0.02 |
-| `Cd1`         |                          | --  |   0 |
+| `Cd1`         |                          | --  |   0.0 |
 | `Cd2`         |                          | --  |   1.5 |
-| `Cm0`         |                          | --  |   0 |
+| `Cm0`         |                          | --  |   0.0 |
 | `Cm1`         |                          | --  |   -0.6 |
-| `Cm2`         |                          | --  |   0 |
+| `Cm2`         |                          | --  |   0.0 |
 | `Surf`         |                          | m2  |   C * s |
 
 ## Connectors
@@ -80,11 +80,12 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 """
 @component function WingSail(; name = nothing, C=Float64(7), s=Float64(20), AxisPos=0.35 * 7, MaxSailAngle=Float64(90), Sail_Tau=Float64(1), AirDensity=1.29, AirKViscosity=0.0000148, Cl0=Float64(0), Cl1=5.5, Cl2=-0, Cd0=0.02, Cd1=Float64(0), Cd2=1.5, Cm0=Float64(0), Cm1=-0.6, Cm2=Float64(0), Surf=C * s, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = WingSail()
+  """))
 
-        @named model = WingSail()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

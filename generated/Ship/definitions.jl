@@ -16,24 +16,24 @@ if isfile(joinpath((@__DIR__) |> Base.dirname |> Base.dirname, "dyad", "Ship", "
   include(joinpath((@__DIR__) |> Base.dirname |> Base.dirname, "dyad", "Ship", "definitions.jl"))
 end
 
+import BlockComponents
+import DyadData
 import DyadInterface
+import ElectricalComponents
 import MultibodyComponents
 import RotationalComponents
 import ThermalComponents
-import BlockComponents
-import DyadData
 import TranslationalComponents
-import ElectricalComponents
 @doc Markdown.doc"""
 This connector represents an electrical pin with voltage and current as the potential and flow variables, respectively.
 """
 @connector function __Dyad__Pin(; name=nothing)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
-
-        @named model = Pin()
-        """))
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = Pin()
+  """))
   __params = Symbolics.SymbolicT[]
   __vars = @variables begin
     (v(t)::Real), []
@@ -44,15 +44,15 @@ This connector represents an electrical pin with voltage and current as the pote
   return System(Equation[], t, __vars, __params; name, metadata = __metadata)
 end
 @doc Markdown.doc"""
-This connector represents a thermal port with temperature and heat flow as the potential and flow variables, respectively.
+This connector represents a thermal node with temperature and heat flow as the potential and flow variables, respectively.
 """
 @connector function __Dyad__HeatPort(; name=nothing)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
-
-        @named model = HeatPort()
-        """))
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = HeatPort()
+  """))
   __params = Symbolics.SymbolicT[]
   __vars = @variables begin
     (T(t)::Real), []
@@ -67,11 +67,11 @@ This connector represents a mechanical flange with position and force as the pot
 """
 @connector function __Dyad__Flange(; name=nothing)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
-
-        @named model = Flange()
-        """))
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = Flange()
+  """))
   __params = Symbolics.SymbolicT[]
   __vars = @variables begin
     (s(t)::Real), []
@@ -86,11 +86,11 @@ This connector represents a rotational spline with angle and torque as the poten
 """
 @connector function __Dyad__Spline(; name=nothing)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
-
-        @named model = Spline()
-        """))
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = Spline()
+  """))
   __params = Symbolics.SymbolicT[]
   __vars = @variables begin
     (phi(t)::Real), []
@@ -106,11 +106,11 @@ All variables are resolved in the planar world frame.
 """
 @connector function __Dyad__Frame2D(; name=nothing)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
-
-        @named model = Frame2D()
-        """))
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = Frame2D()
+  """))
   __params = Symbolics.SymbolicT[]
   __vars = @variables begin
     (x(t)::Real), []
@@ -128,14 +128,17 @@ end
 Frame3D is the fundamental 3D connector used for 6DOF motion. Most components have one or several `Frame`
 connectors that can be connected together
 """
-@connector function __Dyad__Frame3D(; name=nothing)
+@connector function __Dyad__Frame3D(; name=nothing, render=false, radius, length)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
-
-        @named model = Frame3D()
-        """))
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = Frame3D()
+  """))
   __params = Symbolics.SymbolicT[]
+  append!(__params, (render(t)::Bool))
+  append!(__params, (radius(t)::Real))
+  append!(__params, (length(t)::Real))
   __vars = @variables begin
     (r_0(t)[1:3]::Real), [description = "The position vector from the world frame to the frame origin, resolved in the world frame"]
     (R(t)[1:3,1:3]::Real), [description = "This is the Rotation matrix used to represent orientation"]
@@ -143,8 +146,50 @@ connectors that can be connected together
     (tau(t)[1:3]::Real), [description = "The cut torque resolved in the connector frame", connect = Flow]
   end
   __metadata = Dict{DataType, Any}(
-ModelingToolkit.FrameOrientation => ModelingToolkit.RotationMatrix(collect(unwrap(R))::Matrix{Symbolics.SymbolicT}, ModelingToolkit.get_w(unwrap(R), t)),
-ModelingToolkit.IsFrame => true,
+    ModelingToolkit.FrameOrientation => ModelingToolkit.RotationMatrix(collect(unwrap(R))::Matrix{Symbolics.SymbolicT}, ModelingToolkit.get_w(unwrap(R), t)),
+    ModelingToolkit.IsFrame => true,
+  )
+  return System(Equation[], t, __vars, __params; name, metadata = __metadata)
+end
+@doc Markdown.doc"""
+While it conveys no value, because every connector must
+have a clock associated with it, instantiation of this
+connector always instantiates a new clock.  This allows
+allows us to pass a clock (and only the clock) into a 
+component.
+"""
+@connector function __Dyad__ClockInput(; name=nothing)
+  isnothing(name) && throw(ArgumentError("""
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = ClockInput()
+  """))
+  __params = Symbolics.SymbolicT[]
+  __vars = @variables begin
+  end
+  __metadata = Dict{DataType, Any}(
+  )
+  return System(Equation[], t, __vars, __params; name, metadata = __metadata)
+end
+@doc Markdown.doc"""
+While it conveys no value, because every connector must
+have a clock associated with it, instantiation of this
+connector always instantiates a new clock.  This allows
+allows us to pass a clock (and only the clock) out of a
+component.
+"""
+@connector function __Dyad__ClockOutput(; name=nothing)
+  isnothing(name) && throw(ArgumentError("""
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = ClockOutput()
+  """))
+  __params = Symbolics.SymbolicT[]
+  __vars = @variables begin
+  end
+  __metadata = Dict{DataType, Any}(
   )
   return System(Equation[], t, __vars, __params; name, metadata = __metadata)
 end
@@ -155,10 +200,12 @@ include("AntiHeeling_definition.jl")
 include("Buoyancy1DTransient_definition.jl")
 include("Buoyancy1D_definition.jl")
 include("BuoyancyDisturbance_definition.jl")
+include("FullShipDisturbed_definition.jl")
 include("FullShip_definition.jl")
 include("Hull3DOF_definition.jl")
 include("PropellerOnHullTransient_definition.jl")
 include("PropellerOnHull_definition.jl")
+include("ShipDisturbedTransient_definition.jl")
 include("ShipTransient_definition.jl")
 include("ShipWind_definition.jl")
 include("SimpleAutoPilotConstantTarget_definition.jl")

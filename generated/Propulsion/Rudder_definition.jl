@@ -41,18 +41,18 @@ diagnostics; they hold the *same* values written to `frame_a`. Don't double-appl
 | `s`         |                          | m  |   3.5 |
 | `MaxRudderAngle`         |                          | --  |   35 |
 | `Rudder_Tau`         |                          | --  |   0.4 |
-| `a_h`         |                          | --  |   1 |
-| `SeaKViscosity`         |                          | m2/s  |   0.000001004 |
+| `a_h`         |                          | --  |   1.0 |
+| `SeaKViscosity`         |                          | m2/s  |   1.004e-6 |
 | `SeaDensity`         |                          | kg/m3  |   1025 |
-| `Cl0`         |                          | --  |   0 |
+| `Cl0`         |                          | --  |   0.0 |
 | `Cl1`         |                          | --  |   5.7 |
-| `Cl2`         |                          | --  |   -0 |
+| `Cl2`         |                          | --  |   -0.0 |
 | `Cd0`         |                          | --  |   0.012 |
-| `Cd1`         |                          | --  |   0 |
+| `Cd1`         |                          | --  |   0.0 |
 | `Cd2`         |                          | --  |   1.5 |
-| `Cm0`         |                          | --  |   0 |
+| `Cm0`         |                          | --  |   0.0 |
 | `Cm1`         |                          | --  |   -0.8 |
-| `Cm2`         |                          | --  |   0 |
+| `Cm2`         |                          | --  |   0.0 |
 | `Surf`         |                          | --  |   C * s |
 
 ## Connectors
@@ -89,11 +89,12 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 """
 @component function Rudder(; name = nothing, Lpp=Float64(100), B=Float64(20), Cb=0.693, T=Float64(4), C=Float64(2), s=3.5, MaxRudderAngle=Float64(35), Rudder_Tau=0.4, a_h=Float64(1), SeaKViscosity=0.000001004, SeaDensity=Float64(1025), Cl0=Float64(0), Cl1=5.7, Cl2=-0, Cd0=0.012, Cd1=Float64(0), Cd2=1.5, Cm0=Float64(0), Cm1=-0.8, Cm2=Float64(0), Surf=C * s, kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = Rudder()
+  """))
 
-        @named model = Rudder()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

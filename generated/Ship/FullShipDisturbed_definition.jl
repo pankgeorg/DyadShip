@@ -5,31 +5,34 @@
 
 
 @doc Markdown.doc"""
-   FullShip(; name)
+   FullShipDisturbed(; name)
 
-Full multibody ship analysis: hull + propeller + rudder + autopilot, with PlanarMechanics
-2D coupling. The propeller pushes the hull forward, the autopilot commands a rudder
-deflection to steer the hull toward a target waypoint, the rudder applies a yaw moment.
+Closed-loop ship under wind and sea-state disturbances. Same hull / propeller /
+rudder / autopilot stack as `FullShip`, with:
 
-Setup:
-- Hull: 1e6 kg, Iz = 1e8 kg·m², linear surge/sway/yaw drag.
-- Propeller driven by a constant 80 kN·m torque source, mounted 50 m aft of CG.
-- Rudder mounted 52 m aft of CG (just behind the propeller). Forces from each
-  device pass through a `FixedTranslation` so the lever-arm yaw moment is
-  applied to the hull (in addition to the device's own hydrodynamic moment).
-- Autopilot tracks (10000, 1000) with target speed 5 m/s.
-- Rudder: 7 m² area, no propeller slipstream (slipstream blending is parameterized but
-  the rudder receives the ship's frame velocity directly through the WaterSpeed inputs).
+- Constant world-frame wind (15 m/s from the NE, i.e. +Y/+X), routed through
+  `ApparentSpeedXY` and `ShipWind` so the apparent wind seen by the
+  superstructure tracks the ship's heading and motion.
+- Sea state approximated as low-frequency sinusoidal disturbance forces and
+  yaw moment fed into the hull's `Fx_extra`/`Fy_extra`/`Mz_extra`. Amplitudes
+  are loosely Beaufort 5/6 (≈ 100 kN / 2 MN·m wave drift).
 
-Expected: hull moves toward the target, rudder modulates heading, surge speed climbs
-toward the target.
+This analysis is the regression test for the autopilot — it should keep the
+ship on heading and reach the waypoint despite the disturbance.
+
+## Variables
+
+| Name         | Description                         | Units  | 
+| ------------ | ----------------------------------- | ------ | 
+| `wind_world_x`         |                          | m/s  | 
+| `wind_world_y`         |                          | m/s  | 
 """
-@component function FullShip(; name = nothing, kwargs...)
+@component function FullShipDisturbed(; name = nothing, kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
   
-    @named model = FullShip()
+    @named model = FullShipDisturbed()
   """))
 
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
@@ -61,8 +64,14 @@ toward the target.
   ### Final Path Parameters
 
   ### Variables (declarations)
+  append!(__vars, @variables (wind_world_x(t)::Real))
+  append!(__vars, @variables (wind_world_y(t)::Real))
 
   ### Variables (assignments)
+  __ovr_wind_world_x = pop!(__overrides, "wind_world_x", nothing); isnothing(__ovr_wind_world_x) || push!(__eqs, wind_world_x ~ __ovr_wind_world_x)
+  __ovr_wind_world_x__initial = pop!(__overrides, "wind_world_x__initial", nothing); isnothing(__ovr_wind_world_x__initial) || (__initial_conditions[wind_world_x] = __ovr_wind_world_x__initial)
+  __ovr_wind_world_y = pop!(__overrides, "wind_world_y", nothing); isnothing(__ovr_wind_world_y) || push!(__eqs, wind_world_y ~ __ovr_wind_world_y)
+  __ovr_wind_world_y__initial = pop!(__overrides, "wind_world_y__initial", nothing); isnothing(__ovr_wind_world_y__initial) || (__initial_conditions[wind_world_y] = __ovr_wind_world_y__initial)
 
   ### Constants
   __constants = Any[]
@@ -112,6 +121,30 @@ toward the target.
   rudder_arm_overrides = Dict(Symbol(replace(string(k), r"^rudder_arm__" => "")) => v for (k, v) in __overrides if startswith(string(k), "rudder_arm__"))
   filter!(p -> !startswith(string(first(p)), "rudder_arm__"), __overrides)
   push!(__systems, @named rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[-52, 0], render=false, rudder_arm_overrides...))
+  # Subcomponent env of type DyadShip.Environment
+  env_overrides = Dict(Symbol(replace(string(k), r"^env__" => "")) => v for (k, v) in __overrides if startswith(string(k), "env__"))
+  filter!(p -> !startswith(string(first(p)), "env__"), __overrides)
+  push!(__systems, @named env = DyadShip.Environment(WindSpeed=15, WindDirection=45, env_overrides...))
+  # Subcomponent apparent of type DyadShip.ApparentSpeedXY
+  apparent_overrides = Dict(Symbol(replace(string(k), r"^apparent__" => "")) => v for (k, v) in __overrides if startswith(string(k), "apparent__"))
+  filter!(p -> !startswith(string(first(p)), "apparent__"), __overrides)
+  push!(__systems, @named apparent = DyadShip.ApparentSpeedXY(apparent_overrides...))
+  # Subcomponent wind of type DyadShip.Ship.ShipWind
+  wind_overrides = Dict(Symbol(replace(string(k), r"^wind__" => "")) => v for (k, v) in __overrides if startswith(string(k), "wind__"))
+  filter!(p -> !startswith(string(first(p)), "wind__"), __overrides)
+  push!(__systems, @named wind = DyadShip.Ship.ShipWind(wind_overrides...))
+  # Subcomponent swell_x of type BlockComponents.Sources.Sine
+  swell_x_overrides = Dict(Symbol(replace(string(k), r"^swell_x__" => "")) => v for (k, v) in __overrides if startswith(string(k), "swell_x__"))
+  filter!(p -> !startswith(string(first(p)), "swell_x__"), __overrides)
+  push!(__systems, @named swell_x = BlockComponents.Sources.Sine(amplitude=80000, frequency=0.05, offset=0, phase=0, start_time=0, swell_x_overrides...))
+  # Subcomponent swell_y of type BlockComponents.Sources.Sine
+  swell_y_overrides = Dict(Symbol(replace(string(k), r"^swell_y__" => "")) => v for (k, v) in __overrides if startswith(string(k), "swell_y__"))
+  filter!(p -> !startswith(string(first(p)), "swell_y__"), __overrides)
+  push!(__systems, @named swell_y = BlockComponents.Sources.Sine(amplitude=120000, frequency=0.04, offset=0, phase=1.05, start_time=0, swell_y_overrides...))
+  # Subcomponent swell_yaw of type BlockComponents.Sources.Sine
+  swell_yaw_overrides = Dict(Symbol(replace(string(k), r"^swell_yaw__" => "")) => v for (k, v) in __overrides if startswith(string(k), "swell_yaw__"))
+  filter!(p -> !startswith(string(first(p)), "swell_yaw__"), __overrides)
+  push!(__systems, @named swell_yaw = BlockComponents.Sources.Sine(amplitude=2500000, frequency=0.06, offset=0, phase=0.78, start_time=0, swell_yaw_overrides...))
 
   ### Check there are no unmatched overrides
   isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
@@ -126,6 +159,18 @@ toward the target.
   __assertions = []
 
   ### Equations
+  push!(__eqs, wind_world_x ~ getindex(getproperty(env, :WindVector), 1))
+  push!(__eqs, wind_world_y ~ getindex(getproperty(env, :WindVector), 2))
+  push!(__eqs, apparent.BodyVelX ~ hull.vx_world)
+  push!(__eqs, apparent.BodyVelY ~ hull.vy_world)
+  push!(__eqs, apparent.BodyHeading ~ hull.psi)
+  push!(__eqs, apparent.WorldSpeedX ~ wind_world_x)
+  push!(__eqs, apparent.WorldSpeedY ~ wind_world_y)
+  push!(__eqs, wind.ApparentWind ~ apparent.ApparentSpeed)
+  push!(__eqs, wind.AttackAngle ~ apparent.AttackAngleSigned)
+  push!(__eqs, hull.Fx_extra ~ swell_x.y)
+  push!(__eqs, hull.Fy_extra ~ swell_y.y)
+  push!(__eqs, hull.Mz_extra ~ swell_yaw.y)
   push!(__eqs, prop.ShipSpeed ~ hull.u)
   push!(__eqs, rudder.WaterSpeedX_in ~ hull.u)
   push!(__eqs, rudder.WaterSpeedY_in ~ hull.v)
@@ -139,14 +184,11 @@ toward the target.
   push!(__eqs, pilot.target_x ~ 10000)
   push!(__eqs, pilot.target_y ~ 1000)
   push!(__eqs, pilot.target_speed ~ 5)
-  push!(__eqs, hull.Fx_extra ~ 0)
-  push!(__eqs, hull.Fy_extra ~ 0)
-  push!(__eqs, hull.Mz_extra ~ 0)
   push!(__eqs, connect(k_tau.y, src.tau))
   push!(__eqs, connect(src.support, ground.spline))
   push!(__eqs, connect(src.spline, shaft.spline_a))
   push!(__eqs, connect(shaft.spline_b, prop.flange))
-  push!(__eqs, connect(hull.frame_a, prop_arm.frame_a, rudder_arm.frame_a))
+  push!(__eqs, connect(hull.frame_a, prop_arm.frame_a, rudder_arm.frame_a, wind.frame_a))
   push!(__eqs, connect(prop_arm.frame_b, prop.frame_a))
   push!(__eqs, connect(rudder_arm.frame_b, rudder.frame_a))
   push!(__eqs, connect(pilot.rudder, rudder.Rudder_Order))
@@ -154,4 +196,4 @@ toward the target.
   # Return completely constructed System
   return System(__eqs, t, __vars, __params; systems=__systems, initial_conditions=__initial_conditions, guesses=__guesses, name, initialization_eqs=__initialization_eqs, bindings=__bindings, assertions=__assertions)
 end
-export FullShip
+export FullShipDisturbed

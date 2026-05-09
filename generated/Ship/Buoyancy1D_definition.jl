@@ -52,13 +52,13 @@ so they don't directly couple in equations.
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
-| `mass`         |                          | kg  |   5000000 |
+| `mass`         |                          | kg  |   5e6 |
 | `Lpp`         |                          | m  |   100 |
 | `B`         |                          | m  |   20 |
 | `Cb`         |                          | --  |   0.693 |
 | `rho_sea`         |                          | kg/m3  |   1025 |
 | `g`         |                          | m/s2  |   9.80665 |
-| `Dz`         | Linear heave damping coefficient [N·s/m] (≥ 0)                         | --  |   1000000 |
+| `Dz`         | Linear heave damping coefficient [N·s/m] (≥ 0)                         | --  |   1e6 |
 
 ## Connectors
 
@@ -78,11 +78,12 @@ so they don't directly couple in equations.
 """
 @component function Buoyancy1D(; name = nothing, mass=Float64(5000000), Lpp=Float64(100), B=Float64(20), Cb=0.693, rho_sea=Float64(1025), g=9.80665, Dz=Float64(1000000), kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = Buoyancy1D()
+  """))
 
-        @named model = Buoyancy1D()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]

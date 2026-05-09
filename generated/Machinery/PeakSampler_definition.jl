@@ -52,11 +52,12 @@ Limitations vs upstream:
 """
 @component function PeakSampler(; name = nothing, alpha=Float64(0), y_start=Float64(0), kwargs...)
   isnothing(name) && throw(ArgumentError("""
-        The `name` keyword must be provided. Please consider using the `@named` macro,
-        like so:
+    The `name` keyword must be provided. Please consider using the `@named` macro,
+    like so:
+  
+    @named model = PeakSampler()
+  """))
 
-        @named model = PeakSampler()
-        """))
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
