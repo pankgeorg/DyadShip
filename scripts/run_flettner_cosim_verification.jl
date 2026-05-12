@@ -65,16 +65,26 @@ end
 const ASSETS = abspath(joinpath(@__DIR__, "..", "assets"))
 mkpath(ASSETS)
 
-const COUPLING_DT = 0.2
-const INNER_DT    = 0.5
-# Grid resolution: D = N_GRID / 4 cells across the cylinder diameter, domain
-# (6·N_GRID, N_GRID). Override via env: `N_GRID=256 julia scripts/run_…jl`.
-# n=128 matches the offline characterization table; bump to 256 / 384 for
-# better GPU utilization (the small grid is launch-overhead bound on most
-# GPUs, see README "Live co-simulation" section).
-const N_GRID      = parse(Int, get(ENV, "N_GRID", "128"))
-const RE          = 1.0e4
-const T_STOP      = 90.0
+# All four knobs are env-overridable so the same script handles short
+# verification (defaults) and the full-arrival rendering job.
+#
+#   T_STOP=1500 COUPLING_DT=1.0 N_GRID=128  ../julia-dyad.sh --project=scripts scripts/...jl
+#
+# would run the rotor for 1500 s of sim time, callback every 1 s
+# (= 1500 CFD steps), at n=128 — long enough for the ship to reach the
+# target at ~t=1200 in the favorable wind setup.
+const COUPLING_DT = parse(Float64, get(ENV, "COUPLING_DT", "0.2"))
+const INNER_DT    = parse(Float64, get(ENV, "INNER_DT",    "0.5"))
+const N_GRID      = parse(Int,     get(ENV, "N_GRID",      "128"))
+const RE          = parse(Float64, get(ENV, "RE",          "1.0e4"))
+const T_STOP      = parse(Float64, get(ENV, "T_STOP",      "90.0"))
+
+# Vorticity-snapshot stride: subsample so the rendered MP4 stays at a
+# reasonable length (~25 s at 30 fps ⇒ ~750 frames). At short T_STOP
+# every callback snaps; at long T_STOP we skip every N-th.
+const N_CALLBACKS_EST = ceil(Int, T_STOP / COUPLING_DT)
+const MAX_VID_FRAMES  = 750
+const SNAPSHOT_STRIDE = max(1, ceil(Int, N_CALLBACKS_EST / MAX_VID_FRAMES))
 
 # -- Stage 1: run the table-based favorable analysis as a reference -----
 println("─"^72)
@@ -112,15 +122,16 @@ const _get_U     = getsym(sys_full, model.rotor.U_app_obs)
 const _get_alpha = getsym(sys_full, model.rotor.alpha_obs)
 const _get_omega = getsym(sys_full, model.rotor.omega_obs)
 
-const cb_log_t    = Float64[]
-const cb_log_Fx   = Float64[]
-const cb_log_Fy   = Float64[]
-const cb_log_U    = Float64[]
-const cb_log_a    = Float64[]
-const cb_log_om   = Float64[]
-const cb_log_Cl   = Float64[]
-const cb_log_Cd   = Float64[]
-const cb_log_vort = Array{Float32,2}[]   # snapshot of WaterLily vorticity per callback
+const cb_log_t      = Float64[]
+const cb_log_Fx     = Float64[]
+const cb_log_Fy     = Float64[]
+const cb_log_U      = Float64[]
+const cb_log_a      = Float64[]
+const cb_log_om     = Float64[]
+const cb_log_Cl     = Float64[]
+const cb_log_Cd     = Float64[]
+const cb_log_vort   = Array{Float32,2}[]   # subsampled WaterLily vorticity
+const cb_log_vort_t = Float64[]            # matching times for the snapshots
 
 function cosim_affect!(integ)
     t      = integ.t
@@ -142,9 +153,14 @@ function cosim_affect!(integ)
     # field `sim.flow.σ`, then snapshot. ~200 KB per frame at n=128. The
     # `Array(…)` wrapper brings the field back from GPU when the sim is
     # running on `mem=CUDA.CuArray`; on CPU it's a cheap no-op `copy`.
-    sim_h = DyadShip.FlettnerCFDLive.STATE.sim
-    WaterLily.@inside sim_h.flow.σ[I] = WaterLily.curl(3, I, sim_h.flow.u) * sim_h.L
-    push!(cb_log_vort, Array(sim_h.flow.σ))
+    # Subsample at SNAPSHOT_STRIDE so a long T_STOP doesn't produce a
+    # 50+ second video — `cb_log_t` index gates the snapshot decision.
+    if (length(cb_log_t) - 1) % SNAPSHOT_STRIDE == 0
+        sim_h = DyadShip.FlettnerCFDLive.STATE.sim
+        WaterLily.@inside sim_h.flow.σ[I] = WaterLily.curl(3, I, sim_h.flow.u) * sim_h.L
+        push!(cb_log_vort, Array(sim_h.flow.σ))
+        push!(cb_log_vort_t, t)
+    end
 
     SciMLBase.u_modified!(integ, false)
     return nothing
@@ -182,14 +198,21 @@ on_py = [sol_on(t; idxs = sys_full.hull.pos_y)    for t in ts_on]
 println()
 println("Comparison at sample points (cb_* is the live force at the coupling step nearest t):")
 println("  t        ref Fx (kN)   on Fx (kN)    ref Fy (kN)   on Fy (kN)    ref u   on u")
-for t in (10.0, 30.0, 60.0, 90.0)
+# Sample points: scale with T_STOP so the same script handles short
+# verification (90 s) and full-arrival (1500 s).
+const _sample_times = if T_STOP <= 120
+    (10.0, 30.0, 60.0, 90.0)
+else
+    (30.0, 300.0, 600.0, 900.0, 1200.0, min(1500.0, T_STOP))
+end
+for t in _sample_times
     t > sol_on.t[end] && continue
-    i  = findfirst(==(t), ts)
-    j  = findfirst(==(t), ts_on)
-    kb = argmin(abs.(on_t_cb .- t))   # nearest callback log entry
+    i_idx  = argmin(abs.(ts .- t))
+    j_idx  = argmin(abs.(ts_on .- t))
+    kb = argmin(abs.(on_t_cb .- t))
     @printf("  %5.1f    %+9.1f      %+9.1f       %+9.1f      %+9.1f       %5.2f   %5.2f\n",
-            t, ref_Fx[i]/1e3, on_Fx[kb]/1e3, ref_Fy[i]/1e3, on_Fy[kb]/1e3,
-            ref_u[i], on_u[j])
+            t, ref_Fx[i_idx]/1e3, on_Fx[kb]/1e3, ref_Fy[i_idx]/1e3, on_Fy[kb]/1e3,
+            ref_u[i_idx], on_u[j_idx])
 end
 
 println()
@@ -248,14 +271,18 @@ nframes = length(cb_log_vort)
 fps = 30
 println("  $(nframes) frames at $(fps) fps  → $(round(nframes/fps; digits=1)) s video")
 
-# Pre-sample the ship trajectory + heading + wind at each callback time so
-# the per-frame work is just plotting.
-ship_t  = cb_log_t
-ship_x  = [sol_on(t; idxs = sys_full.hull.pos_x)        for t in ship_t]
-ship_y  = [sol_on(t; idxs = sys_full.hull.pos_y)        for t in ship_t]
-ship_psi = [sol_on(t; idxs = sys_full.hull.psi)         for t in ship_t]
-wspd    = [sol_on(t; idxs = sys_full.wind_speed_now)    for t in ship_t]
+# Pre-sample ship trajectory + heading + wind at the vorticity-snapshot
+# times (= cb_log_vort_t, which may be a subsample of cb_log_t when
+# SNAPSHOT_STRIDE > 1).
+ship_t  = cb_log_vort_t
+ship_x  = [sol_on(t; idxs = sys_full.hull.pos_x)         for t in ship_t]
+ship_y  = [sol_on(t; idxs = sys_full.hull.pos_y)         for t in ship_t]
+ship_psi = [sol_on(t; idxs = sys_full.hull.psi)          for t in ship_t]
+wspd    = [sol_on(t; idxs = sys_full.wind_speed_now)     for t in ship_t]
 wdir    = [sol_on(t; idxs = sys_full.wind_direction_now) for t in ship_t]
+# Match-by-time lookups into the full callback log for the per-frame
+# annotations (force, ω, ξ, Cl, Cd, U_app, α).
+vort_to_cb = [argmin(abs.(cb_log_t .- t)) for t in ship_t]
 
 # Ship glyph (same shapes as render_all.jl).
 const SHIP_LEN = 200.0
@@ -266,15 +293,23 @@ const SHIP_LOCAL = [
     (-SHIP_LEN*0.5, -SHIP_HALF_BEAM),
 ]
 
-# Map extent — zoom to where the ship goes in 90 s. The full target at
-# (10000, 1000) is out of frame; instead show the trajectory plus the
-# initial heading vector toward the target.
-const MAP_XLIMS = (-200.0, 1200.0)
-const MAP_YLIMS = (-300.0, 300.0)
+# Map extent — auto-fit to the actual trajectory + target (so short
+# T_STOP and full-arrival T_STOP both look right). Buffer the box so the
+# ship glyph + arrow stay inside the frame.
+const TARGET_X, TARGET_Y = 10000.0, 1000.0
+const _x_lo = min(0.0, minimum(ship_x), TARGET_X)
+const _x_hi = max(0.0, maximum(ship_x), TARGET_X)
+const _y_lo = min(0.0, minimum(ship_y), TARGET_Y)
+const _y_hi = max(0.0, maximum(ship_y), TARGET_Y)
+const _pad_x = max(800.0, 0.08 * (_x_hi - _x_lo))
+const _pad_y = max(400.0, 0.20 * (_y_hi - _y_lo))
+const MAP_XLIMS = (_x_lo - _pad_x, _x_hi + _pad_x)
+const MAP_YLIMS = (_y_lo - _pad_y, _y_hi + _pad_y)
 
 anim = @animate for k in 1:nframes
     t = ship_t[k]
-    ξ_k = cb_log_om[k] * 2.5 / max(abs(cb_log_U[k]), 1e-3)
+    cb = vort_to_cb[k]
+    ξ_k = cb_log_om[cb] * 2.5 / max(abs(cb_log_U[cb]), 1e-3)
     px, py, ψ = ship_x[k], ship_y[k], ship_psi[k]
     ws, wd = wspd[k], wdir[k]
 
@@ -284,7 +319,7 @@ anim = @animate for k in 1:nframes
                  xlabel = "x [m] (East→)", ylabel = "y [m] (North↑)",
                  title = "Ship map  |  t = $(round(t; digits=1)) s  |  " *
                          "u = $(round(sol_on(t; idxs=sys_full.hull.u); digits=2)) m/s  |  " *
-                         "ω = $(round(cb_log_om[k]; digits=1)) rad/s",
+                         "ω = $(round(cb_log_om[cb]; digits=1)) rad/s",
                  titlefontsize = 9,
                  aspect_ratio = :equal,
                  xlims = MAP_XLIMS, ylims = MAP_YLIMS,
@@ -297,33 +332,38 @@ anim = @animate for k in 1:nframes
           seriestype = :shape, c = :crimson, lw = 1, fillalpha = 0.7, label = "")
 
     # Rotor force arrow from the ship.
-    Fx_w = cos(ψ)*cb_log_Fx[k] - sin(ψ)*cb_log_Fy[k]
-    Fy_w = sin(ψ)*cb_log_Fx[k] + cos(ψ)*cb_log_Fy[k]
-    arrow_scale = 1e-3   # m of arrow per N
+    Fx_w = cos(ψ)*cb_log_Fx[cb] - sin(ψ)*cb_log_Fy[cb]
+    Fy_w = sin(ψ)*cb_log_Fx[cb] + cos(ψ)*cb_log_Fy[cb]
+    # Scale arrow length to be visible on the auto-fit map (longer
+    # transits use larger axis extents, so larger scale).
+    arrow_scale = max(1e-3, 0.04 * (MAP_XLIMS[2] - MAP_XLIMS[1]) / 4e5)
     plot!(p_map, [px, px + arrow_scale*Fx_w], [py, py + arrow_scale*Fy_w];
           arrow = :head, c = :purple, lw = 2, label = "")
 
-    # Wind arrow in the corner.
-    cx, cy = MAP_XLIMS[2] - 150.0, MAP_YLIMS[2] - 60.0
-    wθ = deg2rad(wd); L = 70.0
+    # Wind arrow in the corner. Scale relative to the map extent.
+    _map_w = MAP_XLIMS[2] - MAP_XLIMS[1]
+    _map_h = MAP_YLIMS[2] - MAP_YLIMS[1]
+    wcx, wcy = MAP_XLIMS[2] - 0.08*_map_w, MAP_YLIMS[2] - 0.12*_map_h
+    wθ = deg2rad(wd); L = 0.05 * _map_w
     wlen = L * clamp(0.4 + ws / 20, 0.4, 1.4)
-    plot!(p_map, [cx, cx - wlen*sin(wθ)], [cy, cy - wlen*cos(wθ)];
+    plot!(p_map, [wcx, wcx - wlen*sin(wθ)], [wcy, wcy - wlen*cos(wθ)];
           arrow = :head, c = :royalblue, lw = 2, label = "")
-    annotate!(p_map, cx, cy - 90,
+    annotate!(p_map, wcx, wcy - 0.12*_map_h,
               text("wind $(round(ws; digits=1)) m/s\nfrom $(round(Int, mod(wd, 360)))°",
                    :royalblue, :center, 7))
 
-    # Start marker.
-    scatter!(p_map, [0.0], [0.0]; ms = 4, c = :black, label = "")
+    # Start + target markers.
+    scatter!(p_map, [0.0], [0.0]; ms = 5, c = :black, label = "")
+    scatter!(p_map, [TARGET_X], [TARGET_Y]; ms = 9, c = :gold, marker = :star5, label = "")
 
     # ─── Bottom panel: WaterLily vorticity field ────────────────────────
     ω_field = cb_log_vort[k]'
     title_bot = "WaterLily z-vorticity  |  " *
-                "U_app = $(round(cb_log_U[k]; digits=1)) m/s  |  " *
-                "α = $(round(cb_log_a[k]; digits=2)) rad  |  " *
+                "U_app = $(round(cb_log_U[cb]; digits=1)) m/s  |  " *
+                "α = $(round(cb_log_a[cb]; digits=2)) rad  |  " *
                 "ξ = $(round(ξ_k; digits=2))  |  " *
-                "Cl_live = $(round(cb_log_Cl[k]; digits=2))  |  " *
-                "Cd_live = $(round(cb_log_Cd[k]; digits=2))"
+                "Cl_live = $(round(cb_log_Cl[cb]; digits=2))  |  " *
+                "Cd_live = $(round(cb_log_Cd[cb]; digits=2))"
     p_cfd = heatmap(ω_field;
                     c = :RdBu, clims = (-8, 8),
                     aspect_ratio = :equal,
