@@ -219,27 +219,96 @@ println("  wrote $out_png")
 # rolling up around the spinning cylinder, Magnus side lift visible as a
 # vortex-shedding bias.
 # ─────────────────────────────────────────────────────────────────────────
-println("Rendering cosim vorticity animation…")
+println("Rendering combined map + WaterLily-vorticity cosim animation…")
 nframes = length(cb_log_vort)
 fps = 30
 println("  $(nframes) frames at $(fps) fps  → $(round(nframes/fps; digits=1)) s video")
+
+# Pre-sample the ship trajectory + heading + wind at each callback time so
+# the per-frame work is just plotting.
+ship_t  = cb_log_t
+ship_x  = [sol_on(t; idxs = sys_full.hull.pos_x)        for t in ship_t]
+ship_y  = [sol_on(t; idxs = sys_full.hull.pos_y)        for t in ship_t]
+ship_psi = [sol_on(t; idxs = sys_full.hull.psi)         for t in ship_t]
+wspd    = [sol_on(t; idxs = sys_full.wind_speed_now)    for t in ship_t]
+wdir    = [sol_on(t; idxs = sys_full.wind_direction_now) for t in ship_t]
+
+# Ship glyph (same shapes as render_all.jl).
+const SHIP_LEN = 200.0
+const SHIP_HALF_BEAM = 70.0
+const SHIP_LOCAL = [
+    ( SHIP_LEN*0.5,  0.0),
+    (-SHIP_LEN*0.5,  SHIP_HALF_BEAM),
+    (-SHIP_LEN*0.5, -SHIP_HALF_BEAM),
+]
+
+# Map extent — zoom to where the ship goes in 90 s. The full target at
+# (10000, 1000) is out of frame; instead show the trajectory plus the
+# initial heading vector toward the target.
+const MAP_XLIMS = (-200.0, 1200.0)
+const MAP_YLIMS = (-300.0, 300.0)
+
 anim = @animate for k in 1:nframes
-    ω_field = cb_log_vort[k]'   # transpose so the long axis (flow direction) is X
+    t = ship_t[k]
     ξ_k = cb_log_om[k] * 2.5 / max(abs(cb_log_U[k]), 1e-3)
-    t = cb_log_t[k]
-    title_str = "t = $(round(t; digits=1)) s   |   " *
-                "ω = $(round(cb_log_om[k]; digits=1)) rad/s   |   " *
-                "U_app = $(round(cb_log_U[k]; digits=1)) m/s   |   " *
-                "ξ = $(round(ξ_k; digits=2))   |   " *
-                "Cl_live = $(round(cb_log_Cl[k]; digits=2))   |   " *
+    px, py, ψ = ship_x[k], ship_y[k], ship_psi[k]
+    ws, wd = wspd[k], wdir[k]
+
+    # ─── Top panel: ship map view ───────────────────────────────────────
+    p_map = plot(ship_x[1:k], ship_y[1:k];
+                 label = "", lw = 2, c = :steelblue,
+                 xlabel = "x [m] (East→)", ylabel = "y [m] (North↑)",
+                 title = "Ship map  |  t = $(round(t; digits=1)) s  |  " *
+                         "u = $(round(sol_on(t; idxs=sys_full.hull.u); digits=2)) m/s  |  " *
+                         "ω = $(round(cb_log_om[k]; digits=1)) rad/s",
+                 titlefontsize = 9,
+                 aspect_ratio = :equal,
+                 xlims = MAP_XLIMS, ylims = MAP_YLIMS,
+                 legend = false)
+
+    # Ship glyph (small triangle).
+    sx = [px + cos(ψ)*lx - sin(ψ)*ly for (lx, ly) in SHIP_LOCAL]
+    sy = [py + sin(ψ)*lx + cos(ψ)*ly for (lx, ly) in SHIP_LOCAL]
+    plot!(p_map, [sx; sx[1]], [sy; sy[1]];
+          seriestype = :shape, c = :crimson, lw = 1, fillalpha = 0.7, label = "")
+
+    # Rotor force arrow from the ship.
+    Fx_w = cos(ψ)*cb_log_Fx[k] - sin(ψ)*cb_log_Fy[k]
+    Fy_w = sin(ψ)*cb_log_Fx[k] + cos(ψ)*cb_log_Fy[k]
+    arrow_scale = 1e-3   # m of arrow per N
+    plot!(p_map, [px, px + arrow_scale*Fx_w], [py, py + arrow_scale*Fy_w];
+          arrow = :head, c = :purple, lw = 2, label = "")
+
+    # Wind arrow in the corner.
+    cx, cy = MAP_XLIMS[2] - 150.0, MAP_YLIMS[2] - 60.0
+    wθ = deg2rad(wd); L = 70.0
+    wlen = L * clamp(0.4 + ws / 20, 0.4, 1.4)
+    plot!(p_map, [cx, cx - wlen*sin(wθ)], [cy, cy - wlen*cos(wθ)];
+          arrow = :head, c = :royalblue, lw = 2, label = "")
+    annotate!(p_map, cx, cy - 90,
+              text("wind $(round(ws; digits=1)) m/s\nfrom $(round(Int, mod(wd, 360)))°",
+                   :royalblue, :center, 7))
+
+    # Start marker.
+    scatter!(p_map, [0.0], [0.0]; ms = 4, c = :black, label = "")
+
+    # ─── Bottom panel: WaterLily vorticity field ────────────────────────
+    ω_field = cb_log_vort[k]'
+    title_bot = "WaterLily z-vorticity  |  " *
+                "U_app = $(round(cb_log_U[k]; digits=1)) m/s  |  " *
+                "α = $(round(cb_log_a[k]; digits=2)) rad  |  " *
+                "ξ = $(round(ξ_k; digits=2))  |  " *
+                "Cl_live = $(round(cb_log_Cl[k]; digits=2))  |  " *
                 "Cd_live = $(round(cb_log_Cd[k]; digits=2))"
-    heatmap(ω_field;
-            c = :RdBu, clims = (-8, 8),
-            aspect_ratio = :equal,
-            title = title_str, titlefontsize = 9,
-            xlabel = "x [grid cells]  (inflow →)", ylabel = "y [grid cells]",
-            colorbar_title = "z-vorticity (sim units)",
-            size = (1200, 350))
+    p_cfd = heatmap(ω_field;
+                    c = :RdBu, clims = (-8, 8),
+                    aspect_ratio = :equal,
+                    title = title_bot, titlefontsize = 9,
+                    xlabel = "x [grid cells]  (inflow →)", ylabel = "y [grid cells]",
+                    colorbar = false)
+
+    plot(p_map, p_cfd; layout = grid(2, 1, heights = [0.55, 0.45]),
+         size = (1200, 700))
 end
 mp4_path = joinpath(ASSETS, "flettner_cosim_animation.mp4")
 mp4(anim, mp4_path; fps = fps)
