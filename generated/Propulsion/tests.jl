@@ -17,6 +17,8 @@ end
 
 @testset "`DyadShip.Propulsion`" begin
 include("DieselEngineRamp_test.jl")
+include("FlettnerRotorBeamWind_test.jl")
+include("FlettnerRotor_test.jl")
 include("POD4Q_test.jl")
 include("Propeller1QSpinUp_test.jl")
 include("Propeller1Q_test.jl")

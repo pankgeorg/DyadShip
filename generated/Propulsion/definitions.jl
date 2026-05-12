@@ -195,6 +195,9 @@ component.
 end
 
 include("DieselEngineRamp_definition.jl")
+include("FlettnerRotorBeamWind_definition.jl")
+include("FlettnerRotorTransient_definition.jl")
+include("FlettnerRotor_definition.jl")
 include("POD4Q_definition.jl")
 include("Propeller1QSpinUp_definition.jl")
 include("Propeller1QTransient_definition.jl")

@@ -1,27 +1,41 @@
 """
-Render-enabled variant of `FullShip`. Same hull / propulsion / autopilot
-stack, but with shapes turned on for the World, the hull body, and the
-propeller/rudder mounting arms so the Makie render extension has
-something to draw. Stops at 2200 s — slightly past the typical arrival
-time of the clean run, so the recording captures the full approach +
-station-keeping period.
+Flettner-rotor ship with a *favorable* wind orientation. Same hull / propulsion /
+autopilot / rotor stack as `FullShipFlettnerRender`, but the mean wind direction
+is rotated so the apparent wind hits the ship broadside, putting the Magnus
+lift squarely along the surge axis instead of mostly into sway.
 
-Wind is **time-varying**: `VariableEnvironment` is driven by a sum of slow
-sinusoids (periods of a few minutes), so wind speed and direction wander
-smoothly through the run. The downstream `ApparentSpeedXY` + `ShipWind`
-chain folds that into a real aerodynamic load on the hull, and the
-current speed/direction are exposed as variables so the offline animation
-script can plot the wind glyph per frame.
+Physics: the standard Flettner sweet spot is beam wind, with the rotor's spin
+direction chosen so lift points forward. For an east-bound ship (target +X)
+with the default CCW spin (ω > 0), wind blowing southward (i.e. `WindDirection
+= 0`, from the north) produces:
+- body-frame wind ≈ (−tiny, −U_app)   [port beam]
+- ex = 0,  ey ≈ −1
+- Force_X = −sign_omega · Lift · ey ≈ +Lift   (forward thrust)
+- Force_Y ≈ −Drag                              (small, southward)
+
+So the rotor contributes its full lift coefficient to surge thrust and only
+the small Cd-scaled drag to sway. Compared with `FullShipFlettnerRender`
+(wind mean 45°, ~30% of |F| in surge), this variant gets ~90% of |F| in
+surge, and the autopilot's job stays inside its linear regime through the
+whole horizon.
+
+Everything else (rotor geometry, ramp profile, target, autopilot gains) is
+identical so the three-way comparison (no-rotor / unfavorable / favorable) is
+purely about the wind direction.
 """
-test component FullShipRender
+test component FullShipFlettnerFavorableRender
   parameter target_x::Length = 10000
   parameter target_y::Length = 1000
   parameter base_torque::Torque = 80000
 
-  "Mean wind speed [m/s]"
   parameter wind_speed_mean::Velocity = 15
-  "Mean wind 'from' direction [deg], 0=N(+Y), 90=E(+X)"
-  parameter wind_direction_mean::Real = 45
+  "Wind from due North — beam wind from port for east-bound heading."
+  parameter wind_direction_mean::Real = 0
+
+  parameter rotor_R::Length = 2.5
+  parameter rotor_H::Length = 24
+  parameter omega_target::Real = 28
+  parameter rotor_arm::Length = 30
 
   world = MultibodyComponents.PlanarMechanics.World(g = 0, render = true)
   hull = HullMMG(mass = 1e6, Iz = 1e8, Lpp = 100, B = 20, Draft = 4, Cb = 0.693,
@@ -41,25 +55,24 @@ test component FullShipRender
   rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(
     r = [-52, 0], render = true, radius = 100
   )
+  rotor_arm_t = MultibodyComponents.PlanarMechanics.FixedTranslation(
+    r = [rotor_arm, 0], render = true, radius = 100
+  )
 
-  # Wind chain: time-varying world-frame wind → apparent-speed converter → ShipWind force.
   env = DyadShip.VariableEnvironment()
   apparent = DyadShip.ApparentSpeedXY()
   wind = ShipWind()
+  rotor = DyadShip.Propulsion.FlettnerRotor(R = rotor_R, H = rotor_H)
 
-  "Instantaneous wind speed [m/s] (sum of slow sinusoids around the mean)"
   variable wind_speed_now::Velocity
-  "Instantaneous wind 'from' direction [deg]"
   variable wind_direction_now::Real
   variable wind_world_x::Velocity
   variable wind_world_y::Velocity
+  variable rotor_omega_cmd::Real
 relations
   initial shaft.phi = 0
   initial shaft.w = 0
 
-  # Smooth pseudo-random wind drift. Periods are incommensurate (≈3–10 minutes)
-  # so the trace looks random while staying differentiable. Amplitudes are
-  # small enough that the ship can still make headway.
   wind_speed_now = wind_speed_mean
                  + 3.5 * sin(2 * π * time / 311 + 0.4)
                  + 2.0 * sin(2 * π * time / 197 + 1.3)
@@ -79,11 +92,11 @@ relations
   connect(src.spline, shaft.spline_a)
   connect(shaft.spline_b, prop.flange)
 
-  connect(hull.frame_a, prop_arm.frame_a, rudder_arm.frame_a, wind.frame_a)
+  connect(hull.frame_a, prop_arm.frame_a, rudder_arm.frame_a, wind.frame_a, rotor_arm_t.frame_a)
   connect(prop_arm.frame_b, prop.frame_a)
   connect(rudder_arm.frame_b, rudder.frame_a)
+  connect(rotor_arm_t.frame_b, rotor.frame_a)
 
-  # Apparent wind (world → body), then into ShipWind.
   wind_world_x = env.WindVector[1]
   wind_world_y = env.WindVector[2]
   apparent.BodyVelX = hull.vx_world
@@ -93,6 +106,12 @@ relations
   apparent.WorldSpeedY = wind_world_y
   wind.ApparentWind = apparent.ApparentSpeed
   wind.AttackAngle = apparent.AttackAngleSigned
+
+  rotor.WindSpeedX_in = -apparent.SpeedLocalX
+  rotor.WindSpeedY_in = -apparent.SpeedLocalY
+
+  rotor_omega_cmd = omega_target * (1 - exp(-time / 30))
+  rotor.Omega_Order = rotor_omega_cmd
 
   prop.ShipSpeed = hull.u
   rudder.WaterSpeedX_in = hull.u
@@ -113,7 +132,7 @@ relations
   hull.Mz_extra = 0
 end
 
-analysis ShipRenderTransient
-  extends TransientAnalysis(stop = 2200.0)
-  model = FullShipRender()
+analysis ShipFlettnerFavorableRenderTransient
+  extends TransientAnalysis(stop = 1500.0)
+  model = FullShipFlettnerFavorableRender()
 end

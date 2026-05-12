@@ -48,14 +48,10 @@ pos_y = [sol(t; idxs = sys.hull.pos_y) for t in sample_times]
 psi = [sol(t; idxs = sys.hull.psi) for t in sample_times]
 thrust_kn = [sol(t; idxs = sys.prop.Thrust) / 1e3 for t in sample_times]
 rudder = [sol(t; idxs = sys.rudder.Rudder_position) for t in sample_times]
+wind_spd = [sol(t; idxs = sys.wind_speed_now) for t in sample_times]
+wind_dir = [sol(t; idxs = sys.wind_direction_now) for t in sample_times]
 
 target_x, target_y = 10000.0, 1000.0
-
-# Wind config from Ship_disturbed_analysis.dyad (constant in this clean run).
-WIND_SPEED = 15.0
-WIND_FROM_DEG = 45.0
-wind_θ = deg2rad(WIND_FROM_DEG)
-wind_dx, wind_dy = -sin(wind_θ), -cos(wind_θ)   # direction wind blows toward
 
 # Triangle representing the ship — pointing along its body +x. Scale so it's
 # visible at world extent ~10000 m.
@@ -74,12 +70,16 @@ anim = @animate for k in 1:nframes
     py = pos_y[k]
     ψ = psi[k]
 
+    wspd = wind_spd[k]
+    wdir = wind_dir[k]
+
     # Track up to current time, fading trail.
     p = plot(
         pos_x[1:k], pos_y[1:k];
         label = "track", lw = 2, c = :steelblue,
         xlabel = "x [m] (East→)", ylabel = "y [m] (North↑)",
-        title = "Ship at t = $(round(sample_times[k]; digits = 0)) s   |   thrust = $(round(thrust_kn[k]; digits = 0)) kN   |   rudder = $(round(rudder[k]; digits = 1))°",
+        title = "t = $(round(sample_times[k]; digits = 0)) s  |  thrust $(round(thrust_kn[k]; digits = 0)) kN  |  rudder $(round(rudder[k]; digits = 1))°  |  wind $(round(wspd; digits = 1)) m/s from $(round(Int, mod(wdir, 360)))°",
+        titlefontsize = 9,
         aspect_ratio = :equal,
         xlims = (-1000, 11500),
         ylims = (-1500, 3500),
@@ -101,10 +101,18 @@ anim = @animate for k in 1:nframes
     L = 400.0
     plot!(p, [cx, cx], [cy, cy + L]; arrow = :head, c = :black, lw = 2, label = "")
     annotate!(p, cx, cy + L * 1.25, text("N", :black, :center, 9))
-    plot!(p, [cx - 1.5*L, cx - 1.5*L + L*wind_dx], [cy, cy + L*wind_dy];
+
+    # Wind arrow — points in the direction the wind is *blowing toward*.
+    # `wdir` is the meteorological "from" angle: 0° = +Y, 90° = +X.
+    wθ = deg2rad(wdir)
+    wind_dx, wind_dy = -sin(wθ), -cos(wθ)
+    # Scale arrow length with speed (0 m/s → 0.4·L, 20 m/s → 1.4·L).
+    wlen = L * clamp(0.4 + wspd / 20, 0.4, 1.4)
+    plot!(p, [cx - 1.5*L, cx - 1.5*L + wlen*wind_dx], [cy, cy + wlen*wind_dy];
           arrow = :head, c = :royalblue, lw = 2, label = "")
     annotate!(p, cx - 1.5*L, cy - 0.4*L,
-              text("wind 15 m/s\nfrom 45°", :royalblue, :center, 8))
+              text("wind $(round(wspd; digits = 1)) m/s\nfrom $(round(Int, mod(wdir, 360)))°",
+                   :royalblue, :center, 8))
 end
 
 mp4_path = joinpath(ASSETS, "ship_animation.mp4")

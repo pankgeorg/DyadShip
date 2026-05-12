@@ -1,0 +1,145 @@
+"""
+Flettner-rotor (rotating-cylinder Magnus-effect) propulsor.
+
+A vertical spinning cylinder mounted on the ship. Cross-wind on the rotating
+surface develops a Magnus lift force perpendicular to the apparent wind, plus a
+larger-than-static cylinder drag. Both coefficients depend on the dimensionless
+spin ratio `ξ = |ω|·R / U_app`.
+
+The (Cl(ξ), Cd(ξ)) curves are sourced from a WaterLily.jl CFD characterization
+of a 2D rotating cylinder in cross-flow — see
+`scripts/run_waterlily_flettner.jl`. That script runs an offline WaterLily sweep
+over ξ ∈ [0, 6] and writes `assets/flettner_coeffs.csv`, which this component
+reads at simulation time via two `BlockComponents.Tables.Interpolation` blocks.
+Re-running the script and refreshing the CSV is the way to substitute newer /
+higher-resolution CFD data without touching this `.dyad` file.
+
+Sign convention of the CSV: the table stores `WaterLily.total_force` directly,
+which (per `WaterLily/src/Metrics.jl::pressure_force`) integrates `p·n̂_out` —
+the force the **body exerts on the fluid**. The conventional aerodynamic
+force-on-body coefficients are the negation of that. We negate at the point of
+use below (`Cl_eng = -Cl_table`, `Cd_eng = -Cd_table`), so the CSV stays as raw
+WaterLily output (easy to re-generate / cross-check) and the in-Dyad force
+algebra speaks the standard aerodynamic convention (Cl > 0 means lift in +n̂
+perpendicular-to-wind, Cd > 0 means drag along the wind).
+
+Why a precomputed table and not live per-step CFD: a single WaterLily step at
+moderate resolution costs many ms, and a Dyad transient solver calls the rhs
+hundreds of times per simulated second — running a 2D CFD at every rhs
+evaluation across a 2200-s ship simulation is many orders of magnitude too
+slow. Industrial Flettner designs (Norsepower, Maranet) use the same
+"characterize-offline, look up live" pattern.
+
+Interface (matches `WingSail.dyad` for drop-in substitution):
+- `Omega_Order` — commanded rotor angular velocity [rad/s]. Sign chooses which
+  way the lift points (positive ω = CCW from above → lift to port of the wind).
+- `WindSpeedX_in`, `WindSpeedY_in` — apparent wind velocity components in the
+  ship's body frame (same convention as `WingSail`).
+- `frame_a` — `Frame2D` mount point on the hull (PlanarMechanics).
+
+Outputs:
+- `Omega` — actual spin rate after `MaxOmega` clamp.
+- `Lift`, `Drag` — magnitudes in the wind-aligned frame.
+- `Force_X`, `Force_Y` — net body-frame force, written into `frame_a` after
+  rotating into the world frame.
+- `SpinRatio` — current ξ.
+"""
+component FlettnerRotor
+  parameter R::Length = 2.5
+  parameter H::Length = 24
+  parameter MaxOmega::Real = 250
+
+  parameter AirDensity::Density = 1.29
+
+  "CFD-derived Cl(ξ) table (WaterLily SpinCyl, default = bundled sweep)"
+  structural parameter cl_dataset::DyadData.DyadTimeseries = DyadData.DyadTimeseries(
+    "dyad://DyadShip/flettner_coeffs.csv",
+    independent_var = "xi",
+    dependent_vars = ["Cl"]
+  )
+  "CFD-derived Cd(ξ) table (same CSV, Cd column)"
+  structural parameter cd_dataset::DyadData.DyadTimeseries = DyadData.DyadTimeseries(
+    "dyad://DyadShip/flettner_coeffs.csv",
+    independent_var = "xi",
+    dependent_vars = ["Cd"]
+  )
+
+  Omega_Order = RealInput()
+  WindSpeedX_in = RealInput()
+  WindSpeedY_in = RealInput()
+
+  frame_a = Frame2D()
+
+  Omega = RealOutput()
+  Lift = RealOutput()
+  Drag = RealOutput()
+  Force_X = RealOutput()
+  Force_Y = RealOutput()
+  SpinRatio = RealOutput()
+
+  # Cubic-spline lookup so the rhs Jacobian is smooth across the ξ-axis even
+  # at the kinks between sweep points (raw WaterLily samples have natural CFD
+  # scatter — linear interpolation produces a piecewise-discontinuous slope
+  # that drives the adaptive stepper into dt < eps when the rotor saturates).
+  Cl_lookup = BlockComponents.Tables.Interpolation(
+    interpolation_type = BlockComponents.Tables.InterpolationType.CubicSpline(),
+    extrapolation_type = BlockComponents.Tables.ExtrapolationType.Constant(),
+    dataset = cl_dataset
+  )
+  Cd_lookup = BlockComponents.Tables.Interpolation(
+    interpolation_type = BlockComponents.Tables.InterpolationType.CubicSpline(),
+    extrapolation_type = BlockComponents.Tables.ExtrapolationType.Constant(),
+    dataset = cd_dataset
+  )
+
+  variable U_app::Velocity
+  variable xi::Real
+  variable Cl::Real
+  variable Cd::Real
+  variable q::Real
+  variable ex::Real
+  variable ey::Real
+  variable sign_omega::Real
+  variable A_proj::Area
+  variable omega_clamped::Real
+relations
+  omega_clamped = clamp(Omega_Order, -MaxOmega, MaxOmega)
+  Omega = omega_clamped
+
+  # Apparent wind magnitude (floored to avoid div-by-zero; force scales with U_app² so
+  # the residual wrong direction at vanishing wind has zero force weight).
+  U_app = sqrt(WindSpeedX_in^2 + WindSpeedY_in^2 + 1e-6)
+
+  xi = abs(omega_clamped) * R / U_app
+  SpinRatio = xi
+  sign_omega = ifelse(omega_clamped >= 0, 1.0, -1.0)
+
+  # CFD lookup. Cl_lookup/Cd_lookup share the same `xi` axis. The CSV stores
+  # raw `WaterLily.total_force` coefficients (force on fluid). Negate to get
+  # the engineering "force on body" convention used by the algebra below.
+  Cl_lookup.u = xi
+  Cd_lookup.u = xi
+  Cl = -Cl_lookup.y
+  Cd = -Cd_lookup.y
+
+  # Dynamic pressure × projected area (diameter × rotor height).
+  q = 0.5 * AirDensity * U_app^2
+  A_proj = 2 * R * H
+
+  Drag = q * A_proj * Cd
+  Lift = q * A_proj * Cl
+
+  # Wind direction unit vector in body frame.
+  ex = WindSpeedX_in / U_app
+  ey = WindSpeedY_in / U_app
+
+  # Drag along wind direction; Magnus lift perpendicular, side chosen by ω sign
+  # (positive ω = CCW from above ⇒ lift to the left of the wind vector).
+  Force_X = Drag * ex - sign_omega * Lift * ey
+  Force_Y = Drag * ey + sign_omega * Lift * ex
+
+  # Body-frame forces → world frame (rotate by hull yaw). Same pattern as WingSail.
+  frame_a.fx + cos(frame_a.phi) * Force_X - sin(frame_a.phi) * Force_Y = 0
+  frame_a.fy + sin(frame_a.phi) * Force_X + cos(frame_a.phi) * Force_Y = 0
+  frame_a.tau = 0
+end

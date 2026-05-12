@@ -1,0 +1,148 @@
+"""
+`FullShipRender` variant with a Flettner rotor (`DyadShip.Propulsion.FlettnerRotor`)
+added as auxiliary wind-driven propulsion alongside the diesel propeller.
+
+The rotor reads apparent wind from the existing `Environment` →
+`ApparentSpeedXY` chain (same `wind_world_x`/`wind_world_y` as `ShipWind`), so
+the CFD-derived Magnus force responds to the *same* time-varying wind that
+already drives the hull windage and the heading autopilot. The rotor is mounted
+forward of the hull CG on a `FixedTranslation` arm, so its propulsive force
+contributes both surge and a small yaw moment about CG via the arm.
+
+Rotor spin is ramped to a constant target `omega_target` over the first 60 s.
+Diesel throttle and heading autopilot are untouched from `FullShipRender`, so
+the rotor's contribution is purely additive and the residual analysis surfaces
+"how much does CFD-derived Flettner thrust reduce the diesel duty cycle".
+"""
+test component FullShipFlettnerRender
+  parameter target_x::Length = 10000
+  parameter target_y::Length = 1000
+  parameter base_torque::Torque = 80000
+
+  parameter wind_speed_mean::Velocity = 15
+  parameter wind_direction_mean::Real = 45
+
+  "Rotor radius [m]"
+  parameter rotor_R::Length = 2.5
+  "Rotor height [m]"
+  parameter rotor_H::Length = 24
+  "Target rotor angular velocity [rad/s] — sized so ξ at design wind sits near
+  the CFD-derived Cl peak (around ξ ≈ 4) rather than far in the saturated tail."
+  parameter omega_target::Real = 28
+  "Rotor mount arm forward of hull CG [m]"
+  parameter rotor_arm::Length = 30
+
+  world = MultibodyComponents.PlanarMechanics.World(g = 0, render = true)
+  hull = HullMMG(mass = 1e6, Iz = 1e8, Lpp = 100, B = 20, Draft = 4, Cb = 0.693,
+                 render = true, body_radius = 600)
+
+  prop = DyadShip.Propulsion.Propeller1Q(Diameter = 4, P_D = 1.0, Ae_Ao = 0.55, Z = 4)
+  shaft = RotationalComponents.Components.Inertia(J = 5000)
+  src = RotationalComponents.Sources.TorqueSource()
+  ground = RotationalComponents.Components.Fixed()
+
+  rudder = DyadShip.Propulsion.Rudder()
+  pilot = HeadingAutoPilot(k_p = 30, k_i = 1, Deadband = π / 180)
+
+  prop_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(
+    r = [-50, 0], render = true, radius = 100
+  )
+  rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(
+    r = [-52, 0], render = true, radius = 100
+  )
+  rotor_arm_t = MultibodyComponents.PlanarMechanics.FixedTranslation(
+    r = [rotor_arm, 0], render = true, radius = 100
+  )
+
+  # Wind chain, shared between ShipWind and the Flettner rotor.
+  env = DyadShip.VariableEnvironment()
+  apparent = DyadShip.ApparentSpeedXY()
+  wind = ShipWind()
+  rotor = DyadShip.Propulsion.FlettnerRotor(R = rotor_R, H = rotor_H)
+
+  variable wind_speed_now::Velocity
+  variable wind_direction_now::Real
+  variable wind_world_x::Velocity
+  variable wind_world_y::Velocity
+  variable rotor_omega_cmd::Real
+relations
+  initial shaft.phi = 0
+  initial shaft.w = 0
+
+  # Same slow-drifting wind as FullShipRender.
+  wind_speed_now = wind_speed_mean
+                 + 3.5 * sin(2 * π * time / 311 + 0.4)
+                 + 2.0 * sin(2 * π * time / 197 + 1.3)
+                 + 1.5 * sin(2 * π * time / 419 + 2.1)
+  wind_direction_now = wind_direction_mean
+                     + 22 * sin(2 * π * time / 293 + 0.7)
+                     + 12 * sin(2 * π * time / 419 + 1.9)
+                     +  7 * sin(2 * π * time / 611 + 2.4)
+
+  env.WindSpeed = wind_speed_now
+  env.WindDirection = wind_direction_now
+  env.CurrentSpeed = 0
+  env.CurrentDirection = 0
+
+  src.tau = base_torque * pilot.throttle
+  connect(src.support, ground.spline)
+  connect(src.spline, shaft.spline_a)
+  connect(shaft.spline_b, prop.flange)
+
+  connect(hull.frame_a, prop_arm.frame_a, rudder_arm.frame_a, wind.frame_a, rotor_arm_t.frame_a)
+  connect(prop_arm.frame_b, prop.frame_a)
+  connect(rudder_arm.frame_b, rudder.frame_a)
+  connect(rotor_arm_t.frame_b, rotor.frame_a)
+
+  # Apparent wind path.
+  wind_world_x = env.WindVector[1]
+  wind_world_y = env.WindVector[2]
+  apparent.BodyVelX = hull.vx_world
+  apparent.BodyVelY = hull.vy_world
+  apparent.BodyHeading = hull.psi
+  apparent.WorldSpeedX = wind_world_x
+  apparent.WorldSpeedY = wind_world_y
+  wind.ApparentWind = apparent.ApparentSpeed
+  wind.AttackAngle = apparent.AttackAngleSigned
+
+  # Flettner rotor sees the apparent wind expressed in the body frame. The
+  # `ApparentSpeedXY` convention is body-velocity-relative-to-wind in body axes,
+  # i.e. *opposite* of the wind's velocity in the body frame — flip sign so the
+  # rotor sees the wind-as-it-hits-it (same convention as `WingSail`).
+  rotor.WindSpeedX_in = -apparent.SpeedLocalX
+  rotor.WindSpeedY_in = -apparent.SpeedLocalY
+
+  # Ramp the rotor up over the first 60 s, then hold at `omega_target`.
+  rotor_omega_cmd = omega_target * (1 - exp(-time / 30))
+  rotor.Omega_Order = rotor_omega_cmd
+
+  prop.ShipSpeed = hull.u
+  rudder.WaterSpeedX_in = hull.u
+  rudder.WaterSpeedY_in = hull.v
+  rudder.Propeller_speed = prop.Propeller_speed
+  rudder.Propeller_flow_diameter = prop.Propeller_flow_diameter
+  rudder.Wake_Fraction = prop.Wake_Fraction
+
+  pilot.pos_x = hull.pos_x
+  pilot.pos_y = hull.pos_y
+  pilot.psi = hull.psi
+  pilot.target_x = target_x
+  pilot.target_y = target_y
+  connect(pilot.rudder, rudder.Rudder_Order)
+
+  hull.Fx_extra = 0
+  hull.Fy_extra = 0
+  hull.Mz_extra = 0
+end
+
+analysis ShipFlettnerRenderTransient
+  # Shorter horizon than `FullShipRender` (2200s). The heading autopilot is
+  # tuned for the diesel-only case; adding a rotor that throws ~400 kN of
+  # cross-wind force eventually walks the ship into a regime the PI on heading
+  # can't cleanly track (rudder saturation + apparent-wind direction sweeping
+  # through small magnitudes), and the adaptive stepper aborts around t≈1780.
+  # Extending the horizon requires re-tuning `pilot.k_p` / `k_i` or sizing the
+  # rotor down.
+  extends TransientAnalysis(stop = 1500.0)
+  model = FullShipFlettnerRender()
+end

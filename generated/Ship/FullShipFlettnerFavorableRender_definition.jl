@@ -5,21 +5,31 @@
 
 
 @doc Markdown.doc"""
-   FullShipRender(; name, target_x, target_y, base_torque, wind_speed_mean, wind_direction_mean)
+   FullShipFlettnerFavorableRender(; name, target_x, target_y, base_torque, wind_speed_mean, wind_direction_mean, rotor_R, rotor_H, omega_target, rotor_arm)
 
-Render-enabled variant of `FullShip`. Same hull / propulsion / autopilot
-stack, but with shapes turned on for the World, the hull body, and the
-propeller/rudder mounting arms so the Makie render extension has
-something to draw. Stops at 2200 s — slightly past the typical arrival
-time of the clean run, so the recording captures the full approach +
-station-keeping period.
+Flettner-rotor ship with a *favorable* wind orientation. Same hull / propulsion /
+autopilot / rotor stack as `FullShipFlettnerRender`, but the mean wind direction
+is rotated so the apparent wind hits the ship broadside, putting the Magnus
+lift squarely along the surge axis instead of mostly into sway.
 
-Wind is **time-varying**: `VariableEnvironment` is driven by a sum of slow
-sinusoids (periods of a few minutes), so wind speed and direction wander
-smoothly through the run. The downstream `ApparentSpeedXY` + `ShipWind`
-chain folds that into a real aerodynamic load on the hull, and the
-current speed/direction are exposed as variables so the offline animation
-script can plot the wind glyph per frame.
+Physics: the standard Flettner sweet spot is beam wind, with the rotor's spin
+direction chosen so lift points forward. For an east-bound ship (target +X)
+with the default CCW spin (ω > 0), wind blowing southward (i.e. `WindDirection
+= 0`, from the north) produces:
+- body-frame wind ≈ (−tiny, −U_app)   [port beam]
+- ex = 0,  ey ≈ −1
+- Force_X = −sign_omega · Lift · ey ≈ +Lift   (forward thrust)
+- Force_Y ≈ −Drag                              (small, southward)
+
+So the rotor contributes its full lift coefficient to surge thrust and only
+the small Cd-scaled drag to sway. Compared with `FullShipFlettnerRender`
+(wind mean 45°, ~30% of |F| in surge), this variant gets ~90% of |F| in
+surge, and the autopilot's job stays inside its linear regime through the
+whole horizon.
+
+Everything else (rotor geometry, ramp profile, target, autopilot gains) is
+identical so the three-way comparison (no-rotor / unfavorable / favorable) is
+purely about the wind direction.
 
 ## Parameters: 
 
@@ -28,24 +38,29 @@ script can plot the wind glyph per frame.
 | `target_x`         |                          | m  |   10000 |
 | `target_y`         |                          | m  |   1000 |
 | `base_torque`         |                          | N.m  |   80000 |
-| `wind_speed_mean`         | Mean wind speed [m/s]                         | m/s  |   15 |
-| `wind_direction_mean`         | Mean wind 'from' direction [deg], 0=N(+Y), 90=E(+X)                         | --  |   45 |
+| `wind_speed_mean`         |                          | m/s  |   15 |
+| `wind_direction_mean`         | Wind from due North — beam wind from port for east-bound heading.                         | --  |   0 |
+| `rotor_R`         |                          | m  |   2.5 |
+| `rotor_H`         |                          | m  |   24 |
+| `omega_target`         |                          | --  |   28 |
+| `rotor_arm`         |                          | m  |   30 |
 
 ## Variables
 
 | Name         | Description                         | Units  | 
 | ------------ | ----------------------------------- | ------ | 
-| `wind_speed_now`         | Instantaneous wind speed [m/s] (sum of slow sinusoids around the mean)                         | m/s  | 
-| `wind_direction_now`         | Instantaneous wind 'from' direction [deg]                         | --  | 
+| `wind_speed_now`         |                          | m/s  | 
+| `wind_direction_now`         |                          | --  | 
 | `wind_world_x`         |                          | m/s  | 
 | `wind_world_y`         |                          | m/s  | 
+| `rotor_omega_cmd`         |                          | --  | 
 """
-@component function FullShipRender(; name = nothing, target_x=Float64(10000), target_y=Float64(1000), base_torque=Float64(80000), wind_speed_mean=Float64(15), wind_direction_mean=Float64(45), kwargs...)
+@component function FullShipFlettnerFavorableRender(; name = nothing, target_x=Float64(10000), target_y=Float64(1000), base_torque=Float64(80000), wind_speed_mean=Float64(15), wind_direction_mean=Float64(0), rotor_R=2.5, rotor_H=Float64(24), omega_target=Float64(28), rotor_arm=Float64(30), kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
   
-    @named model = FullShipRender()
+    @named model = FullShipFlettnerFavorableRender()
   """))
 
   __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
@@ -83,19 +98,32 @@ script can plot the wind glyph per frame.
   append!(__params, @parameters (base_torque::Real))
   __initial_conditions[base_torque] = __local__base_torque
   __local__wind_speed_mean = wind_speed_mean
-  append!(__params, @parameters (wind_speed_mean::Real), [description = "Mean wind speed [m/s]"])
+  append!(__params, @parameters (wind_speed_mean::Real))
   __initial_conditions[wind_speed_mean] = __local__wind_speed_mean
   __local__wind_direction_mean = wind_direction_mean
-  append!(__params, @parameters (wind_direction_mean::Real), [description = "Mean wind 'from' direction [deg], 0=N(+Y), 90=E(+X)"])
+  append!(__params, @parameters (wind_direction_mean::Real), [description = "Wind from due North — beam wind from port for east-bound heading."])
   __initial_conditions[wind_direction_mean] = __local__wind_direction_mean
+  __local__rotor_R = rotor_R
+  append!(__params, @parameters (rotor_R::Real))
+  __initial_conditions[rotor_R] = __local__rotor_R
+  __local__rotor_H = rotor_H
+  append!(__params, @parameters (rotor_H::Real))
+  __initial_conditions[rotor_H] = __local__rotor_H
+  __local__omega_target = omega_target
+  append!(__params, @parameters (omega_target::Real))
+  __initial_conditions[omega_target] = __local__omega_target
+  __local__rotor_arm = rotor_arm
+  append!(__params, @parameters (rotor_arm::Real))
+  __initial_conditions[rotor_arm] = __local__rotor_arm
 
   ### Final Path Parameters
 
   ### Variables (declarations)
-  append!(__vars, @variables (wind_speed_now(t)::Real), [description = "Instantaneous wind speed [m/s] (sum of slow sinusoids around the mean)"])
-  append!(__vars, @variables (wind_direction_now(t)::Real), [description = "Instantaneous wind 'from' direction [deg]"])
+  append!(__vars, @variables (wind_speed_now(t)::Real))
+  append!(__vars, @variables (wind_direction_now(t)::Real))
   append!(__vars, @variables (wind_world_x(t)::Real))
   append!(__vars, @variables (wind_world_y(t)::Real))
+  append!(__vars, @variables (rotor_omega_cmd(t)::Real))
 
   ### Variables (assignments)
   __ovr_wind_speed_now = pop!(__overrides, "wind_speed_now", nothing); isnothing(__ovr_wind_speed_now) || push!(__eqs, wind_speed_now ~ __ovr_wind_speed_now)
@@ -106,6 +134,8 @@ script can plot the wind glyph per frame.
   __ovr_wind_world_x__initial = pop!(__overrides, "wind_world_x__initial", nothing); isnothing(__ovr_wind_world_x__initial) || (__initial_conditions[wind_world_x] = __ovr_wind_world_x__initial)
   __ovr_wind_world_y = pop!(__overrides, "wind_world_y", nothing); isnothing(__ovr_wind_world_y) || push!(__eqs, wind_world_y ~ __ovr_wind_world_y)
   __ovr_wind_world_y__initial = pop!(__overrides, "wind_world_y__initial", nothing); isnothing(__ovr_wind_world_y__initial) || (__initial_conditions[wind_world_y] = __ovr_wind_world_y__initial)
+  __ovr_rotor_omega_cmd = pop!(__overrides, "rotor_omega_cmd", nothing); isnothing(__ovr_rotor_omega_cmd) || push!(__eqs, rotor_omega_cmd ~ __ovr_rotor_omega_cmd)
+  __ovr_rotor_omega_cmd__initial = pop!(__overrides, "rotor_omega_cmd__initial", nothing); isnothing(__ovr_rotor_omega_cmd__initial) || (__initial_conditions[rotor_omega_cmd] = __ovr_rotor_omega_cmd__initial)
 
   ### Constants
   __constants = Any[]
@@ -151,6 +181,10 @@ script can plot the wind glyph per frame.
   rudder_arm_overrides = Dict(Symbol(replace(string(k), r"^rudder_arm__" => "")) => v for (k, v) in __overrides if startswith(string(k), "rudder_arm__"))
   filter!(p -> !startswith(string(first(p)), "rudder_arm__"), __overrides)
   push!(__systems, @named rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[-52, 0], render=true, radius=100, rudder_arm_overrides...))
+  # Subcomponent rotor_arm_t of type MultibodyComponents.PlanarMechanics.FixedTranslation
+  rotor_arm_t_overrides = Dict(Symbol(replace(string(k), r"^rotor_arm_t__" => "")) => v for (k, v) in __overrides if startswith(string(k), "rotor_arm_t__"))
+  filter!(p -> !startswith(string(first(p)), "rotor_arm_t__"), __overrides)
+  push!(__systems, @named rotor_arm_t = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[rotor_arm, 0], render=true, radius=100, rotor_arm_t_overrides...))
   # Subcomponent env of type DyadShip.VariableEnvironment
   env_overrides = Dict(Symbol(replace(string(k), r"^env__" => "")) => v for (k, v) in __overrides if startswith(string(k), "env__"))
   filter!(p -> !startswith(string(first(p)), "env__"), __overrides)
@@ -163,6 +197,10 @@ script can plot the wind glyph per frame.
   wind_overrides = Dict(Symbol(replace(string(k), r"^wind__" => "")) => v for (k, v) in __overrides if startswith(string(k), "wind__"))
   filter!(p -> !startswith(string(first(p)), "wind__"), __overrides)
   push!(__systems, @named wind = DyadShip.Ship.ShipWind(wind_overrides...))
+  # Subcomponent rotor of type DyadShip.Propulsion.FlettnerRotor
+  rotor_overrides = Dict(Symbol(replace(string(k), r"^rotor__" => "")) => v for (k, v) in __overrides if startswith(string(k), "rotor__"))
+  filter!(p -> !startswith(string(first(p)), "rotor__"), __overrides)
+  push!(__systems, @named rotor = DyadShip.Propulsion.FlettnerRotor(R=rotor_R, H=rotor_H, rotor_overrides...))
 
   ### Check there are no unmatched overrides
   isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
@@ -193,6 +231,10 @@ script can plot the wind glyph per frame.
   push!(__eqs, apparent.WorldSpeedY ~ wind_world_y)
   push!(__eqs, wind.ApparentWind ~ apparent.ApparentSpeed)
   push!(__eqs, wind.AttackAngle ~ apparent.AttackAngleSigned)
+  push!(__eqs, rotor.WindSpeedX_in ~ -apparent.SpeedLocalX)
+  push!(__eqs, rotor.WindSpeedY_in ~ -apparent.SpeedLocalY)
+  push!(__eqs, rotor_omega_cmd ~ omega_target * (1 - exp(-t / 30)))
+  push!(__eqs, rotor.Omega_Order ~ rotor_omega_cmd)
   push!(__eqs, prop.ShipSpeed ~ hull.u)
   push!(__eqs, rudder.WaterSpeedX_in ~ hull.u)
   push!(__eqs, rudder.WaterSpeedY_in ~ hull.v)
@@ -210,12 +252,13 @@ script can plot the wind glyph per frame.
   push!(__eqs, connect(src.support, ground.spline))
   push!(__eqs, connect(src.spline, shaft.spline_a))
   push!(__eqs, connect(shaft.spline_b, prop.flange))
-  push!(__eqs, connect(hull.frame_a, prop_arm.frame_a, rudder_arm.frame_a, wind.frame_a))
+  push!(__eqs, connect(hull.frame_a, prop_arm.frame_a, rudder_arm.frame_a, wind.frame_a, rotor_arm_t.frame_a))
   push!(__eqs, connect(prop_arm.frame_b, prop.frame_a))
   push!(__eqs, connect(rudder_arm.frame_b, rudder.frame_a))
+  push!(__eqs, connect(rotor_arm_t.frame_b, rotor.frame_a))
   push!(__eqs, connect(pilot.rudder, rudder.Rudder_Order))
 
   # Return completely constructed System
   return System(__eqs, t, __vars, __params; systems=__systems, initial_conditions=__initial_conditions, guesses=__guesses, name, initialization_eqs=__initialization_eqs, bindings=__bindings, assertions=__assertions)
 end
-export FullShipRender
+export FullShipFlettnerFavorableRender

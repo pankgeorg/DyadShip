@@ -1,0 +1,24 @@
+"""
+FlettnerRotor under a constant beam wind, spun up from rest. Mirrors the
+`WingSailBeamWind` analysis so the two propulsors are directly comparable.
+
+The rotor is anchored to a `Fixed` mount (no `Body`, no `World`, no gravity).
+Apparent wind is 10 m/s in the +Y body axis (beam wind from port); ω is ramped
+from 0 to 100 rad/s over the first 5 s. With ω > 0 the Magnus lift points
+forward (+X) for this wind orientation — that's the propulsion direction.
+"""
+test component FlettnerRotorBeamWind
+  rotor = FlettnerRotor()
+  spin_cmd = BlockComponents.Sources.Ramp(height = 100, duration = 5, start_time = 1, offset = 0)
+  fixed = MultibodyComponents.PlanarMechanics.Fixed()
+relations
+  connect(spin_cmd.y, rotor.Omega_Order)
+  rotor.WindSpeedX_in = 0
+  rotor.WindSpeedY_in = 10
+  connect(rotor.frame_a, fixed.frame_b)
+end
+
+analysis FlettnerRotorTransient
+  extends TransientAnalysis(stop = 20.0)
+  model = FlettnerRotorBeamWind()
+end

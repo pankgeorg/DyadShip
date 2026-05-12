@@ -8,11 +8,11 @@ using DyadInterface
 using DyadInterface: ODEAlg, DEVerbosity, OptimizationLevel
 using ModelingToolkit: SymbolicT, toggle_namespacing
 using DyadInterface: AbstractTransientAnalysisSpec, TransientAnalysisSpec
-@kwdef mutable struct ShipRenderTransientSpec <: AbstractTransientAnalysisSpec
-  name::Symbol = :ShipRenderTransient
+@kwdef mutable struct ShipFlettnerRenderTransientSpec <: AbstractTransientAnalysisSpec
+  name::Symbol = :ShipFlettnerRenderTransient
   var"alg"::ODEAlg.Type = ODEAlg.Auto()
   var"start"::Float64 = 0
-  var"stop"::Float64 = 2200
+  var"stop"::Float64 = 1500
   var"abstol"::Float64 = 0.000001
   var"reltol"::Float64 = 0.000001
   var"saveat"::Float64 = 0
@@ -24,23 +24,24 @@ using DyadInterface: AbstractTransientAnalysisSpec, TransientAnalysisSpec
   var"respecialize"::Bool = false
   var"verbose"::DEVerbosity.Type = DEVerbosity.Standard()
   var"log_file"::String = ""
-  # Render-enabled variant of `FullShip`. Same hull / propulsion / autopilot
-  # stack, but with shapes turned on for the World, the hull body, and the
-  # propeller/rudder mounting arms so the Makie render extension has
-  # something to draw. Stops at 2200 s — slightly past the typical arrival
-  # time of the clean run, so the recording captures the full approach +
-  # station-keeping period.
+  # `FullShipRender` variant with a Flettner rotor (`DyadShip.Propulsion.FlettnerRotor`)
+  # added as auxiliary wind-driven propulsion alongside the diesel propeller.
   # 
-  # Wind is **time-varying**: `VariableEnvironment` is driven by a sum of slow
-  # sinusoids (periods of a few minutes), so wind speed and direction wander
-  # smoothly through the run. The downstream `ApparentSpeedXY` + `ShipWind`
-  # chain folds that into a real aerodynamic load on the hull, and the
-  # current speed/direction are exposed as variables so the offline animation
-  # script can plot the wind glyph per frame.
-  var"model"::Union{Nothing, System} = DyadShip.Ship.FullShipRender(; name=:FullShipRender)
+  # The rotor reads apparent wind from the existing `Environment` →
+  # `ApparentSpeedXY` chain (same `wind_world_x`/`wind_world_y` as `ShipWind`), so
+  # the CFD-derived Magnus force responds to the *same* time-varying wind that
+  # already drives the hull windage and the heading autopilot. The rotor is mounted
+  # forward of the hull CG on a `FixedTranslation` arm, so its propulsive force
+  # contributes both surge and a small yaw moment about CG via the arm.
+  # 
+  # Rotor spin is ramped to a constant target `omega_target` over the first 60 s.
+  # Diesel throttle and heading autopilot are untouched from `FullShipRender`, so
+  # the rotor's contribution is purely additive and the residual analysis surfaces
+  # "how much does CFD-derived Flettner thrust reduce the diesel duty cycle".
+  var"model"::Union{Nothing, System} = DyadShip.Ship.FullShipFlettnerRender(; name=:FullShipFlettnerRender)
 end
 
-function DyadInterface.run_analysis(spec::ShipRenderTransientSpec)
+function DyadInterface.run_analysis(spec::ShipFlettnerRenderTransientSpec)
   overrides = Dict{SymbolicT, SymbolicT}()
   no_namespace_model = toggle_namespacing(spec.model, false)
   base_spec = TransientAnalysisSpec(;
@@ -49,5 +50,5 @@ function DyadInterface.run_analysis(spec::ShipRenderTransientSpec)
   run_analysis(base_spec)
 end
 
-ShipRenderTransient(;kwargs...) = run_analysis(ShipRenderTransientSpec(;kwargs...))
-export ShipRenderTransient, ShipRenderTransientSpec
+ShipFlettnerRenderTransient(;kwargs...) = run_analysis(ShipFlettnerRenderTransientSpec(;kwargs...))
+export ShipFlettnerRenderTransient, ShipFlettnerRenderTransientSpec

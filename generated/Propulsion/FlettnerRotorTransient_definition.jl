@@ -8,11 +8,11 @@ using DyadInterface
 using DyadInterface: ODEAlg, DEVerbosity, OptimizationLevel
 using ModelingToolkit: SymbolicT, toggle_namespacing
 using DyadInterface: AbstractTransientAnalysisSpec, TransientAnalysisSpec
-@kwdef mutable struct ShipRenderTransientSpec <: AbstractTransientAnalysisSpec
-  name::Symbol = :ShipRenderTransient
+@kwdef mutable struct FlettnerRotorTransientSpec <: AbstractTransientAnalysisSpec
+  name::Symbol = :FlettnerRotorTransient
   var"alg"::ODEAlg.Type = ODEAlg.Auto()
   var"start"::Float64 = 0
-  var"stop"::Float64 = 2200
+  var"stop"::Float64 = 20
   var"abstol"::Float64 = 0.000001
   var"reltol"::Float64 = 0.000001
   var"saveat"::Float64 = 0
@@ -24,23 +24,17 @@ using DyadInterface: AbstractTransientAnalysisSpec, TransientAnalysisSpec
   var"respecialize"::Bool = false
   var"verbose"::DEVerbosity.Type = DEVerbosity.Standard()
   var"log_file"::String = ""
-  # Render-enabled variant of `FullShip`. Same hull / propulsion / autopilot
-  # stack, but with shapes turned on for the World, the hull body, and the
-  # propeller/rudder mounting arms so the Makie render extension has
-  # something to draw. Stops at 2200 s — slightly past the typical arrival
-  # time of the clean run, so the recording captures the full approach +
-  # station-keeping period.
+  # FlettnerRotor under a constant beam wind, spun up from rest. Mirrors the
+  # `WingSailBeamWind` analysis so the two propulsors are directly comparable.
   # 
-  # Wind is **time-varying**: `VariableEnvironment` is driven by a sum of slow
-  # sinusoids (periods of a few minutes), so wind speed and direction wander
-  # smoothly through the run. The downstream `ApparentSpeedXY` + `ShipWind`
-  # chain folds that into a real aerodynamic load on the hull, and the
-  # current speed/direction are exposed as variables so the offline animation
-  # script can plot the wind glyph per frame.
-  var"model"::Union{Nothing, System} = DyadShip.Ship.FullShipRender(; name=:FullShipRender)
+  # The rotor is anchored to a `Fixed` mount (no `Body`, no `World`, no gravity).
+  # Apparent wind is 10 m/s in the +Y body axis (beam wind from port); ω is ramped
+  # from 0 to 100 rad/s over the first 5 s. With ω > 0 the Magnus lift points
+  # forward (+X) for this wind orientation — that's the propulsion direction.
+  var"model"::Union{Nothing, System} = DyadShip.Propulsion.FlettnerRotorBeamWind(; name=:FlettnerRotorBeamWind)
 end
 
-function DyadInterface.run_analysis(spec::ShipRenderTransientSpec)
+function DyadInterface.run_analysis(spec::FlettnerRotorTransientSpec)
   overrides = Dict{SymbolicT, SymbolicT}()
   no_namespace_model = toggle_namespacing(spec.model, false)
   base_spec = TransientAnalysisSpec(;
@@ -49,5 +43,5 @@ function DyadInterface.run_analysis(spec::ShipRenderTransientSpec)
   run_analysis(base_spec)
 end
 
-ShipRenderTransient(;kwargs...) = run_analysis(ShipRenderTransientSpec(;kwargs...))
-export ShipRenderTransient, ShipRenderTransientSpec
+FlettnerRotorTransient(;kwargs...) = run_analysis(FlettnerRotorTransientSpec(;kwargs...))
+export FlettnerRotorTransient, FlettnerRotorTransientSpec
