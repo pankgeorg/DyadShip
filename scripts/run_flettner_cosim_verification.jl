@@ -93,14 +93,15 @@ const _get_U     = getsym(sys_full, model.rotor.U_app_obs)
 const _get_alpha = getsym(sys_full, model.rotor.alpha_obs)
 const _get_omega = getsym(sys_full, model.rotor.omega_obs)
 
-const cb_log_t  = Float64[]
-const cb_log_Fx = Float64[]
-const cb_log_Fy = Float64[]
-const cb_log_U  = Float64[]
-const cb_log_a  = Float64[]
-const cb_log_om = Float64[]
-const cb_log_Cl = Float64[]
-const cb_log_Cd = Float64[]
+const cb_log_t    = Float64[]
+const cb_log_Fx   = Float64[]
+const cb_log_Fy   = Float64[]
+const cb_log_U    = Float64[]
+const cb_log_a    = Float64[]
+const cb_log_om   = Float64[]
+const cb_log_Cl   = Float64[]
+const cb_log_Cd   = Float64[]
+const cb_log_vort = Array{Float32,2}[]   # snapshot of WaterLily vorticity per callback
 
 function cosim_affect!(integ)
     t      = integ.t
@@ -116,6 +117,14 @@ function cosim_affect!(integ)
     push!(cb_log_om, omega)
     push!(cb_log_Cl, DyadShip.FlettnerCFDLive.STATE.Cl)
     push!(cb_log_Cd, DyadShip.FlettnerCFDLive.STATE.Cd)
+
+    # Snapshot the WaterLily vorticity field for the animation. SpinCylOptim
+    # pattern: write the dimensionless z-curl of velocity into the scratch
+    # field `sim.flow.σ`, then snapshot. ~200 KB per frame at n=128.
+    sim_h = DyadShip.FlettnerCFDLive.STATE.sim
+    WaterLily.@inside sim_h.flow.σ[I] = WaterLily.curl(3, I, sim_h.flow.u) * sim_h.L
+    push!(cb_log_vort, Float32.(copy(sim_h.flow.σ)))
+
     SciMLBase.u_modified!(integ, false)
     return nothing
 end
@@ -202,3 +211,36 @@ p_all = plot(p_Fx, p_Fy, p_traj, p_diag; layout = (2, 2), size = (1200, 800))
 out_png = joinpath(ASSETS, "flettner_cosim_verification.png")
 savefig(p_all, out_png)
 println("  wrote $out_png")
+
+# ─────────────────────────────────────────────────────────────────────────
+# Animation: the actual WaterLily vorticity field evolving as the cosim
+# advances, with the rotor's instantaneous (ω, ξ, Cl, Cd) annotated. This
+# is the most "CFD-flavored" view of the verification — boundary layer
+# rolling up around the spinning cylinder, Magnus side lift visible as a
+# vortex-shedding bias.
+# ─────────────────────────────────────────────────────────────────────────
+println("Rendering cosim vorticity animation…")
+nframes = length(cb_log_vort)
+fps = 30
+println("  $(nframes) frames at $(fps) fps  → $(round(nframes/fps; digits=1)) s video")
+anim = @animate for k in 1:nframes
+    ω_field = cb_log_vort[k]'   # transpose so the long axis (flow direction) is X
+    ξ_k = cb_log_om[k] * 2.5 / max(abs(cb_log_U[k]), 1e-3)
+    t = cb_log_t[k]
+    title_str = "t = $(round(t; digits=1)) s   |   " *
+                "ω = $(round(cb_log_om[k]; digits=1)) rad/s   |   " *
+                "U_app = $(round(cb_log_U[k]; digits=1)) m/s   |   " *
+                "ξ = $(round(ξ_k; digits=2))   |   " *
+                "Cl_live = $(round(cb_log_Cl[k]; digits=2))   |   " *
+                "Cd_live = $(round(cb_log_Cd[k]; digits=2))"
+    heatmap(ω_field;
+            c = :RdBu, clims = (-8, 8),
+            aspect_ratio = :equal,
+            title = title_str, titlefontsize = 9,
+            xlabel = "x [grid cells]  (inflow →)", ylabel = "y [grid cells]",
+            colorbar_title = "z-vorticity (sim units)",
+            size = (1200, 350))
+end
+mp4_path = joinpath(ASSETS, "flettner_cosim_animation.mp4")
+mp4(anim, mp4_path; fps = fps)
+println("  wrote $mp4_path")

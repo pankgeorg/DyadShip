@@ -156,14 +156,25 @@ extension keyed on `WaterLily`). The driver is documented in the docstrings.
 
 This exists to **verify** the offline-table approach against actual live
 CFD, not for production runs. Cost is ~5× real time at `n=128, Δt=0.2 s`
-(`scripts/run_flettner_cosim_verification.jl` runs 90 s of sim in ~7 min
-wall). It writes `assets/flettner_cosim_verification.png` — a four-panel
-plot comparing rotor surge force, sway force, ship trajectory, and live
-`Cl(t)` / `Cd(t)` against the table-driven `FullShipFlettnerFavorableRender`
-reference. Table and live agree on shape, sign, and trajectory; live
-magnitudes run ~20–30% under the table because the body-rebuild-each-callback
-approach restarts the BDIM transient between coupling steps. Good enough
-to confirm the table is in the right physical regime.
+(`scripts/run_flettner_cosim_verification.jl` runs 90 s of sim in ~8 min
+wall — CFD + heatmap rendering). It writes:
+
+- `assets/flettner_cosim_verification.png` — four-panel plot comparing
+  rotor surge force, sway force, ship trajectory, and live `Cl(t)` / `Cd(t)`
+  against the table-driven `FullShipFlettnerFavorableRender` reference.
+- `assets/flettner_cosim_animation.mp4` — the actual WaterLily z-vorticity
+  field at every coupling step (15 s video, 30 fps, 450 frames). You can
+  watch the Magnus boundary layer develop and the vortex-shedding bias
+  shift as `ξ` ramps from 0 to ~3.1.
+
+<video src="assets/flettner_cosim_animation.mp4" controls width="720">
+  <a href="assets/flettner_cosim_animation.mp4">assets/flettner_cosim_animation.mp4</a>
+</video>
+
+Table and live agree on shape, sign, and trajectory; live magnitudes run
+~20–30% under the table because the body-rebuild-each-callback approach
+restarts the BDIM transient between coupling steps. Good enough to
+confirm the table is in the right physical regime.
 
 To run:
 
