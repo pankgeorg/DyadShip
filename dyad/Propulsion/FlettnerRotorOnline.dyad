@@ -1,0 +1,84 @@
+"""
+Live-WaterLily.jl co-simulation variant of `FlettnerRotor`. The Cl(ξ) / Cd(ξ)
+table lookup is replaced by two registered Julia functions
+`DyadShip.flettner_live_fx(time)` and `DyadShip.flettner_live_fy(time)`
+that return the latest body-frame rotor force computed by an external
+WaterLily simulation. The simulation is advanced by a `PeriodicCallback`
+installed by the caller (see `scripts/run_flettner_cosim_verification.jl`).
+
+**Verification only.** A long Dyad transient calls the rhs O(10⁵) times;
+WaterLily steps cost ~10–100 ms each. Per-rhs CFD is intractable. This
+component exists to validate that, at a given coupling step Δt (typically
+0.1–0.5 s), the live CFD forces are consistent with the offline-characterized
+Cl/Cd table used by the production `FlettnerRotor`. Stick to short
+analyses (≤ 120 s) and treat results as ground-truth references rather
+than operational simulations.
+
+The interface is *almost* the same as `FlettnerRotor`, with two differences:
+- The apparent wind enters as **magnitude + angle** (`ApparentWindSpeed`,
+  `ApparentWindAngle`), not as the body-frame components — the callback
+  reads these directly to size the WaterLily inflow / spin ratio without
+  having to rebuild atan2's.
+- `Cl`, `Cd`, `Lift`, `Drag` are not exposed — they live inside the
+  WaterLily driver (`DyadShip.FlettnerCFDLive.STATE`) and the caller's
+  callback / verification script can inspect them there.
+
+Inputs:
+- `Omega_Order` — commanded rotor angular velocity [rad/s]; sign chooses
+  the Magnus direction.
+- `ApparentWindSpeed` — magnitude of apparent wind on the rotor [m/s].
+- `ApparentWindAngle` — apparent-wind attack angle in body frame [rad],
+  same convention as `ApparentSpeedXY.AttackAngleSigned`.
+
+Outputs:
+- `Omega` — actual ω after `MaxOmega` clamp.
+- `Force_X`, `Force_Y` — body-frame force (forwarded from the live CFD
+  state, held constant between coupling-step callbacks).
+- `U_app_obs`, `alpha_obs`, `omega_obs` — passthrough observables the
+  PeriodicCallback reads to drive WaterLily.
+
+The `frame_a` hookup follows the same body→world rotation pattern as
+`FlettnerRotor` / `WingSail`.
+"""
+component FlettnerRotorOnline
+  parameter R::Length = 2.5
+  parameter H::Length = 24
+  parameter MaxOmega::Real = 250
+
+  Omega_Order = RealInput()
+  ApparentWindSpeed = RealInput()
+  ApparentWindAngle = RealInput()
+
+  frame_a = Frame2D()
+
+  Omega = RealOutput()
+  Force_X = RealOutput()
+  Force_Y = RealOutput()
+
+  "Apparent wind speed observable — exposed for the PeriodicCallback."
+  U_app_obs = RealOutput()
+  "Apparent wind angle observable — exposed for the PeriodicCallback."
+  alpha_obs = RealOutput()
+  "Clamped angular velocity observable — exposed for the PeriodicCallback."
+  omega_obs = RealOutput()
+relations
+  Omega = clamp(Omega_Order, -MaxOmega, MaxOmega)
+  omega_obs = Omega
+  U_app_obs = ApparentWindSpeed
+  alpha_obs = ApparentWindAngle
+
+  # Body-frame force from the live WaterLily driver. The `time` argument is
+  # what stops MTK from constant-folding the registered functions during
+  # simplification — the functions themselves don't depend on `t`, they
+  # return whatever the most recent PeriodicCallback wrote into the
+  # FlettnerCFDLive.STATE buffer.
+  Force_X = DyadShip.flettner_live_fx(time)
+  Force_Y = DyadShip.flettner_live_fy(time)
+
+  # Same body→world rotation as the other propulsors. Yaw moment about the
+  # mount is zero — compose at the ship level via `FixedTranslation` if a
+  # lever-arm moment is desired (see `FullShipFlettnerOnlineRender`).
+  frame_a.fx + cos(frame_a.phi) * Force_X - sin(frame_a.phi) * Force_Y = 0
+  frame_a.fy + sin(frame_a.phi) * Force_X + cos(frame_a.phi) * Force_Y = 0
+  frame_a.tau = 0
+end

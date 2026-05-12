@@ -196,6 +196,7 @@ end
 
 include("DieselEngineRamp_definition.jl")
 include("FlettnerRotorBeamWind_definition.jl")
+include("FlettnerRotorOnline_definition.jl")
 include("FlettnerRotorTransient_definition.jl")
 include("FlettnerRotor_definition.jl")
 include("POD4Q_definition.jl")

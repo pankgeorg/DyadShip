@@ -3,8 +3,15 @@ uuid = "06f36289-3465-4855-a938-d9d375dd888a"
 version = "0.1.0"
 authors = [" <>"]
 
+[weakdeps]
+WaterLily = "ed894a53-35f9-47f1-b17f-85db9237eebd"
+
+[extensions]
+FlettnerCFDLiveExt = ["WaterLily"]
+
 [deps]
 BlockComponents = "1ef5d832-be8e-447f-9f2c-8b5d17d15fd3"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 DyadData = "cab12561-e36c-4498-ae70-c9a5e79fef2a"
 DyadInterface = "99806f68-afab-45ca-9d8c-ceff6bc61f54"
 ElectricalComponents = "3fc4c519-469d-4ff5-98c9-d4d06b1514a2"

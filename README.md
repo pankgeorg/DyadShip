@@ -144,6 +144,36 @@ The CSV stores raw `WaterLily.total_force` (force-on-fluid convention per
 the engineering force-on-body convention. The docstring on
 `dyad/Propulsion/FlettnerRotor.dyad` spells this out.
 
+### Live co-simulation (verification only)
+
+`FlettnerRotorOnline` is a sibling component that gets its body-frame force
+from a `@register_symbolic` Julia callback instead of the offline-CFD table.
+The forces are written by a `DiffEqCallbacks.PeriodicCallback` that fires
+every `Δt_cosim = 0.2 s` and steps WaterLily one inner sim-time unit; the
+machinery lives in `src/FlettnerCFDLive.jl` (stubs + force lookups) +
+`ext/FlettnerCFDLiveExt.jl` (the real WaterLily wiring, behind a package
+extension keyed on `WaterLily`). The driver is documented in the docstrings.
+
+This exists to **verify** the offline-table approach against actual live
+CFD, not for production runs. Cost is ~5× real time at `n=128, Δt=0.2 s`
+(`scripts/run_flettner_cosim_verification.jl` runs 90 s of sim in ~7 min
+wall). It writes `assets/flettner_cosim_verification.png` — a four-panel
+plot comparing rotor surge force, sway force, ship trajectory, and live
+`Cl(t)` / `Cd(t)` against the table-driven `FullShipFlettnerFavorableRender`
+reference. Table and live agree on shape, sign, and trajectory; live
+magnitudes run ~20–30% under the table because the body-rebuild-each-callback
+approach restarts the BDIM transient between coupling steps. Good enough
+to confirm the table is in the right physical regime.
+
+To run:
+
+```sh
+../julia-dyad.sh --project=scripts scripts/run_flettner_cosim_verification.jl
+```
+
+The first invocation `Pkg.develop`s the parent project into `scripts/` and
+precompiles WaterLily + the package extension.
+
 ## License
 
 The Dyad rewrite in this repository is © 2025 Panagiotis Georgakopoulos. The

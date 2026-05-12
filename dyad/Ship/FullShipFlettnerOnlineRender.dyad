@@ -1,0 +1,140 @@
+"""
+Short ship transient with the **live-WaterLily** `FlettnerRotorOnline`
+component substituting the table-driven `FlettnerRotor`. Geometry,
+autopilot gains, hull params, mean wind direction (`0°`, beam from port —
+the favorable case), and rotor R/H/ω target are all identical to
+`FullShipFlettnerFavorableRender`, so the per-time-point force trace can
+be compared head-to-head with the table-based version to validate the
+coupling.
+
+Stops at `t = 90 s` — long enough for the rotor to ramp up (`τ = 30 s`)
+and the ship to start making real headway, short enough that the
+WaterLily callback cost (one `sim_step!` per coupling Δt ≈ 0.2 s ⇒ ~450
+CFD steps total) is bearable.
+
+The caller is responsible for:
+1. Initializing the driver: `DyadShip.FlettnerCFDLive.init!(R=..., H=..., ...)`
+   (requires `using WaterLily` in the active env).
+2. Installing a `DiffEqCallbacks.PeriodicCallback(...)` that reads
+   `rotor.U_app_obs`, `rotor.alpha_obs`, `rotor.omega_obs` from the
+   integrator and calls `DyadShip.FlettnerCFDLive.step!(...)`.
+3. Solving with a non-AD Jacobian (the registered force functions don't
+   carry derivative information).
+
+See `scripts/run_flettner_cosim_verification.jl` for the end-to-end driver.
+"""
+test component FullShipFlettnerOnlineRender
+  parameter target_x::Length = 10000
+  parameter target_y::Length = 1000
+  parameter base_torque::Torque = 80000
+
+  parameter wind_speed_mean::Velocity = 15
+  parameter wind_direction_mean::Real = 0
+
+  parameter rotor_R::Length = 2.5
+  parameter rotor_H::Length = 24
+  parameter omega_target::Real = 28
+  parameter rotor_arm::Length = 30
+
+  world = MultibodyComponents.PlanarMechanics.World(g = 0, render = true)
+  hull = HullMMG(mass = 1e6, Iz = 1e8, Lpp = 100, B = 20, Draft = 4, Cb = 0.693,
+                 render = true, body_radius = 600)
+
+  prop = DyadShip.Propulsion.Propeller1Q(Diameter = 4, P_D = 1.0, Ae_Ao = 0.55, Z = 4)
+  shaft = RotationalComponents.Components.Inertia(J = 5000)
+  src = RotationalComponents.Sources.TorqueSource()
+  ground = RotationalComponents.Components.Fixed()
+
+  rudder = DyadShip.Propulsion.Rudder()
+  pilot = HeadingAutoPilot(k_p = 30, k_i = 1, Deadband = π / 180)
+
+  prop_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(
+    r = [-50, 0], render = true, radius = 100
+  )
+  rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(
+    r = [-52, 0], render = true, radius = 100
+  )
+  rotor_arm_t = MultibodyComponents.PlanarMechanics.FixedTranslation(
+    r = [rotor_arm, 0], render = true, radius = 100
+  )
+
+  env = DyadShip.VariableEnvironment()
+  apparent = DyadShip.ApparentSpeedXY()
+  wind = ShipWind()
+  rotor = DyadShip.Propulsion.FlettnerRotorOnline(R = rotor_R, H = rotor_H)
+
+  variable wind_speed_now::Velocity
+  variable wind_direction_now::Real
+  variable wind_world_x::Velocity
+  variable wind_world_y::Velocity
+  variable rotor_omega_cmd::Real
+relations
+  initial shaft.phi = 0
+  initial shaft.w = 0
+
+  wind_speed_now = wind_speed_mean
+                 + 3.5 * sin(2 * π * time / 311 + 0.4)
+                 + 2.0 * sin(2 * π * time / 197 + 1.3)
+                 + 1.5 * sin(2 * π * time / 419 + 2.1)
+  wind_direction_now = wind_direction_mean
+                     + 22 * sin(2 * π * time / 293 + 0.7)
+                     + 12 * sin(2 * π * time / 419 + 1.9)
+                     +  7 * sin(2 * π * time / 611 + 2.4)
+
+  env.WindSpeed = wind_speed_now
+  env.WindDirection = wind_direction_now
+  env.CurrentSpeed = 0
+  env.CurrentDirection = 0
+
+  src.tau = base_torque * pilot.throttle
+  connect(src.support, ground.spline)
+  connect(src.spline, shaft.spline_a)
+  connect(shaft.spline_b, prop.flange)
+
+  connect(hull.frame_a, prop_arm.frame_a, rudder_arm.frame_a, wind.frame_a, rotor_arm_t.frame_a)
+  connect(prop_arm.frame_b, prop.frame_a)
+  connect(rudder_arm.frame_b, rudder.frame_a)
+  connect(rotor_arm_t.frame_b, rotor.frame_a)
+
+  wind_world_x = env.WindVector[1]
+  wind_world_y = env.WindVector[2]
+  apparent.BodyVelX = hull.vx_world
+  apparent.BodyVelY = hull.vy_world
+  apparent.BodyHeading = hull.psi
+  apparent.WorldSpeedX = wind_world_x
+  apparent.WorldSpeedY = wind_world_y
+  wind.ApparentWind = apparent.ApparentSpeed
+  wind.AttackAngle = apparent.AttackAngleSigned
+
+  # Apparent wind to the live rotor as (magnitude, angle) — same input shape
+  # as ShipWind so the WaterLily driver can pull U_app, alpha straight off
+  # the integrator without recomputing from body-frame components.
+  rotor.ApparentWindSpeed = apparent.ApparentSpeed
+  rotor.ApparentWindAngle = apparent.AttackAngleSigned
+
+  rotor_omega_cmd = omega_target * (1 - exp(-time / 30))
+  rotor.Omega_Order = rotor_omega_cmd
+
+  prop.ShipSpeed = hull.u
+  rudder.WaterSpeedX_in = hull.u
+  rudder.WaterSpeedY_in = hull.v
+  rudder.Propeller_speed = prop.Propeller_speed
+  rudder.Propeller_flow_diameter = prop.Propeller_flow_diameter
+  rudder.Wake_Fraction = prop.Wake_Fraction
+
+  pilot.pos_x = hull.pos_x
+  pilot.pos_y = hull.pos_y
+  pilot.psi = hull.psi
+  pilot.target_x = target_x
+  pilot.target_y = target_y
+  connect(pilot.rudder, rudder.Rudder_Order)
+
+  hull.Fx_extra = 0
+  hull.Fy_extra = 0
+  hull.Mz_extra = 0
+end
+
+analysis ShipFlettnerOnlineRenderTransient
+  extends TransientAnalysis(stop = 90.0)
+  model = FullShipFlettnerOnlineRender()
+end

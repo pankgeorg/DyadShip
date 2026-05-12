@@ -11,6 +11,7 @@ end
 
 include("DieselEngineRamp_experiment.jl")
 include("FlettnerRotorBeamWind_experiment.jl")
+include("FlettnerRotorOnline_experiment.jl")
 include("FlettnerRotor_experiment.jl")
 include("POD4Q_experiment.jl")
 include("Propeller1QSpinUp_experiment.jl")
