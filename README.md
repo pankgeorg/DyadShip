@@ -158,11 +158,12 @@ This exists to **verify** the offline-table approach against actual live
 CFD, not for production runs. CFD wall-time (90 s of sim, 450 callbacks,
 WaterLily inner_dt = 0.5):
 
-| Grid | Backend | CFD wall | per-step | vs. CPU baseline |
-|---|---|---|---|---|
-| `n=128` | CPU (single-thread) | 458 s | 1.02 s | — |
-| `n=128` | GPU (RTX 2000 Ada Laptop) | 324 s | 0.72 s | 1.4× |
-| `n=256` | GPU | 793 s | 1.76 s | ~2.3× vs estimated CPU |
+| Grid | T_STOP | Δt_cosim | Backend | CFD wall | per-step | vs. CPU baseline |
+|---|---|---|---|---|---|---|
+| `n=128` | 90 s   | 0.2 s | CPU (single-thread) | 458 s | 1.02 s | — |
+| `n=128` | 90 s   | 0.2 s | GPU (RTX 2000 Ada Laptop) | 324 s | 0.72 s | 1.4× |
+| `n=256` | 90 s   | 0.2 s | GPU | 793 s | 1.76 s | ~2.3× vs estimated CPU |
+| `n=128` | 1500 s | 1.0 s | GPU (the full-arrival video below) | 1784 s | 1.19 s | — |
 
 The GPU path is `mem = CUDA.CuArray` passed through `FlettnerCFDLive.init!`
 to `WaterLily.Simulation`; the script auto-detects `CUDA.functional()`
@@ -186,14 +187,23 @@ The script writes:
 - `assets/flettner_cosim_verification.png` — four-panel plot comparing
   rotor surge force, sway force, ship trajectory, and live `Cl(t)` / `Cd(t)`
   against the table-driven `FullShipFlettnerFavorableRender` reference.
-- `assets/flettner_cosim_animation.mp4` — the actual WaterLily z-vorticity
-  field at every coupling step (15 s video, 30 fps, 450 frames). You can
-  watch the Magnus boundary layer develop and the vortex-shedding bias
-  shift as `ξ` ramps from 0 to ~3.1.
+- `assets/flettner_cosim_animation.mp4` — full-arrival run: 1500 s of
+  simulated transit compressed into 25 s (30 fps, 750 frames). Top panel
+  shows the ship's map view as it travels from origin to the (10000, 1000)
+  target; bottom panel shows the WaterLily z-vorticity field — actual CFD
+  flow around the rotating cylinder — synchronized to the same simulated
+  time. You can see the Magnus boundary layer roll up and the wake bias
+  swing as the apparent-wind angle shifts under the time-varying wind.
 
 <video src="assets/flettner_cosim_animation.mp4" controls width="720">
   <a href="assets/flettner_cosim_animation.mp4">assets/flettner_cosim_animation.mp4</a>
 </video>
+
+The ship in the live cosim arrives at **t ≈ 1200 s** — close to the
+table-based favorable run's 1200 s arrival, despite live `Cl` running
+~20–30 % under the table at the early ramp-up phase. The
+`_n128_gpu` / `_n256_gpu` tagged variants are also bundled for direct
+short-window comparison.
 
 Table and live agree on shape, sign, and trajectory; live magnitudes run
 ~20–30% under the table because the body-rebuild-each-callback approach
