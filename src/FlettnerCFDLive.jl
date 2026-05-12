@@ -33,7 +33,6 @@ mutable struct State
     Cl::Float64
     Cd::Float64
     sim::Any         # WaterLily.Simulation, populated by the extension
-    xi_ref::Any      # Ref{Float32} for the spin-ratio dial in the body map
     R::Float64       # physical rotor radius [m]
     H::Float64       # physical rotor height [m]
     rho::Float64     # air density [kg/m³]
@@ -42,7 +41,7 @@ mutable struct State
     n_calls::Int      # bookkeeping
 end
 
-const STATE = State(0.0, 0.0, 0.0, 0.0, nothing, nothing, 0.0, 0.0, 0.0, 0.0, 0.5, 0)
+const STATE = State(0.0, 0.0, 0.0, 0.0, nothing, 0.0, 0.0, 0.0, 0.0, 0.5, 0)
 
 """
     init!(; R, H, rho=1.29, n=128, Re=1e4, inner_dt=0.5)

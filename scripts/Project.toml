@@ -2,6 +2,7 @@ name = "FlettnerCFD"
 uuid = "f1e77ec0-1aac-4f76-b3e8-3d3a30a7e1c1"
 
 [deps]
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 DiffEqCallbacks = "459566f4-90b8-5000-8ac3-15dfb0a30def"
 DyadShip = "06f36289-3465-4855-a938-d9d375dd888a"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
@@ -10,4 +11,5 @@ SymbolicIndexingInterface = "2efcf032-c050-4f8e-a9bb-153293bab1f5"
 WaterLily = "ed894a53-35f9-47f1-b17f-85db9237eebd"
 
 [compat]
+CUDA = "6.1.0"
 WaterLily = "1"

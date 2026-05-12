@@ -47,14 +47,32 @@ using SymbolicIndexingInterface
 using SciMLBase
 using Plots
 using Printf
+using CUDA
 gr()
+
+# Run the WaterLily side on the GPU if one is present and functional;
+# otherwise fall back to CPU. Override with `USE_GPU = false` here to
+# force CPU mode regardless. WaterLily's `mem` kwarg routes its flow
+# arrays to the corresponding array type.
+const USE_GPU = CUDA.functional()
+const MEM_TYPE = USE_GPU ? CUDA.CuArray : Array
+if USE_GPU
+    @info "WaterLily on GPU" device=CUDA.name(CUDA.device()) free_GB=round(CUDA.free_memory()/1e9; digits=2)
+else
+    @info "WaterLily on CPU (CUDA not functional)"
+end
 
 const ASSETS = abspath(joinpath(@__DIR__, "..", "assets"))
 mkpath(ASSETS)
 
 const COUPLING_DT = 0.2
 const INNER_DT    = 0.5
-const N_GRID      = 128       # match the offline table generation grid
+# Grid resolution: D = N_GRID / 4 cells across the cylinder diameter, domain
+# (6·N_GRID, N_GRID). Override via env: `N_GRID=256 julia scripts/run_…jl`.
+# n=128 matches the offline characterization table; bump to 256 / 384 for
+# better GPU utilization (the small grid is launch-overhead bound on most
+# GPUs, see README "Live co-simulation" section).
+const N_GRID      = parse(Int, get(ENV, "N_GRID", "128"))
 const RE          = 1.0e4
 const T_STOP      = 90.0
 
@@ -77,7 +95,8 @@ println("  reference t ∈ [0, $T_STOP]  $(length(ts)) samples.")
 println("─"^72)
 println("[2/3] Initializing WaterLily driver and online analysis…")
 DyadShip.FlettnerCFDLive.init!(; R = 2.5, H = 24, n = N_GRID,
-                                  Re = RE, inner_dt = INNER_DT)
+                                  Re = RE, inner_dt = INNER_DT,
+                                  mem = MEM_TYPE)
 
 # Build the online model from its Dyad-generated constructor and compile.
 # Dyad-generated test components require `name` (use the @named macro).
@@ -120,10 +139,12 @@ function cosim_affect!(integ)
 
     # Snapshot the WaterLily vorticity field for the animation. SpinCylOptim
     # pattern: write the dimensionless z-curl of velocity into the scratch
-    # field `sim.flow.σ`, then snapshot. ~200 KB per frame at n=128.
+    # field `sim.flow.σ`, then snapshot. ~200 KB per frame at n=128. The
+    # `Array(…)` wrapper brings the field back from GPU when the sim is
+    # running on `mem=CUDA.CuArray`; on CPU it's a cheap no-op `copy`.
     sim_h = DyadShip.FlettnerCFDLive.STATE.sim
     WaterLily.@inside sim_h.flow.σ[I] = WaterLily.curl(3, I, sim_h.flow.u) * sim_h.L
-    push!(cb_log_vort, Float32.(copy(sim_h.flow.σ)))
+    push!(cb_log_vort, Array(sim_h.flow.σ))
 
     SciMLBase.u_modified!(integ, false)
     return nothing
@@ -208,7 +229,10 @@ plot!(p_diag, cb_log_t, cb_log_Cd; label = "Cd_live", lw = 2, c = :darkorange)
 hline!(p_diag, [0]; c = :gray, lw = 0.5, label = "")
 
 p_all = plot(p_Fx, p_Fy, p_traj, p_diag; layout = (2, 2), size = (1200, 800))
-out_png = joinpath(ASSETS, "flettner_cosim_verification.png")
+# Tag the output file with the grid size + backend so n=128 and n=256
+# runs don't overwrite each other.
+const TAG = "n$(N_GRID)_$(USE_GPU ? "gpu" : "cpu")"
+out_png = joinpath(ASSETS, "flettner_cosim_verification_$(TAG).png")
 savefig(p_all, out_png)
 println("  wrote $out_png")
 
@@ -310,6 +334,6 @@ anim = @animate for k in 1:nframes
     plot(p_map, p_cfd; layout = grid(2, 1, heights = [0.55, 0.45]),
          size = (1200, 700))
 end
-mp4_path = joinpath(ASSETS, "flettner_cosim_animation.mp4")
+mp4_path = joinpath(ASSETS, "flettner_cosim_animation_$(TAG).mp4")
 mp4(anim, mp4_path; fps = fps)
 println("  wrote $mp4_path")

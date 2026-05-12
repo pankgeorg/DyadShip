@@ -38,19 +38,34 @@ rot(θ) = SA[cos(θ) -sin(θ); sin(θ) cos(θ)]
 
 function FlettnerCFDLive._init_impl!(; R::Real, H::Real, rho::Real = 1.29,
                                        n::Integer = 64, Re::Real = 1.0e4,
-                                       inner_dt::Real = 0.5)
+                                       inner_dt::Real = 0.5,
+                                       mem = Array)
     D = Float32(n / 4)
     R_sim = D / 2
     C = SA{Float32}[2D, n / 2]
     U_sim = 1.0f0
     sdf = (x, t) -> √sum(abs2, x .- C) - R_sim
-    xi_ref = Ref{Float32}(0.0f0)
-    bodymap = (x, t) -> rot(xi_ref[] * U_sim * t / R_sim) * (x .- C) .+ C
+    # Initial ξ baked in as a literal `Float32` (not a `Ref`) so the body's
+    # map closure is bitstype and survives the first `measure!` kernel that
+    # WaterLily.Simulation runs on GPU. `_step_impl!` rebuilds the body
+    # every callback with the fresh ξ, so this initial value is just a
+    # placeholder.
+    ξ0 = 0.0f0
+    bodymap = (x, t) -> rot(ξ0 * U_sim * t / R_sim) * (x .- C) .+ C
     body = AutoBody(sdf, bodymap)
-    sim = Simulation((6n, n), (U_sim, 0), D; ν = U_sim * D / Re, body, T = Float32)
+    # `mem` routes the flow-state arrays to CPU (`Array`, default) or GPU
+    # (`CUDA.CuArray` when the caller imports CUDA and passes it through).
+    # The SDF/map closures stay Julia and run inside WaterLily's
+    # KernelAbstractions kernels on whichever backend `mem` selects.
+    #
+    # `uBC` is forced to a homogeneous `Tuple{Float32, Float32}`. CPU
+    # kernels handle mixed-type tuples (`(1.0f0, 0)` ⇒ `Tuple{Float32, Int64}`)
+    # but the CUDA-PTX backend can't compile the variadic `getindex` —
+    # GPU `applyV!` errors with `ijl_get_nth_field_checked` unsupported.
+    sim = Simulation((6n, n), (U_sim, 0.0f0), D; ν = U_sim * D / Re,
+                     body, T = Float32, mem = mem)
 
     STATE.sim = sim
-    STATE.xi_ref = xi_ref
     STATE.R = R
     STATE.H = H
     STATE.rho = rho
@@ -74,7 +89,6 @@ function FlettnerCFDLive._step_impl!(t_dyad::Real, U_app::Real, alpha::Real, ome
     # Signed dimensionless spin ratio (sign carries the Magnus direction).
     U_floor = max(abs(U_app), 1.0e-3)
     ξ = Float32(omega * STATE.R / U_floor)
-    STATE.xi_ref[] = ξ
 
     # Rebuild the body each callback with the fresh ξ baked into the closure.
     # The Ref-update-from-outside approach didn't propagate through WaterLily's

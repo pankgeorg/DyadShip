@@ -155,9 +155,33 @@ machinery lives in `src/FlettnerCFDLive.jl` (stubs + force lookups) +
 extension keyed on `WaterLily`). The driver is documented in the docstrings.
 
 This exists to **verify** the offline-table approach against actual live
-CFD, not for production runs. Cost is ~5× real time at `n=128, Δt=0.2 s`
-(`scripts/run_flettner_cosim_verification.jl` runs 90 s of sim in ~8 min
-wall — CFD + heatmap rendering). It writes:
+CFD, not for production runs. CFD wall-time (90 s of sim, 450 callbacks,
+WaterLily inner_dt = 0.5):
+
+| Grid | Backend | CFD wall | per-step | vs. CPU baseline |
+|---|---|---|---|---|
+| `n=128` | CPU (single-thread) | 458 s | 1.02 s | — |
+| `n=128` | GPU (RTX 2000 Ada Laptop) | 324 s | 0.72 s | 1.4× |
+| `n=256` | GPU | 793 s | 1.76 s | ~2.3× vs estimated CPU |
+
+The GPU path is `mem = CUDA.CuArray` passed through `FlettnerCFDLive.init!`
+to `WaterLily.Simulation`; the script auto-detects `CUDA.functional()`
+and falls back to CPU when no device is present. **Speedup at `n=128` is
+modest** because the grid is tiny (~98 k cells) — each WaterLily kernel
+finishes in microseconds while the CPU-side dispatch overhead is ~10 µs
+per launch, so the GPU spends most of its time waiting for the next
+kernel. `n=256` (~400 k cells) starts to amortize the dispatch cost and
+also produces noticeably better-matched Cl/Cd vs the offline reference
+(e.g., live `Cl` at `t=10` is 2.4 at n=256 vs 0.8 at n=128, table value
+~2.5).
+
+Override the grid with `N_GRID=256 ../julia-dyad.sh --project=scripts
+scripts/run_flettner_cosim_verification.jl`. Outputs are tagged with
+`_n{N}_{cpu|gpu}` so multiple runs don't overwrite each other; the
+untagged `flettner_cosim_animation.mp4` / `flettner_cosim_verification.png`
+in the repo are the canonical n=256 GPU pair.
+
+The script writes:
 
 - `assets/flettner_cosim_verification.png` — four-panel plot comparing
   rotor surge force, sway force, ship trajectory, and live `Cl(t)` / `Cd(t)`
