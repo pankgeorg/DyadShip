@@ -101,8 +101,7 @@ the rotor's contribution is purely additive and the residual analysis surfaces
   append!(__params, @parameters (rotor_H::Real), [description = "Rotor height [m]"])
   __initial_conditions[rotor_H] = __local__rotor_H
   __local__omega_target = omega_target
-  append!(__params, @parameters (omega_target::Real), [description = "Target rotor angular velocity [rad/s] — sized so ξ at design wind sits near
-  append!(__params, @parameters (omega_target::Real), [description =  the CFD-derived Cl peak (around ξ ≈ 4) rather than far in the saturated tail."])
+  append!(__params, @parameters (omega_target::Real), [description = "Target rotor angular velocity [rad/s] — sized so ξ at design wind sits near the CFD-derived Cl peak (around ξ ≈ 4) rather than far in the saturated tail."])
   __initial_conditions[omega_target] = __local__omega_target
   __local__rotor_arm = rotor_arm
   append!(__params, @parameters (rotor_arm::Real), [description = "Rotor mount arm forward of hull CG [m]"])

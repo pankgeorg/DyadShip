@@ -135,10 +135,7 @@ Outputs:
   append!(__params, @parameters (Tf_shaft::Real), [description = "Filter time constant for derivative approximation (shaft loop)"])
   __initial_conditions[Tf_shaft] = __local__Tf_shaft
   __local__Deadband_rudder = Deadband_rudder
-  append!(__params, @parameters (Deadband_rudder::Real), [description = "Course-error deadband [rad]. The rudder command stays at zero while
-  append!(__params, @parameters (Deadband_rudder::Real), [description =   |course_difference| < Deadband_rudder; this stops the autopilot from
-  append!(__params, @parameters (Deadband_rudder::Real), [description =   chasing tiny errors and prevents the limit-cycle oscillation that
-  append!(__params, @parameters (Deadband_rudder::Real), [description =   otherwise arises with a strongly-effective rudder."])
+  append!(__params, @parameters (Deadband_rudder::Real), [description = "Course-error deadband [rad]. The rudder command stays at zero while |course_difference| < Deadband_rudder; this stops the autopilot from chasing tiny errors and prevents the limit-cycle oscillation that otherwise arises with a strongly-effective rudder."])
   __initial_conditions[Deadband_rudder] = __local__Deadband_rudder
 
   ### Final Parameters (assignments)

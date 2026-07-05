@@ -49,10 +49,7 @@ component SimpleAutoPilot
   "Filter time constant for derivative approximation (shaft loop)"
   parameter Tf_shaft::Real = 0.1
 
-  "Course-error deadband [rad]. The rudder command stays at zero while
-   |course_difference| < Deadband_rudder; this stops the autopilot from
-   chasing tiny errors and prevents the limit-cycle oscillation that
-   otherwise arises with a strongly-effective rudder."
+  "Course-error deadband [rad]. The rudder command stays at zero while |course_difference| < Deadband_rudder; this stops the autopilot from chasing tiny errors and prevents the limit-cycle oscillation that otherwise arises with a strongly-effective rudder."
   parameter Deadband_rudder::Angle = 0.0
 
   pos_x = RealInput()

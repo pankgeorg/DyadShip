@@ -26,8 +26,7 @@ test component FullShipFlettnerRender
   parameter rotor_R::Length = 2.5
   "Rotor height [m]"
   parameter rotor_H::Length = 24
-  "Target rotor angular velocity [rad/s] — sized so ξ at design wind sits near
-  the CFD-derived Cl peak (around ξ ≈ 4) rather than far in the saturated tail."
+  "Target rotor angular velocity [rad/s] — sized so ξ at design wind sits near the CFD-derived Cl peak (around ξ ≈ 4) rather than far in the saturated tail."
   parameter omega_target::Real = 28
   "Rotor mount arm forward of hull CG [m]"
   parameter rotor_arm::Length = 30
