@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    FullShipDisturbed(; name, target_x, target_y, base_torque)
 
@@ -20,7 +22,7 @@ rudder / autopilot stack as `FullShip`, with:
 This analysis is the regression test for the autopilot — it should keep the
 ship on heading and reach the waypoint despite the disturbance.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -31,9 +33,9 @@ ship on heading and reach the waypoint despite the disturbance.
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `wind_world_x`         |                          | m/s  | 
-| `wind_world_y`         |                          | m/s  | 
+| ------------ | ----------------------------------- | ------ |
+| `wind_world_x`         |                          | m/s  |
+| `wind_world_y`         |                          | m/s  |
 """
 @component function FullShipDisturbed(; name = nothing, target_x=Float64(10000), target_y=Float64(1000), base_torque=Float64(80000), kwargs...)
   isnothing(name) && throw(ArgumentError("""
@@ -43,7 +45,7 @@ ship on heading and reach the waypoint despite the disturbance.
     @named model = FullShipDisturbed()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -63,8 +65,6 @@ ship on heading and reach the waypoint despite the disturbance.
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
@@ -77,6 +77,8 @@ ship on heading and reach the waypoint despite the disturbance.
   __local__base_torque = base_torque
   append!(__params, @parameters (base_torque::Real))
   __initial_conditions[base_torque] = __local__base_torque
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 
@@ -95,69 +97,53 @@ ship on heading and reach the waypoint despite the disturbance.
 
   ### Components
   # Subcomponent world of type MultibodyComponents.PlanarMechanics.World
-  world_overrides = Dict(Symbol(replace(string(k), r"^world__" => "")) => v for (k, v) in __overrides if startswith(string(k), "world__"))
-  filter!(p -> !startswith(string(first(p)), "world__"), __overrides)
+  world_overrides = __pop_subcomponent_overrides!(__overrides, "world")
   push!(__systems, @named world = MultibodyComponents.PlanarMechanics.World(g=0, render=false, world_overrides...))
   # Subcomponent hull of type DyadShip.Ship.HullMMG
-  hull_overrides = Dict(Symbol(replace(string(k), r"^hull__" => "")) => v for (k, v) in __overrides if startswith(string(k), "hull__"))
-  filter!(p -> !startswith(string(first(p)), "hull__"), __overrides)
-  push!(__systems, @named hull = DyadShip.Ship.HullMMG(mass=1000000, Iz=100000000, Lpp=100, B=20, Draft=4, Cb=0.693, hull_overrides...))
+  hull_overrides = __pop_subcomponent_overrides!(__overrides, "hull")
+  push!(__systems, @named hull = DyadShip.Ship.HullMMG(mass=1000000.0, Iz=100000000.0, Lpp=100, B=20, Draft=4, Cb=0.693, hull_overrides...))
   # Subcomponent prop of type DyadShip.Propulsion.Propeller1Q
-  prop_overrides = Dict(Symbol(replace(string(k), r"^prop__" => "")) => v for (k, v) in __overrides if startswith(string(k), "prop__"))
-  filter!(p -> !startswith(string(first(p)), "prop__"), __overrides)
-  push!(__systems, @named prop = DyadShip.Propulsion.Propeller1Q(Diameter=4, P_D=1, Ae_Ao=0.55, Z=4, prop_overrides...))
+  prop_overrides = __pop_subcomponent_overrides!(__overrides, "prop")
+  push!(__systems, @named prop = DyadShip.Propulsion.Propeller1Q(Diameter=4, P_D=1.0, Ae_Ao=0.55, Z=4, prop_overrides...))
   # Subcomponent shaft of type RotationalComponents.Components.Inertia
-  shaft_overrides = Dict(Symbol(replace(string(k), r"^shaft__" => "")) => v for (k, v) in __overrides if startswith(string(k), "shaft__"))
-  filter!(p -> !startswith(string(first(p)), "shaft__"), __overrides)
+  shaft_overrides = __pop_subcomponent_overrides!(__overrides, "shaft")
   push!(__systems, @named shaft = RotationalComponents.Components.Inertia(J=5000, shaft_overrides...))
   # Subcomponent src of type RotationalComponents.Sources.TorqueSource
-  src_overrides = Dict(Symbol(replace(string(k), r"^src__" => "")) => v for (k, v) in __overrides if startswith(string(k), "src__"))
-  filter!(p -> !startswith(string(first(p)), "src__"), __overrides)
+  src_overrides = __pop_subcomponent_overrides!(__overrides, "src")
   push!(__systems, @named src = RotationalComponents.Sources.TorqueSource(src_overrides...))
   # Subcomponent ground of type RotationalComponents.Components.Fixed
-  ground_overrides = Dict(Symbol(replace(string(k), r"^ground__" => "")) => v for (k, v) in __overrides if startswith(string(k), "ground__"))
-  filter!(p -> !startswith(string(first(p)), "ground__"), __overrides)
+  ground_overrides = __pop_subcomponent_overrides!(__overrides, "ground")
   push!(__systems, @named ground = RotationalComponents.Components.Fixed(ground_overrides...))
   # Subcomponent rudder of type DyadShip.Propulsion.Rudder
-  rudder_overrides = Dict(Symbol(replace(string(k), r"^rudder__" => "")) => v for (k, v) in __overrides if startswith(string(k), "rudder__"))
-  filter!(p -> !startswith(string(first(p)), "rudder__"), __overrides)
+  rudder_overrides = __pop_subcomponent_overrides!(__overrides, "rudder")
   push!(__systems, @named rudder = DyadShip.Propulsion.Rudder(rudder_overrides...))
   # Subcomponent pilot of type DyadShip.Ship.HeadingAutoPilot
-  pilot_overrides = Dict(Symbol(replace(string(k), r"^pilot__" => "")) => v for (k, v) in __overrides if startswith(string(k), "pilot__"))
-  filter!(p -> !startswith(string(first(p)), "pilot__"), __overrides)
+  pilot_overrides = __pop_subcomponent_overrides!(__overrides, "pilot")
   push!(__systems, @named pilot = DyadShip.Ship.HeadingAutoPilot(k_p=30, k_i=1, Deadband=π / 180, pilot_overrides...))
   # Subcomponent prop_arm of type MultibodyComponents.PlanarMechanics.FixedTranslation
-  prop_arm_overrides = Dict(Symbol(replace(string(k), r"^prop_arm__" => "")) => v for (k, v) in __overrides if startswith(string(k), "prop_arm__"))
-  filter!(p -> !startswith(string(first(p)), "prop_arm__"), __overrides)
+  prop_arm_overrides = __pop_subcomponent_overrides!(__overrides, "prop_arm")
   push!(__systems, @named prop_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[-50, 0], render=false, prop_arm_overrides...))
   # Subcomponent rudder_arm of type MultibodyComponents.PlanarMechanics.FixedTranslation
-  rudder_arm_overrides = Dict(Symbol(replace(string(k), r"^rudder_arm__" => "")) => v for (k, v) in __overrides if startswith(string(k), "rudder_arm__"))
-  filter!(p -> !startswith(string(first(p)), "rudder_arm__"), __overrides)
+  rudder_arm_overrides = __pop_subcomponent_overrides!(__overrides, "rudder_arm")
   push!(__systems, @named rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[-52, 0], render=false, rudder_arm_overrides...))
   # Subcomponent env of type DyadShip.Environment
-  env_overrides = Dict(Symbol(replace(string(k), r"^env__" => "")) => v for (k, v) in __overrides if startswith(string(k), "env__"))
-  filter!(p -> !startswith(string(first(p)), "env__"), __overrides)
+  env_overrides = __pop_subcomponent_overrides!(__overrides, "env")
   push!(__systems, @named env = DyadShip.Environment(WindSpeed=15, WindDirection=45, env_overrides...))
   # Subcomponent apparent of type DyadShip.ApparentSpeedXY
-  apparent_overrides = Dict(Symbol(replace(string(k), r"^apparent__" => "")) => v for (k, v) in __overrides if startswith(string(k), "apparent__"))
-  filter!(p -> !startswith(string(first(p)), "apparent__"), __overrides)
+  apparent_overrides = __pop_subcomponent_overrides!(__overrides, "apparent")
   push!(__systems, @named apparent = DyadShip.ApparentSpeedXY(apparent_overrides...))
   # Subcomponent wind of type DyadShip.Ship.ShipWind
-  wind_overrides = Dict(Symbol(replace(string(k), r"^wind__" => "")) => v for (k, v) in __overrides if startswith(string(k), "wind__"))
-  filter!(p -> !startswith(string(first(p)), "wind__"), __overrides)
+  wind_overrides = __pop_subcomponent_overrides!(__overrides, "wind")
   push!(__systems, @named wind = DyadShip.Ship.ShipWind(wind_overrides...))
   # Subcomponent swell_x of type BlockComponents.Sources.Sine
-  swell_x_overrides = Dict(Symbol(replace(string(k), r"^swell_x__" => "")) => v for (k, v) in __overrides if startswith(string(k), "swell_x__"))
-  filter!(p -> !startswith(string(first(p)), "swell_x__"), __overrides)
+  swell_x_overrides = __pop_subcomponent_overrides!(__overrides, "swell_x")
   push!(__systems, @named swell_x = BlockComponents.Sources.Sine(amplitude=80000, frequency=0.05, offset=0, phase=0, start_time=0, swell_x_overrides...))
   # Subcomponent swell_y of type BlockComponents.Sources.Sine
-  swell_y_overrides = Dict(Symbol(replace(string(k), r"^swell_y__" => "")) => v for (k, v) in __overrides if startswith(string(k), "swell_y__"))
-  filter!(p -> !startswith(string(first(p)), "swell_y__"), __overrides)
+  swell_y_overrides = __pop_subcomponent_overrides!(__overrides, "swell_y")
   push!(__systems, @named swell_y = BlockComponents.Sources.Sine(amplitude=120000, frequency=0.04, offset=0, phase=1.05, start_time=0, swell_y_overrides...))
   # Subcomponent swell_yaw of type BlockComponents.Sources.Sine
-  swell_yaw_overrides = Dict(Symbol(replace(string(k), r"^swell_yaw__" => "")) => v for (k, v) in __overrides if startswith(string(k), "swell_yaw__"))
-  filter!(p -> !startswith(string(first(p)), "swell_yaw__"), __overrides)
-  push!(__systems, @named swell_yaw = BlockComponents.Sources.Sine(amplitude=2500000, frequency=0.06, offset=0, phase=0.78, start_time=0, swell_yaw_overrides...))
+  swell_yaw_overrides = __pop_subcomponent_overrides!(__overrides, "swell_yaw")
+  push!(__systems, @named swell_yaw = BlockComponents.Sources.Sine(amplitude=2500000.0, frequency=0.06, offset=0, phase=0.78, start_time=0, swell_yaw_overrides...))
 
   ### Check there are no unmatched overrides
   isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))

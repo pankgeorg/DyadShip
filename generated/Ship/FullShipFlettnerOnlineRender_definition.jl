@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    FullShipFlettnerOnlineRender(; name, target_x, target_y, base_torque, wind_speed_mean, wind_direction_mean, rotor_R, rotor_H, omega_target, rotor_arm)
 
@@ -31,7 +33,7 @@ The caller is responsible for:
 
 See `scripts/run_flettner_cosim_verification.jl` for the end-to-end driver.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -48,12 +50,12 @@ See `scripts/run_flettner_cosim_verification.jl` for the end-to-end driver.
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `wind_speed_now`         |                          | m/s  | 
-| `wind_direction_now`         |                          | --  | 
-| `wind_world_x`         |                          | m/s  | 
-| `wind_world_y`         |                          | m/s  | 
-| `rotor_omega_cmd`         |                          | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `wind_speed_now`         |                          | m/s  |
+| `wind_direction_now`         |                          | --  |
+| `wind_world_x`         |                          | m/s  |
+| `wind_world_y`         |                          | m/s  |
+| `rotor_omega_cmd`         |                          | --  |
 """
 @component function FullShipFlettnerOnlineRender(; name = nothing, target_x=Float64(10000), target_y=Float64(1000), base_torque=Float64(80000), wind_speed_mean=Float64(15), wind_direction_mean=Float64(0), rotor_R=2.5, rotor_H=Float64(24), omega_target=Float64(28), rotor_arm=Float64(30), kwargs...)
   isnothing(name) && throw(ArgumentError("""
@@ -63,7 +65,7 @@ See `scripts/run_flettner_cosim_verification.jl` for the end-to-end driver.
     @named model = FullShipFlettnerOnlineRender()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -82,8 +84,6 @@ See `scripts/run_flettner_cosim_verification.jl` for the end-to-end driver.
   ### Path Parameters (non-final)
 
   ### Final Parameters (declarations)
-
-  ### Final Parameters (assignments)
 
   ### Deferred assignment (default values that depend on final parameters)
 
@@ -116,6 +116,8 @@ See `scripts/run_flettner_cosim_verification.jl` for the end-to-end driver.
   append!(__params, @parameters (rotor_arm::Real))
   __initial_conditions[rotor_arm] = __local__rotor_arm
 
+  ### Final Parameters (assignments)
+
   ### Final Path Parameters
 
   ### Variables (declarations)
@@ -142,64 +144,49 @@ See `scripts/run_flettner_cosim_verification.jl` for the end-to-end driver.
 
   ### Components
   # Subcomponent world of type MultibodyComponents.PlanarMechanics.World
-  world_overrides = Dict(Symbol(replace(string(k), r"^world__" => "")) => v for (k, v) in __overrides if startswith(string(k), "world__"))
-  filter!(p -> !startswith(string(first(p)), "world__"), __overrides)
+  world_overrides = __pop_subcomponent_overrides!(__overrides, "world")
   push!(__systems, @named world = MultibodyComponents.PlanarMechanics.World(g=0, render=true, world_overrides...))
   # Subcomponent hull of type DyadShip.Ship.HullMMG
-  hull_overrides = Dict(Symbol(replace(string(k), r"^hull__" => "")) => v for (k, v) in __overrides if startswith(string(k), "hull__"))
-  filter!(p -> !startswith(string(first(p)), "hull__"), __overrides)
-  push!(__systems, @named hull = DyadShip.Ship.HullMMG(mass=1000000, Iz=100000000, Lpp=100, B=20, Draft=4, Cb=0.693, render=true, body_radius=600, hull_overrides...))
+  hull_overrides = __pop_subcomponent_overrides!(__overrides, "hull")
+  push!(__systems, @named hull = DyadShip.Ship.HullMMG(mass=1000000.0, Iz=100000000.0, Lpp=100, B=20, Draft=4, Cb=0.693, render=true, body_radius=600, hull_overrides...))
   # Subcomponent prop of type DyadShip.Propulsion.Propeller1Q
-  prop_overrides = Dict(Symbol(replace(string(k), r"^prop__" => "")) => v for (k, v) in __overrides if startswith(string(k), "prop__"))
-  filter!(p -> !startswith(string(first(p)), "prop__"), __overrides)
-  push!(__systems, @named prop = DyadShip.Propulsion.Propeller1Q(Diameter=4, P_D=1, Ae_Ao=0.55, Z=4, prop_overrides...))
+  prop_overrides = __pop_subcomponent_overrides!(__overrides, "prop")
+  push!(__systems, @named prop = DyadShip.Propulsion.Propeller1Q(Diameter=4, P_D=1.0, Ae_Ao=0.55, Z=4, prop_overrides...))
   # Subcomponent shaft of type RotationalComponents.Components.Inertia
-  shaft_overrides = Dict(Symbol(replace(string(k), r"^shaft__" => "")) => v for (k, v) in __overrides if startswith(string(k), "shaft__"))
-  filter!(p -> !startswith(string(first(p)), "shaft__"), __overrides)
+  shaft_overrides = __pop_subcomponent_overrides!(__overrides, "shaft")
   push!(__systems, @named shaft = RotationalComponents.Components.Inertia(J=5000, shaft_overrides...))
   # Subcomponent src of type RotationalComponents.Sources.TorqueSource
-  src_overrides = Dict(Symbol(replace(string(k), r"^src__" => "")) => v for (k, v) in __overrides if startswith(string(k), "src__"))
-  filter!(p -> !startswith(string(first(p)), "src__"), __overrides)
+  src_overrides = __pop_subcomponent_overrides!(__overrides, "src")
   push!(__systems, @named src = RotationalComponents.Sources.TorqueSource(src_overrides...))
   # Subcomponent ground of type RotationalComponents.Components.Fixed
-  ground_overrides = Dict(Symbol(replace(string(k), r"^ground__" => "")) => v for (k, v) in __overrides if startswith(string(k), "ground__"))
-  filter!(p -> !startswith(string(first(p)), "ground__"), __overrides)
+  ground_overrides = __pop_subcomponent_overrides!(__overrides, "ground")
   push!(__systems, @named ground = RotationalComponents.Components.Fixed(ground_overrides...))
   # Subcomponent rudder of type DyadShip.Propulsion.Rudder
-  rudder_overrides = Dict(Symbol(replace(string(k), r"^rudder__" => "")) => v for (k, v) in __overrides if startswith(string(k), "rudder__"))
-  filter!(p -> !startswith(string(first(p)), "rudder__"), __overrides)
+  rudder_overrides = __pop_subcomponent_overrides!(__overrides, "rudder")
   push!(__systems, @named rudder = DyadShip.Propulsion.Rudder(rudder_overrides...))
   # Subcomponent pilot of type DyadShip.Ship.HeadingAutoPilot
-  pilot_overrides = Dict(Symbol(replace(string(k), r"^pilot__" => "")) => v for (k, v) in __overrides if startswith(string(k), "pilot__"))
-  filter!(p -> !startswith(string(first(p)), "pilot__"), __overrides)
+  pilot_overrides = __pop_subcomponent_overrides!(__overrides, "pilot")
   push!(__systems, @named pilot = DyadShip.Ship.HeadingAutoPilot(k_p=30, k_i=1, Deadband=π / 180, pilot_overrides...))
   # Subcomponent prop_arm of type MultibodyComponents.PlanarMechanics.FixedTranslation
-  prop_arm_overrides = Dict(Symbol(replace(string(k), r"^prop_arm__" => "")) => v for (k, v) in __overrides if startswith(string(k), "prop_arm__"))
-  filter!(p -> !startswith(string(first(p)), "prop_arm__"), __overrides)
+  prop_arm_overrides = __pop_subcomponent_overrides!(__overrides, "prop_arm")
   push!(__systems, @named prop_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[-50, 0], render=true, radius=100, prop_arm_overrides...))
   # Subcomponent rudder_arm of type MultibodyComponents.PlanarMechanics.FixedTranslation
-  rudder_arm_overrides = Dict(Symbol(replace(string(k), r"^rudder_arm__" => "")) => v for (k, v) in __overrides if startswith(string(k), "rudder_arm__"))
-  filter!(p -> !startswith(string(first(p)), "rudder_arm__"), __overrides)
+  rudder_arm_overrides = __pop_subcomponent_overrides!(__overrides, "rudder_arm")
   push!(__systems, @named rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[-52, 0], render=true, radius=100, rudder_arm_overrides...))
   # Subcomponent rotor_arm_t of type MultibodyComponents.PlanarMechanics.FixedTranslation
-  rotor_arm_t_overrides = Dict(Symbol(replace(string(k), r"^rotor_arm_t__" => "")) => v for (k, v) in __overrides if startswith(string(k), "rotor_arm_t__"))
-  filter!(p -> !startswith(string(first(p)), "rotor_arm_t__"), __overrides)
+  rotor_arm_t_overrides = __pop_subcomponent_overrides!(__overrides, "rotor_arm_t")
   push!(__systems, @named rotor_arm_t = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[rotor_arm, 0], render=true, radius=100, rotor_arm_t_overrides...))
   # Subcomponent env of type DyadShip.VariableEnvironment
-  env_overrides = Dict(Symbol(replace(string(k), r"^env__" => "")) => v for (k, v) in __overrides if startswith(string(k), "env__"))
-  filter!(p -> !startswith(string(first(p)), "env__"), __overrides)
+  env_overrides = __pop_subcomponent_overrides!(__overrides, "env")
   push!(__systems, @named env = DyadShip.VariableEnvironment(env_overrides...))
   # Subcomponent apparent of type DyadShip.ApparentSpeedXY
-  apparent_overrides = Dict(Symbol(replace(string(k), r"^apparent__" => "")) => v for (k, v) in __overrides if startswith(string(k), "apparent__"))
-  filter!(p -> !startswith(string(first(p)), "apparent__"), __overrides)
+  apparent_overrides = __pop_subcomponent_overrides!(__overrides, "apparent")
   push!(__systems, @named apparent = DyadShip.ApparentSpeedXY(apparent_overrides...))
   # Subcomponent wind of type DyadShip.Ship.ShipWind
-  wind_overrides = Dict(Symbol(replace(string(k), r"^wind__" => "")) => v for (k, v) in __overrides if startswith(string(k), "wind__"))
-  filter!(p -> !startswith(string(first(p)), "wind__"), __overrides)
+  wind_overrides = __pop_subcomponent_overrides!(__overrides, "wind")
   push!(__systems, @named wind = DyadShip.Ship.ShipWind(wind_overrides...))
   # Subcomponent rotor of type DyadShip.Propulsion.FlettnerRotorOnline
-  rotor_overrides = Dict(Symbol(replace(string(k), r"^rotor__" => "")) => v for (k, v) in __overrides if startswith(string(k), "rotor__"))
-  filter!(p -> !startswith(string(first(p)), "rotor__"), __overrides)
+  rotor_overrides = __pop_subcomponent_overrides!(__overrides, "rotor")
   push!(__systems, @named rotor = DyadShip.Propulsion.FlettnerRotorOnline(R=rotor_R, H=rotor_H, rotor_overrides...))
 
   ### Check there are no unmatched overrides
@@ -215,7 +202,7 @@ See `scripts/run_flettner_cosim_verification.jl` for the end-to-end driver.
   __assertions = []
 
   ### Equations
-  push!(__eqs, wind_speed_now ~ wind_speed_mean + 3.5 * sin(2 * π * t / 311 + 0.4) + 2 * sin(2 * π * t / 197 + 1.3) + 1.5 * sin(2 * π * t / 419 + 2.1))
+  push!(__eqs, wind_speed_now ~ wind_speed_mean + 3.5 * sin(2 * π * t / 311 + 0.4) + 2.0 * sin(2 * π * t / 197 + 1.3) + 1.5 * sin(2 * π * t / 419 + 2.1))
   push!(__eqs, wind_direction_now ~ wind_direction_mean + 22 * sin(2 * π * t / 293 + 0.7) + 12 * sin(2 * π * t / 419 + 1.9) + 7 * sin(2 * π * t / 611 + 2.4))
   push!(__eqs, env.WindSpeed ~ wind_speed_now)
   push!(__eqs, env.WindDirection ~ wind_direction_now)

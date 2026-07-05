@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    AntiHeelingDemo(; name)
 
@@ -23,7 +25,7 @@ seeing the ship heel and driving the pump that fills the Tank.
     @named model = AntiHeelingDemo()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -43,11 +45,11 @@ seeing the ship heel and driving the pump that fills the Tank.
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 
@@ -60,20 +62,16 @@ seeing the ship heel and driving the pump that fills the Tank.
 
   ### Components
   # Subcomponent ah of type DyadShip.Ship.AntiHeeling
-  ah_overrides = Dict(Symbol(replace(string(k), r"^ah__" => "")) => v for (k, v) in __overrides if startswith(string(k), "ah__"))
-  filter!(p -> !startswith(string(first(p)), "ah__"), __overrides)
+  ah_overrides = __pop_subcomponent_overrides!(__overrides, "ah")
   push!(__systems, @named ah = DyadShip.Ship.AntiHeeling(startup_delay=5, ah_overrides...))
   # Subcomponent tank_starboard of type DyadShip.Ship.Tank
-  tank_starboard_overrides = Dict(Symbol(replace(string(k), r"^tank_starboard__" => "")) => v for (k, v) in __overrides if startswith(string(k), "tank_starboard__"))
-  filter!(p -> !startswith(string(first(p)), "tank_starboard__"), __overrides)
+  tank_starboard_overrides = __pop_subcomponent_overrides!(__overrides, "tank_starboard")
   push!(__systems, @named tank_starboard = DyadShip.Ship.Tank(CoG_trans=8.77, tank_starboard_overrides...))
   # Subcomponent heel_in of type BlockComponents.Sources.Step
-  heel_in_overrides = Dict(Symbol(replace(string(k), r"^heel_in__" => "")) => v for (k, v) in __overrides if startswith(string(k), "heel_in__"))
-  filter!(p -> !startswith(string(first(p)), "heel_in__"), __overrides)
+  heel_in_overrides = __pop_subcomponent_overrides!(__overrides, "heel_in")
   push!(__systems, @named heel_in = BlockComponents.Sources.Step(height=0.2, start_time=10, offset=0, heel_in_overrides...))
   # Subcomponent fixed of type MultibodyComponents.PlanarMechanics.Fixed
-  fixed_overrides = Dict(Symbol(replace(string(k), r"^fixed__" => "")) => v for (k, v) in __overrides if startswith(string(k), "fixed__"))
-  filter!(p -> !startswith(string(first(p)), "fixed__"), __overrides)
+  fixed_overrides = __pop_subcomponent_overrides!(__overrides, "fixed")
   push!(__systems, @named fixed = MultibodyComponents.PlanarMechanics.Fixed(fixed_overrides...))
 
   ### Check there are no unmatched overrides

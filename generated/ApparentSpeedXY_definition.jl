@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    ApparentSpeedXY(; name)
 
@@ -45,9 +47,9 @@ rotated into the body frame.
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `rel_x`         |                          | m/s  | 
-| `rel_y`         |                          | m/s  | 
+| ------------ | ----------------------------------- | ------ |
+| `rel_x`         |                          | m/s  |
+| `rel_y`         |                          | m/s  |
 """
 @component function ApparentSpeedXY(; name = nothing, kwargs...)
   isnothing(name) && throw(ArgumentError("""
@@ -57,7 +59,7 @@ rotated into the body frame.
     @named model = ApparentSpeedXY()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -77,11 +79,11 @@ rotated into the body frame.
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (BodyVelX(t)::Real), [input = true])

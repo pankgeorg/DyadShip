@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    OnOffConsumer(; name, NominalPower, Kr, StartTime, CycleAmplitude, CycleFrequency)
 
@@ -31,7 +33,7 @@ Limitations vs upstream:
 - A precise replay of the upstream's table-based start signature would need the user
   to provide their own external time-shaped signal multiplied by `WorkSignal`.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -49,11 +51,11 @@ Limitations vs upstream:
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `time_on`         |                          | --  | 
-| `shape`         |                          | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `time_on`         |                          | --  |
+| `shape`         |                          | --  |
 """
-@component function OnOffConsumer(; name = nothing, NominalPower=Float64(1000), Kr=0.85, StartTime=Float64(5), CycleAmplitude=0.1, CycleFrequency=Float64(1), kwargs...)
+@component function OnOffConsumer(; name = nothing, NominalPower=Float64(1000), Kr=0.85, StartTime=Float64(5), CycleAmplitude=0.1, CycleFrequency=Float64(1.0), kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -61,7 +63,7 @@ Limitations vs upstream:
     @named model = OnOffConsumer()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -81,8 +83,6 @@ Limitations vs upstream:
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
@@ -101,6 +101,8 @@ Limitations vs upstream:
   __local__CycleFrequency = CycleFrequency
   append!(__params, @parameters (CycleFrequency::Real), [description = "Steady-cycle frequency [Hz]."])
   __initial_conditions[CycleFrequency] = __local__CycleFrequency
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (WorkSignal(t)::Real), [input = true])

@@ -6,6 +6,7 @@
 module Ship
 
 using ..DyadShip
+using ..DyadShip: __build_overrides, __dyad_sym_union, __pop_subcomponent_overrides!
 
 if isfile(joinpath((@__DIR__) |> Base.dirname |> Base.dirname, "dyad", "Ship", "module.jl"))
   include(joinpath((@__DIR__) |> Base.dirname |> Base.dirname, "dyad", "Ship", "module.jl"))

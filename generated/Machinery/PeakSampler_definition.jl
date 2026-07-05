@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    PeakSampler(; name, alpha, y_start)
 
@@ -32,7 +34,7 @@ Limitations vs upstream:
   individually, post-process the output of this sampler externally (e.g. a Julia
   rolling-window max).
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -47,8 +49,8 @@ Limitations vs upstream:
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `y_state`         |                          | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `y_state`         |                          | --  |
 """
 @component function PeakSampler(; name = nothing, alpha=Float64(0), y_start=Float64(0), kwargs...)
   isnothing(name) && throw(ArgumentError("""
@@ -58,7 +60,7 @@ Limitations vs upstream:
     @named model = PeakSampler()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -78,8 +80,6 @@ Limitations vs upstream:
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
@@ -89,6 +89,8 @@ Limitations vs upstream:
   __local__y_start = y_start
   append!(__params, @parameters (y_start::Real), [description = "Initial output value at t = 0. Pick > min(u) to keep the filter armed."])
   __initial_conditions[y_start] = __local__y_start
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (u(t)::Real), [input = true])
@@ -118,7 +120,7 @@ Limitations vs upstream:
   __assertions = []
 
   ### Equations
-  push!(__eqs, ModelingToolkit.D_nounits(y_state) ~ ifelse(u > y_state, (u - y_state) * 1000, -alpha * (y_state - u)))
+  push!(__eqs, ModelingToolkit.D_nounits(y_state) ~ ifelse(u > y_state, (u - y_state) * 1000.0, -alpha * (y_state - u)))
   push!(__eqs, y ~ y_state)
 
   # Return completely constructed System

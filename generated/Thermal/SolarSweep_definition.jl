@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    SolarSweep(; name)
 
@@ -18,7 +20,7 @@ set around t=20 h, with peak `IrradianceOnPanel` near `irradiance_ref`.
     @named model = SolarSweep()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -38,11 +40,11 @@ set around t=20 h, with peak `IrradianceOnPanel` near `irradiance_ref`.
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 
@@ -55,8 +57,7 @@ set around t=20 h, with peak `IrradianceOnPanel` near `irradiance_ref`.
 
   ### Components
   # Subcomponent sun of type DyadShip.Thermal.SolarIrradiation
-  sun_overrides = Dict(Symbol(replace(string(k), r"^sun__" => "")) => v for (k, v) in __overrides if startswith(string(k), "sun__"))
-  filter!(p -> !startswith(string(first(p)), "sun__"), __overrides)
+  sun_overrides = __pop_subcomponent_overrides!(__overrides, "sun")
   push!(__systems, @named sun = DyadShip.Thermal.SolarIrradiation(sun_overrides...))
 
   ### Check there are no unmatched overrides

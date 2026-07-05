@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    ConvRadSunWall(; name, A, alpha_abs, epsilon, sigma)
 
@@ -37,7 +39,7 @@ Limitations vs upstream:
 - Sun-screen and IrradianceOnPlane wiring is the caller's responsibility (this Dyad
   block consumes their *outputs*, not their internal frames).
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -53,18 +55,18 @@ Limitations vs upstream:
  * `h_c` - This connector represents a real signal as an input to a component ([`RealInput`](@ref))
  * `T_air` - This connector represents a real signal as an input to a component ([`RealInput`](@ref))
  * `T_sky` - This connector represents a real signal as an input to a component ([`RealInput`](@ref))
- * `port_wall` - This connector represents a thermal node with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
+ * `port_wall` - This connector represents a thermal port with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
 
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `Q_solar`         |                          | W  | 
-| `Q_conv`         |                          | W  | 
-| `Q_rad`         |                          | W  | 
-| `Q_total`         |                          | W  | 
+| ------------ | ----------------------------------- | ------ |
+| `Q_solar`         |                          | W  |
+| `Q_conv`         |                          | W  |
+| `Q_rad`         |                          | W  |
+| `Q_total`         |                          | W  |
 """
-@component function ConvRadSunWall(; name = nothing, A=Float64(1), alpha_abs=0.7, epsilon=0.9, sigma=5.670374e-8, kwargs...)
+@component function ConvRadSunWall(; name = nothing, A=Float64(1.0), alpha_abs=0.7, epsilon=0.9, sigma=5.670374e-8, kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -72,7 +74,7 @@ Limitations vs upstream:
     @named model = ConvRadSunWall()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -92,8 +94,6 @@ Limitations vs upstream:
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
@@ -109,6 +109,8 @@ Limitations vs upstream:
   __local__sigma = sigma
   append!(__params, @parameters (sigma::Real), [description = "Stefan-Boltzmann constant [W/(m²·K⁴)]"])
   __initial_conditions[sigma] = __local__sigma
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (S_panel(t)::Real), [input = true])

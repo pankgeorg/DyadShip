@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    FlettnerRotorOnline(; name, R, H, MaxOmega)
 
@@ -48,7 +50,7 @@ Outputs:
 The `frame_a` hookup follows the same body→world rotation pattern as
 `FlettnerRotor` / `WingSail`.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -78,7 +80,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
     @named model = FlettnerRotorOnline()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -98,8 +100,6 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
@@ -112,6 +112,8 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   __local__MaxOmega = MaxOmega
   append!(__params, @parameters (MaxOmega::Real))
   __initial_conditions[MaxOmega] = __local__MaxOmega
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (Omega_Order(t)::Real), [input = true])

@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    SimpleAutoPilotConstantTarget(; name)
 
@@ -22,7 +24,7 @@ speed module up toward `target_speed`.
     @named model = SimpleAutoPilotConstantTarget()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -42,11 +44,11 @@ speed module up toward `target_speed`.
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 
@@ -59,8 +61,7 @@ speed module up toward `target_speed`.
 
   ### Components
   # Subcomponent pilot of type DyadShip.Ship.SimpleAutoPilot
-  pilot_overrides = Dict(Symbol(replace(string(k), r"^pilot__" => "")) => v for (k, v) in __overrides if startswith(string(k), "pilot__"))
-  filter!(p -> !startswith(string(first(p)), "pilot__"), __overrides)
+  pilot_overrides = __pop_subcomponent_overrides!(__overrides, "pilot")
   push!(__systems, @named pilot = DyadShip.Ship.SimpleAutoPilot(pilot_overrides...))
 
   ### Check there are no unmatched overrides

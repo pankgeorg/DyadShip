@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    ShipWind(; name, Loa, B, Draft, A_T, A_L, A_0D, A_ss, C, C_BR, H_BR, H_C, AirDensity, X_0, X_1, X_3, X_5, Y_1, Y_3, Y_5, N_1, N_2, N_3)
 
@@ -35,7 +37,7 @@ the published coefficient table the upstream model uses.)
 Multibody forces (`WorldForce`/`WorldTorque` on `frame_a`) are not produced — the caller
 integrates the outputs into the hull.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -51,14 +53,14 @@ integrates the outputs into the hull.
 | `H_BR`         |                          | m  |   17.5 |
 | `H_C`         |                          | m  |   8.5 |
 | `AirDensity`         | Air density                         | kg/m3  |   1.29 |
-| `X_0`         |                          | --  |   -0.33 + 0.293 * B * H_BR / A_T + 0.0193 * C / H_C + 0.682 * A_0D / Loa ^ 2 |
-| `X_1`         |                          | --  |   -1.353 + 1.7 * A_L / (Loa * B) + 2.87 * Loa * H_C / A_L - 0.463 * Loa * H_BR / A_L - 0.57 * A_0D / A_L - 6.64 * A_T / (Loa * B) - 0.0123 * (A_T / (Loa ^ 2)) ^ (-1) + 0.0202 * (H_C / Loa) ^ (-1) |
-| `X_3`         |                          | --  |   0.83 - 0.413 * (Loa * H_BR / A_L) ^ (-1) - 0.0827 * A_L / A_T - 0.563 * Loa * H_C / A_L + 0.804 * A_0D / A_L - 5.67 * A_0D / (Loa ^ 2) - 0.0401 * C / H_C - 0.132 * C_BR / Loa |
-| `X_5`         |                          | --  |   -0.0372 - 0.0075 * (A_0D / A_L) ^ (-1) - 0.103 * C_BR / Loa + 0.0921 * A_L / (Loa * B) |
-| `Y_1`         |                          | --  |   0.684 + 0.717 * C_BR / Loa - 3.22 * C / Loa + 0.0281 * (A_0D / A_L) ^ (-1) + 0.0661 * C / H_C + 0.298 * (B * H_BR / A_T) ^ (-1) |
-| `Y_3`         |                          | --  |   -0.4 + 0.282 * A_L / (Loa * B) + 0.307 * Loa * H_C / A_L + 0.0519 * C_BR / Loa + 0.0526 * (H_BR / B) ^ (-1) - 0.0814 * A_0D / A_L + 0.0582 * (B * H_BR / A_T) ^ (-1) |
-| `Y_5`         |                          | --  |   0.122 - 0.166 * A_L / (Loa * B) - 0.0054 * (H_BR / Loa) ^ (-1) - 0.0481 * C_BR / Loa - 0.0136 * (A_T / B ^ 2) ^ (-1) + 0.0864 * C / Loa - 0.0297 * C_BR / Loa |
-| `N_1`         |                          | --  |   0.299 + 1.71 * C / Loa + 0.183 * Loa * H_C / A_L - 1.09 * A_T / A_L - 0.0442 * C / H_C - 0.289 * A_L / (Loa * B) + 4.24 * A_T / (Loa ^ 2) - 0.0646 * (B ^ 2) / A_T + 0.0306 * C_BR / Loa |
+| `X_0`         |                          | --  |   -0.33 + 0.2...D / Loa ^ 2 |
+| `X_1`         |                          | --  |   -1.353 + 1....Loa) ^ (-1) |
+| `X_3`         |                          | --  |   0.83 - 0.41... C_BR / Loa |
+| `X_5`         |                          | --  |   -0.0372 - 0.../ (Loa * B) |
+| `Y_1`         |                          | --  |   0.684 + 0.7...A_T) ^ (-1) |
+| `Y_3`         |                          | --  |   -0.4 + 0.28...A_T) ^ (-1) |
+| `Y_5`         |                          | --  |   0.122 - 0.1... C_BR / Loa |
+| `N_1`         |                          | --  |   0.299 + 1.7... C_BR / Loa |
 | `N_2`         |                          | --  |   0.0 |
 | `N_3`         |                          | --  |   -0.118 |
 
@@ -75,13 +77,13 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `Cx`         |                          | --  | 
-| `Cy`         |                          | --  | 
-| `Cn`         |                          | --  | 
-| `q`         |                          | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `Cx`         |                          | --  |
+| `Cy`         |                          | --  |
+| `Cn`         |                          | --  |
+| `q`         |                          | --  |
 """
-@component function ShipWind(; name = nothing, Loa=Float64(100), B=Float64(20), Draft=Float64(4), A_T=Float64(316), A_L=Float64(1337), A_0D=Float64(451), A_ss=Float64(451), C=0.85, C_BR=4.6, H_BR=17.5, H_C=8.5, AirDensity=1.29, X_0=-0.33 + 0.293 * B * H_BR / A_T + 0.0193 * C / H_C + 0.682 * A_0D / Loa ^ 2, X_1=-1.353 + 1.7 * A_L / (Loa * B) + 2.87 * Loa * H_C / A_L - 0.463 * Loa * H_BR / A_L - 0.57 * A_0D / A_L - 6.64 * A_T / (Loa * B) - 0.0123 * (A_T / (Loa ^ 2)) ^ (-1) + 0.0202 * (H_C / Loa) ^ (-1), X_3=0.83 - 0.413 * (Loa * H_BR / A_L) ^ (-1) - 0.0827 * A_L / A_T - 0.563 * Loa * H_C / A_L + 0.804 * A_0D / A_L - 5.67 * A_0D / (Loa ^ 2) - 0.0401 * C / H_C - 0.132 * C_BR / Loa, X_5=-0.0372 - 0.0075 * (A_0D / A_L) ^ (-1) - 0.103 * C_BR / Loa + 0.0921 * A_L / (Loa * B), Y_1=0.684 + 0.717 * C_BR / Loa - 3.22 * C / Loa + 0.0281 * (A_0D / A_L) ^ (-1) + 0.0661 * C / H_C + 0.298 * (B * H_BR / A_T) ^ (-1), Y_3=-0.4 + 0.282 * A_L / (Loa * B) + 0.307 * Loa * H_C / A_L + 0.0519 * C_BR / Loa + 0.0526 * (H_BR / B) ^ (-1) - 0.0814 * A_0D / A_L + 0.0582 * (B * H_BR / A_T) ^ (-1), Y_5=0.122 - 0.166 * A_L / (Loa * B) - 0.0054 * (H_BR / Loa) ^ (-1) - 0.0481 * C_BR / Loa - 0.0136 * (A_T / B ^ 2) ^ (-1) + 0.0864 * C / Loa - 0.0297 * C_BR / Loa, N_1=0.299 + 1.71 * C / Loa + 0.183 * Loa * H_C / A_L - 1.09 * A_T / A_L - 0.0442 * C / H_C - 0.289 * A_L / (Loa * B) + 4.24 * A_T / (Loa ^ 2) - 0.0646 * (B ^ 2) / A_T + 0.0306 * C_BR / Loa, N_2=Float64(0), N_3=-0.118, kwargs...)
+@component function ShipWind(; name = nothing, Loa=Float64(100), B=Float64(20), Draft=Float64(4), A_T=Float64(316), A_L=Float64(1337), A_0D=Float64(451), A_ss=Float64(451), C=0.85, C_BR=4.6, H_BR=17.5, H_C=8.5, AirDensity=1.29, N_2=Float64(0.0), N_3=-0.118, X_0=-0.33 + 0.293 * B * H_BR / A_T + 0.0193 * C / H_C + 0.682 * A_0D / Loa ^ 2, X_1=-1.353 + 1.7 * A_L / (Loa * B) + 2.87 * Loa * H_C / A_L - 0.463 * Loa * H_BR / A_L - 0.57 * A_0D / A_L - 6.64 * A_T / (Loa * B) - 0.0123 * (A_T / (Loa ^ 2)) ^ (-1) + 0.0202 * (H_C / Loa) ^ (-1), X_3=0.83 - 0.413 * (Loa * H_BR / A_L) ^ (-1) - 0.0827 * A_L / A_T - 0.563 * Loa * H_C / A_L + 0.804 * A_0D / A_L - 5.67 * A_0D / (Loa ^ 2) - 0.0401 * C / H_C - 0.132 * C_BR / Loa, X_5=-0.0372 - 0.0075 * (A_0D / A_L) ^ (-1) - 0.103 * C_BR / Loa + 0.0921 * A_L / (Loa * B), Y_1=0.684 + 0.717 * C_BR / Loa - 3.22 * C / Loa + 0.0281 * (A_0D / A_L) ^ (-1) + 0.0661 * C / H_C + 0.298 * (B * H_BR / A_T) ^ (-1), Y_3=-0.4 + 0.282 * A_L / (Loa * B) + 0.307 * Loa * H_C / A_L + 0.0519 * C_BR / Loa + 0.0526 * (H_BR / B) ^ (-1) - 0.0814 * A_0D / A_L + 0.0582 * (B * H_BR / A_T) ^ (-1), Y_5=0.122 - 0.166 * A_L / (Loa * B) - 0.0054 * (H_BR / Loa) ^ (-1) - 0.0481 * C_BR / Loa - 0.0136 * (A_T / B ^ 2) ^ (-1) + 0.0864 * C / Loa - 0.0297 * C_BR / Loa, N_1=0.299 + 1.71 * C / Loa + 0.183 * Loa * H_C / A_L - 1.09 * A_T / A_L - 0.0442 * C / H_C - 0.289 * A_L / (Loa * B) + 4.24 * A_T / (Loa ^ 2) - 0.0646 * (B ^ 2) / A_T + 0.0306 * C_BR / Loa, kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -89,7 +91,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
     @named model = ShipWind()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -108,8 +110,6 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   ### Path Parameters (non-final)
 
   ### Final Parameters (declarations)
-
-  ### Final Parameters (assignments)
 
   ### Deferred assignment (default values that depend on final parameters)
 
@@ -180,6 +180,8 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   __local__N_3 = N_3
   append!(__params, @parameters (N_3::Real))
   __initial_conditions[N_3] = __local__N_3
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (ApparentWind(t)::Real), [input = true])

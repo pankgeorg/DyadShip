@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    SolarIrradiation(; name, latitude, longitude, time_zone, day_of_year, irradiance_ref)
 
@@ -38,7 +40,7 @@ Limitations:
 - 3-vector inputs/outputs are exposed as triples of scalar `RealOutput`s, since Dyad
   does not have array connectors.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -60,8 +62,8 @@ Limitations:
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `sv`         |                          | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `sv`         |                          | --  |
 """
 @component function SolarIrradiation(; name = nothing, latitude=0.7579392485634024, longitude=-0.1438785943756596, time_zone=Float64(1), day_of_year=Float64(172), irradiance_ref=Float64(1000), kwargs...)
   isnothing(name) && throw(ArgumentError("""
@@ -71,7 +73,7 @@ Limitations:
     @named model = SolarIrradiation()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -91,8 +93,6 @@ Limitations:
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
@@ -111,6 +111,8 @@ Limitations:
   __local__irradiance_ref = irradiance_ref
   append!(__params, @parameters (irradiance_ref::Real), [description = "Reference clear-sky horizontal irradiance [W/m²]."])
   __initial_conditions[irradiance_ref] = __local__irradiance_ref
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (SunHeight(t)::Real), [output = true])

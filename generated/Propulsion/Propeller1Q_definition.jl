@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    Propeller1Q(; name, Diameter, Z, P_D, Ae_Ao, Density_Prop, Inertia, Add_Inertia, SeaDensity, WakeFraction, ThrustDeduction, RotativeRelative, Rudder_distance, Kt0, Kt1, Kt2, Kq0, Kq1, Kq2, w_floor)
 
@@ -40,7 +42,7 @@ Limitations vs upstream:
   maneuvering studies.
 - No Modelica `assert` warnings.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -49,7 +51,7 @@ Limitations vs upstream:
 | `P_D`         |                          | --  |   1 |
 | `Ae_Ao`         |                          | --  |   0.3 |
 | `Density_Prop`         |                          | kg/m3  |   7600 |
-| `Inertia`         |                          | --  |   0.0002744 * Ae_Ao * (Ae_Ao + 3) * Density_Prop * Diameter ^ 5 |
+| `Inertia`         |                          | --  |   0.0002744 *...iameter ^ 5 |
 | `Add_Inertia`         |                          | --  |   0.3 * Inertia |
 | `SeaDensity`         |                          | kg/m3  |   1025 |
 | `WakeFraction`         |                          | --  |   0.25 |
@@ -78,24 +80,24 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `w`         |                          | rad/s  | 
-| `w_eff`         |                          | rad/s  | 
-| `AdvanceSpeed`         |                          | m/s  | 
-| `J`         |                          | --  | 
-| `Kt`         |                          | --  | 
-| `Kq`         |                          | --  | 
-| `Thrust_Kt`         |                          | N  | 
-| `Torque_Kq`         |                          | N.m  | 
-| `rpm`         |                          | --  | 
-| `C_th`         |                          | --  | 
-| `V_inf`         |                          | m/s  | 
-| `r_inf`         |                          | m  | 
-| `r_x`         |                          | m  | 
-| `V_x`         |                          | m/s  | 
-| `Delta_r`         |                          | m  | 
+| ------------ | ----------------------------------- | ------ |
+| `w`         |                          | rad/s  |
+| `w_eff`         |                          | rad/s  |
+| `AdvanceSpeed`         |                          | m/s  |
+| `J`         |                          | --  |
+| `Kt`         |                          | --  |
+| `Kq`         |                          | --  |
+| `Thrust_Kt`         |                          | N  |
+| `Torque_Kq`         |                          | N.m  |
+| `rpm`         |                          | --  |
+| `C_th`         |                          | --  |
+| `V_inf`         |                          | m/s  |
+| `r_inf`         |                          | m  |
+| `r_x`         |                          | m  |
+| `V_x`         |                          | m/s  |
+| `Delta_r`         |                          | m  |
 """
-@component function Propeller1Q(; name = nothing, Diameter=Float64(4), Z=Float64(4), P_D=Float64(1), Ae_Ao=0.3, Density_Prop=Float64(7600), Inertia=0.0002744 * Ae_Ao * (Ae_Ao + 3) * Density_Prop * Diameter ^ 5, Add_Inertia=0.3 * Inertia, SeaDensity=Float64(1025), WakeFraction=0.25, ThrustDeduction=0.18, RotativeRelative=Float64(1), Rudder_distance=Diameter * 1.2, Kt0=0.45, Kt1=-0.3, Kt2=-0.2, Kq0=0.06, Kq1=-0.04, Kq2=-0.02, w_floor=0.001, kwargs...)
+@component function Propeller1Q(; name = nothing, Diameter=Float64(4), Z=Float64(4), P_D=Float64(1), Ae_Ao=0.3, Density_Prop=Float64(7600), SeaDensity=Float64(1025), WakeFraction=0.25, ThrustDeduction=0.18, RotativeRelative=Float64(1.0), Kt0=0.45, Kt1=-0.3, Kt2=-0.2, Kq0=0.06, Kq1=-0.04, Kq2=-0.02, w_floor=0.001, Inertia=0.0002744 * Ae_Ao * (Ae_Ao + 3) * Density_Prop * Diameter ^ 5, Rudder_distance=Diameter * 1.2, Add_Inertia=0.3 * Inertia, kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -103,7 +105,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
     @named model = Propeller1Q()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -122,8 +124,6 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   ### Path Parameters (non-final)
 
   ### Final Parameters (declarations)
-
-  ### Final Parameters (assignments)
 
   ### Deferred assignment (default values that depend on final parameters)
 
@@ -185,6 +185,8 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   __local__w_floor = w_floor
   append!(__params, @parameters (w_floor::Real))
   __initial_conditions[w_floor] = __local__w_floor
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (ShipSpeed(t)::Real), [input = true])

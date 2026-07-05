@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    Environment(; name, SeaDensity, SeaKViscosity, AirDensity, AirKViscosity, WindDirection, WindSpeed, CurrentDirection, CurrentSpeed)
 
@@ -23,7 +25,7 @@ direction is the angle the medium *comes from*, measured in degrees, with 0=N(+Y
 
 where `V` is the speed and `θ = direction · π / 180` is the angle in radians.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -39,9 +41,9 @@ where `V` is the speed and `θ = direction · π / 180` is the angle in radians.
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `WindVector`         | World-frame wind vector {Vx,Vy,Vz}                         | --  | 
-| `CurrentVector`         | World-frame current vector {Vx,Vy,Vz}                         | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `WindVector`         | World-frame wind vector {Vx,Vy,Vz}                         | --  |
+| `CurrentVector`         | World-frame current vector {Vx,Vy,Vz}                         | --  |
 """
 @component function Environment(; name = nothing, SeaDensity=Float64(1025), SeaKViscosity=0.000001004, AirDensity=1.29, AirKViscosity=0.0000148, WindDirection=Float64(0), WindSpeed=Float64(0), CurrentDirection=Float64(0), CurrentSpeed=Float64(0), kwargs...)
   isnothing(name) && throw(ArgumentError("""
@@ -51,7 +53,7 @@ where `V` is the speed and `θ = direction · π / 180` is the angle in radians.
     @named model = Environment()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -70,8 +72,6 @@ where `V` is the speed and `θ = direction · π / 180` is the angle in radians.
   ### Path Parameters (non-final)
 
   ### Final Parameters (declarations)
-
-  ### Final Parameters (assignments)
 
   ### Deferred assignment (default values that depend on final parameters)
 
@@ -100,6 +100,8 @@ where `V` is the speed and `θ = direction · π / 180` is the angle in radians.
   __local__CurrentSpeed = CurrentSpeed
   append!(__params, @parameters (CurrentSpeed::Real), [description = "Current speed"])
   __initial_conditions[CurrentSpeed] = __local__CurrentSpeed
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 

@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    Propeller4Q(; name, Diameter, Z, P_D, Ae_Ao, SeaDensity, WakeFraction, ThrustDeduction, Kt0, Kt1, Kt2, Kq0, Kq1, Kq2, w_floor)
 
@@ -28,7 +30,7 @@ along the lines of `wageningen_b_4q(beta, P_D, Ae_Ao, Z)`.
 
 Same `Spline` + `Frame2D` interface as `Propeller1Q`.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -58,18 +60,18 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `w`         |                          | rad/s  | 
-| `w_eff`         |                          | rad/s  | 
-| `AdvanceSpeed`         |                          | m/s  | 
-| `J`         |                          | --  | 
-| `J_abs`         |                          | --  | 
-| `rev_sign`         |                          | --  | 
-| `astern_sign`         |                          | --  | 
-| `Kt_eff`         |                          | --  | 
-| `Kq_eff`         |                          | --  | 
-| `Thrust_Kt`         |                          | N  | 
-| `Torque_Kq`         |                          | N.m  | 
+| ------------ | ----------------------------------- | ------ |
+| `w`         |                          | rad/s  |
+| `w_eff`         |                          | rad/s  |
+| `AdvanceSpeed`         |                          | m/s  |
+| `J`         |                          | --  |
+| `J_abs`         |                          | --  |
+| `rev_sign`         |                          | --  |
+| `astern_sign`         |                          | --  |
+| `Kt_eff`         |                          | --  |
+| `Kq_eff`         |                          | --  |
+| `Thrust_Kt`         |                          | N  |
+| `Torque_Kq`         |                          | N.m  |
 """
 @component function Propeller4Q(; name = nothing, Diameter=Float64(4), Z=Float64(4), P_D=Float64(1), Ae_Ao=0.55, SeaDensity=Float64(1025), WakeFraction=0.25, ThrustDeduction=0.18, Kt0=0.45, Kt1=-0.3, Kt2=-0.2, Kq0=0.06, Kq1=-0.04, Kq2=-0.02, w_floor=0.001, kwargs...)
   isnothing(name) && throw(ArgumentError("""
@@ -79,7 +81,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
     @named model = Propeller4Q()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -98,8 +100,6 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   ### Path Parameters (non-final)
 
   ### Final Parameters (declarations)
-
-  ### Final Parameters (assignments)
 
   ### Deferred assignment (default values that depend on final parameters)
 
@@ -146,6 +146,8 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   __local__w_floor = w_floor
   append!(__params, @parameters (w_floor::Real))
   __initial_conditions[w_floor] = __local__w_floor
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (ShipSpeed(t)::Real), [input = true])

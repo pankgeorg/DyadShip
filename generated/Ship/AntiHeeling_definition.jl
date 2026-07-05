@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    AntiHeeling(; name, B, b, V_tk, rho, Q, max_angle, startup_delay)
 
@@ -30,7 +32,7 @@ This Dyad port:
 The internal state `M_tks` is integrated with the original equation
   `der(M_tks) = sign(ship_heel) · pump_flow / 3600 · ρ · (B - b)`.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -53,11 +55,11 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `M_tks`         |                          | --  | 
-| `v_max`         |                          | --  | 
-| `M_max`         |                          | --  | 
-| `activation`         |                          | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `M_tks`         |                          | --  |
+| `v_max`         |                          | --  |
+| `M_max`         |                          | --  |
+| `activation`         |                          | --  |
 """
 @component function AntiHeeling(; name = nothing, B=24.3, b=6.35, V_tk=211.47, rho=1.025, Q=Float64(200), max_angle=0.1, startup_delay=Float64(500), kwargs...)
   isnothing(name) && throw(ArgumentError("""
@@ -67,7 +69,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
     @named model = AntiHeeling()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -86,8 +88,6 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   ### Path Parameters (non-final)
 
   ### Final Parameters (declarations)
-
-  ### Final Parameters (assignments)
 
   ### Deferred assignment (default values that depend on final parameters)
 
@@ -113,6 +113,8 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   __local__startup_delay = startup_delay
   append!(__params, @parameters (startup_delay::Real), [description = "Startup delay before the pump may run [s] (matches upstream `time < 500`)"])
   __initial_conditions[startup_delay] = __local__startup_delay
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (ship_heel(t)::Real), [input = true])

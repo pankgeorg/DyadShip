@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    PlateTransient(; name, e, Asur, k, rhoCp, T_init, nNodes, nInterior, dx, C_node, G_internal, G_face)
 
@@ -32,7 +34,7 @@ Limitations vs upstream:
 - `Tavg` and `Energy` outputs are dropped (can be derived externally from the node
   temperatures if needed).
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -50,10 +52,10 @@ Limitations vs upstream:
 
 ## Connectors
 
- * `port_a` - This connector represents a thermal node with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
- * `port_b` - This connector represents a thermal node with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
+ * `port_a` - This connector represents a thermal port with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
+ * `port_b` - This connector represents a thermal port with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
 """
-@component function PlateTransient(; name = nothing, e=0.01, Asur=Float64(1), k=Float64(200), rhoCp=Float64(2400000), T_init=293.15, nNodes=5, nInterior=4, dx=e / nNodes, C_node=rhoCp * Asur * dx, G_internal=k * Asur / dx, G_face=k * Asur / (dx / 2), kwargs...)
+@component function PlateTransient(; name = nothing, e=0.01, Asur=Float64(1.0), k=Float64(200), rhoCp=Float64(2400000.0), T_init=293.15, nNodes=5, nInterior=4, dx=e / nNodes, C_node=rhoCp * Asur * dx, G_internal=k * Asur / dx, G_face=k * Asur / (dx / 2), kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -61,7 +63,7 @@ Limitations vs upstream:
     @named model = PlateTransient()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -81,11 +83,11 @@ Limitations vs upstream:
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 
@@ -100,28 +102,24 @@ Limitations vs upstream:
   push!(__systems, @named port_a = __Dyad__HeatPort())
   push!(__systems, @named port_b = __Dyad__HeatPort())
   # Subcomponent caps of type ThermalComponents.Components.HeatCapacitor
-  caps_overrides = Dict(Symbol(replace(string(k), r"^caps__" => "")) => v for (k, v) in __overrides if startswith(string(k), "caps__"))
-  filter!(p -> !startswith(string(first(p)), "caps__"), __overrides)
+  caps_overrides = __pop_subcomponent_overrides!(__overrides, "caps")
   caps = System[]
   for i in 1:nNodes
-    push!(caps, ThermalComponents.Components.HeatCapacitor(C=C_node, T0=T_init, name=Symbol("caps", "⸺", i), caps_overrides...))
+    push!(caps, ThermalComponents.Components.HeatCapacitor(C=ModelingToolkit.default_to_parentscope(C_node), T0=ModelingToolkit.default_to_parentscope(T_init), name=Symbol("caps", "⸺", i), caps_overrides...))
   end
   append!(__systems, caps)
   # Subcomponent cond_internal of type ThermalComponents.Components.ThermalConductor
-  cond_internal_overrides = Dict(Symbol(replace(string(k), r"^cond_internal__" => "")) => v for (k, v) in __overrides if startswith(string(k), "cond_internal__"))
-  filter!(p -> !startswith(string(first(p)), "cond_internal__"), __overrides)
+  cond_internal_overrides = __pop_subcomponent_overrides!(__overrides, "cond_internal")
   cond_internal = System[]
   for i in 1:nInterior
-    push!(cond_internal, ThermalComponents.Components.ThermalConductor(G=G_internal, name=Symbol("cond_internal", "⸺", i), cond_internal_overrides...))
+    push!(cond_internal, ThermalComponents.Components.ThermalConductor(G=ModelingToolkit.default_to_parentscope(G_internal), name=Symbol("cond_internal", "⸺", i), cond_internal_overrides...))
   end
   append!(__systems, cond_internal)
   # Subcomponent cond_face_a of type ThermalComponents.Components.ThermalConductor
-  cond_face_a_overrides = Dict(Symbol(replace(string(k), r"^cond_face_a__" => "")) => v for (k, v) in __overrides if startswith(string(k), "cond_face_a__"))
-  filter!(p -> !startswith(string(first(p)), "cond_face_a__"), __overrides)
+  cond_face_a_overrides = __pop_subcomponent_overrides!(__overrides, "cond_face_a")
   push!(__systems, @named cond_face_a = ThermalComponents.Components.ThermalConductor(G=G_face, cond_face_a_overrides...))
   # Subcomponent cond_face_b of type ThermalComponents.Components.ThermalConductor
-  cond_face_b_overrides = Dict(Symbol(replace(string(k), r"^cond_face_b__" => "")) => v for (k, v) in __overrides if startswith(string(k), "cond_face_b__"))
-  filter!(p -> !startswith(string(first(p)), "cond_face_b__"), __overrides)
+  cond_face_b_overrides = __pop_subcomponent_overrides!(__overrides, "cond_face_b")
   push!(__systems, @named cond_face_b = ThermalComponents.Components.ThermalConductor(G=G_face, cond_face_b_overrides...))
 
   ### Check there are no unmatched overrides

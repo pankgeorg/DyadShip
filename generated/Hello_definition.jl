@@ -4,12 +4,14 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    Hello(; name, T_inf, T0, h, A, m, c_p)
 
 A simple lumped thermal model
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -23,10 +25,10 @@ A simple lumped thermal model
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `T`         |                          | K  | 
+| ------------ | ----------------------------------- | ------ |
+| `T`         |                          | K  |
 """
-@component function Hello(; name = nothing, T_inf=Float64(300), T0=Float64(320), h=0.7, A=Float64(1), m=0.1, c_p=1.2, kwargs...)
+@component function Hello(; name = nothing, T_inf=Float64(300), T0=Float64(320), h=0.7, A=Float64(1.0), m=0.1, c_p=1.2, kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -34,7 +36,7 @@ A simple lumped thermal model
     @named model = Hello()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -53,8 +55,6 @@ A simple lumped thermal model
   ### Path Parameters (non-final)
 
   ### Final Parameters (declarations)
-
-  ### Final Parameters (assignments)
 
   ### Deferred assignment (default values that depend on final parameters)
 
@@ -77,6 +77,8 @@ A simple lumped thermal model
   __local__c_p = c_p
   append!(__params, @parameters (c_p::Real), [description = "Specific Heat"])
   __initial_conditions[c_p] = __local__c_p
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 

@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    BuoyancyDisturbance(; name)
 
@@ -22,7 +24,7 @@ Two scenarios for `Buoyancy1D`:
     @named model = BuoyancyDisturbance()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -42,11 +44,11 @@ Two scenarios for `Buoyancy1D`:
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 
@@ -59,13 +61,11 @@ Two scenarios for `Buoyancy1D`:
 
   ### Components
   # Subcomponent hull of type DyadShip.Ship.Buoyancy1D
-  hull_overrides = Dict(Symbol(replace(string(k), r"^hull__" => "")) => v for (k, v) in __overrides if startswith(string(k), "hull__"))
-  filter!(p -> !startswith(string(first(p)), "hull__"), __overrides)
-  push!(__systems, @named hull = DyadShip.Ship.Buoyancy1D(mass=1000000, Lpp=100, B=20, Cb=0.7, Dz=500000, hull_overrides...))
+  hull_overrides = __pop_subcomponent_overrides!(__overrides, "hull")
+  push!(__systems, @named hull = DyadShip.Ship.Buoyancy1D(mass=1000000.0, Lpp=100, B=20, Cb=0.7, Dz=500000.0, hull_overrides...))
   # Subcomponent pulse of type BlockComponents.Sources.Step
-  pulse_overrides = Dict(Symbol(replace(string(k), r"^pulse__" => "")) => v for (k, v) in __overrides if startswith(string(k), "pulse__"))
-  filter!(p -> !startswith(string(first(p)), "pulse__"), __overrides)
-  push!(__systems, @named pulse = BlockComponents.Sources.Step(height=-5000000, start_time=2, offset=0, pulse_overrides...))
+  pulse_overrides = __pop_subcomponent_overrides!(__overrides, "pulse")
+  push!(__systems, @named pulse = BlockComponents.Sources.Step(height=-5000000.0, start_time=2.0, offset=0, pulse_overrides...))
 
   ### Check there are no unmatched overrides
   isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))

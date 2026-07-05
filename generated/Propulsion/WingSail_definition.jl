@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    WingSail(; name, C, s, AxisPos, MaxSailAngle, Sail_Tau, AirDensity, AirKViscosity, Cl0, Cl1, Cl2, Cd0, Cd1, Cd2, Cm0, Cm1, Cm2, Surf)
 
@@ -28,7 +30,7 @@ Outputs:
 - `Lift`, `Drag`, `Moment`
 - `Force_X`, `Force_Y` — body-frame force components (for integration into the hull).
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -67,18 +69,18 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `sail_angle_state`         |                          | --  | 
-| `Alpha`         |                          | rad  | 
-| `Beta`         |                          | rad  | 
-| `WindSpeed_local_x`         |                          | m/s  | 
-| `WindSpeed_local_y`         |                          | m/s  | 
-| `WindSpeed`         |                          | m/s  | 
-| `Cl`         |                          | --  | 
-| `Cd`         |                          | --  | 
-| `Cm`         |                          | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `sail_angle_state`         |                          | --  |
+| `Alpha`         |                          | rad  |
+| `Beta`         |                          | rad  |
+| `WindSpeed_local_x`         |                          | m/s  |
+| `WindSpeed_local_y`         |                          | m/s  |
+| `WindSpeed`         |                          | m/s  |
+| `Cl`         |                          | --  |
+| `Cd`         |                          | --  |
+| `Cm`         |                          | --  |
 """
-@component function WingSail(; name = nothing, C=Float64(7), s=Float64(20), AxisPos=0.35 * 7, MaxSailAngle=Float64(90), Sail_Tau=Float64(1), AirDensity=1.29, AirKViscosity=0.0000148, Cl0=Float64(0), Cl1=5.5, Cl2=-0, Cd0=0.02, Cd1=Float64(0), Cd2=1.5, Cm0=Float64(0), Cm1=-0.6, Cm2=Float64(0), Surf=C * s, kwargs...)
+@component function WingSail(; name = nothing, C=Float64(7), s=Float64(20), AxisPos=0.35 * 7, MaxSailAngle=Float64(90), Sail_Tau=Float64(1.0), AirDensity=1.29, AirKViscosity=0.0000148, Cl0=Float64(0.0), Cl1=5.5, Cl2=-0.0, Cd0=0.02, Cd1=Float64(0.0), Cd2=1.5, Cm0=Float64(0.0), Cm1=-0.6, Cm2=Float64(0.0), Surf=C * s, kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -86,7 +88,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
     @named model = WingSail()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -105,8 +107,6 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   ### Path Parameters (non-final)
 
   ### Final Parameters (declarations)
-
-  ### Final Parameters (assignments)
 
   ### Deferred assignment (default values that depend on final parameters)
 
@@ -162,6 +162,8 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   __local__Surf = Surf
   append!(__params, @parameters (Surf::Real))
   __initial_conditions[Surf] = __local__Surf
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (Sail_Order(t)::Real), [input = true])

@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    CraneStaticLoad(; name)
 
@@ -18,7 +20,7 @@ spring cable until equilibrium. The crane base is fixed; boom angle is held at 0
     @named model = CraneStaticLoad()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -38,11 +40,11 @@ spring cable until equilibrium. The crane base is fixed; boom angle is held at 0
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 
@@ -55,28 +57,22 @@ spring cable until equilibrium. The crane base is fixed; boom angle is held at 0
 
   ### Components
   # Subcomponent world of type MultibodyComponents.PlanarMechanics.World
-  world_overrides = Dict(Symbol(replace(string(k), r"^world__" => "")) => v for (k, v) in __overrides if startswith(string(k), "world__"))
-  filter!(p -> !startswith(string(first(p)), "world__"), __overrides)
+  world_overrides = __pop_subcomponent_overrides!(__overrides, "world")
   push!(__systems, @named world = MultibodyComponents.PlanarMechanics.World(g=9.81, render=false, world_overrides...))
   # Subcomponent base_fixed of type MultibodyComponents.PlanarMechanics.Fixed
-  base_fixed_overrides = Dict(Symbol(replace(string(k), r"^base_fixed__" => "")) => v for (k, v) in __overrides if startswith(string(k), "base_fixed__"))
-  filter!(p -> !startswith(string(first(p)), "base_fixed__"), __overrides)
+  base_fixed_overrides = __pop_subcomponent_overrides!(__overrides, "base_fixed")
   push!(__systems, @named base_fixed = MultibodyComponents.PlanarMechanics.Fixed(base_fixed_overrides...))
   # Subcomponent crane of type DyadShip.Machinery.Crane
-  crane_overrides = Dict(Symbol(replace(string(k), r"^crane__" => "")) => v for (k, v) in __overrides if startswith(string(k), "crane__"))
-  filter!(p -> !startswith(string(first(p)), "crane__"), __overrides)
-  push!(__systems, @named crane = DyadShip.Machinery.Crane(PedestalHeight=5, BoomLength=10, BoomInitialAngle=0, Cable_k=100000, crane_overrides...))
+  crane_overrides = __pop_subcomponent_overrides!(__overrides, "crane")
+  push!(__systems, @named crane = DyadShip.Machinery.Crane(PedestalHeight=5, BoomLength=10, BoomInitialAngle=0, Cable_k=100000.0, crane_overrides...))
   # Subcomponent load of type MultibodyComponents.PlanarMechanics.Body
-  load_overrides = Dict(Symbol(replace(string(k), r"^load__" => "")) => v for (k, v) in __overrides if startswith(string(k), "load__"))
-  filter!(p -> !startswith(string(first(p)), "load__"), __overrides)
+  load_overrides = __pop_subcomponent_overrides!(__overrides, "load")
   push!(__systems, @named load = MultibodyComponents.PlanarMechanics.Body(m=1000, I=100, render=false, load_overrides...))
   # Subcomponent boom_cmd of type BlockComponents.Sources.Constant
-  boom_cmd_overrides = Dict(Symbol(replace(string(k), r"^boom_cmd__" => "")) => v for (k, v) in __overrides if startswith(string(k), "boom_cmd__"))
-  filter!(p -> !startswith(string(first(p)), "boom_cmd__"), __overrides)
+  boom_cmd_overrides = __pop_subcomponent_overrides!(__overrides, "boom_cmd")
   push!(__systems, @named boom_cmd = BlockComponents.Sources.Constant(k=0, boom_cmd_overrides...))
   # Subcomponent cable_cmd of type BlockComponents.Sources.Constant
-  cable_cmd_overrides = Dict(Symbol(replace(string(k), r"^cable_cmd__" => "")) => v for (k, v) in __overrides if startswith(string(k), "cable_cmd__"))
-  filter!(p -> !startswith(string(first(p)), "cable_cmd__"), __overrides)
+  cable_cmd_overrides = __pop_subcomponent_overrides!(__overrides, "cable_cmd")
   push!(__systems, @named cable_cmd = BlockComponents.Sources.Constant(k=8, cable_cmd_overrides...))
 
   ### Check there are no unmatched overrides

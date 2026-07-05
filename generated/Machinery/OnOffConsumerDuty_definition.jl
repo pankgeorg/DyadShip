@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    OnOffConsumerDuty(; name)
 
@@ -18,7 +20,7 @@ Starts off; turns on at t=10 s; the consumer ramps to nominal over `StartTime` s
     @named model = OnOffConsumerDuty()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -38,11 +40,11 @@ Starts off; turns on at t=10 s; the consumer ramps to nominal over `StartTime` s
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 
@@ -55,12 +57,10 @@ Starts off; turns on at t=10 s; the consumer ramps to nominal over `StartTime` s
 
   ### Components
   # Subcomponent consumer of type DyadShip.Machinery.OnOffConsumer
-  consumer_overrides = Dict(Symbol(replace(string(k), r"^consumer__" => "")) => v for (k, v) in __overrides if startswith(string(k), "consumer__"))
-  filter!(p -> !startswith(string(first(p)), "consumer__"), __overrides)
+  consumer_overrides = __pop_subcomponent_overrides!(__overrides, "consumer")
   push!(__systems, @named consumer = DyadShip.Machinery.OnOffConsumer(NominalPower=1000, Kr=0.85, StartTime=5, consumer_overrides...))
   # Subcomponent square of type BlockComponents.Sources.Square
-  square_overrides = Dict(Symbol(replace(string(k), r"^square__" => "")) => v for (k, v) in __overrides if startswith(string(k), "square__"))
-  filter!(p -> !startswith(string(first(p)), "square__"), __overrides)
+  square_overrides = __pop_subcomponent_overrides!(__overrides, "square")
   push!(__systems, @named square = BlockComponents.Sources.Square(amplitude=0.5, frequency=1 / 60, offset=0.5, start_time=10, square_overrides...))
 
   ### Check there are no unmatched overrides

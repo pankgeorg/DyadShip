@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    SimpleAirExchanger(; name, Efficiency)
 
@@ -26,7 +28,7 @@ Modelica's `PrescribedHeatFlow` and `RelTemperatureSensor` are not needed in Dya
 just assign `Internal_Air.Q_flow` directly. The flag-port direction means that a positive
 Q_flow into a port is a heat input.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -35,15 +37,15 @@ Q_flow into a port is a heat input.
 ## Connectors
 
  * `AirFlow` - This connector represents a real signal as an input to a component ([`RealInput`](@ref))
- * `External_Air` - This connector represents a thermal node with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
- * `Internal_Air` - This connector represents a thermal node with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
+ * `External_Air` - This connector represents a thermal port with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
+ * `Internal_Air` - This connector represents a thermal port with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
 
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `Q_flow_in`         |                          | W  | 
-| `T_rel`         |                          | K  | 
+| ------------ | ----------------------------------- | ------ |
+| `Q_flow_in`         |                          | W  |
+| `T_rel`         |                          | K  |
 """
 @component function SimpleAirExchanger(; name = nothing, Efficiency=0.85, kwargs...)
   isnothing(name) && throw(ArgumentError("""
@@ -53,7 +55,7 @@ Q_flow into a port is a heat input.
     @named model = SimpleAirExchanger()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -73,14 +75,14 @@ Q_flow into a port is a heat input.
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
   __local__Efficiency = Efficiency
   append!(__params, @parameters (Efficiency::Real), [description = "Heat-recovery efficiency in 0..1. Typical: 0.75–0.95.", bounds = (0, 1)])
   __initial_conditions[Efficiency] = __local__Efficiency
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (AirFlow(t)::Real), [input = true])

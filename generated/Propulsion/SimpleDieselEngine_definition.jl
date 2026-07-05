@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    SimpleDieselEngine(; name, J_engine, RPM_min, RPM_max, k_PI, Ti_PI, tau_max_abs)
 
@@ -45,7 +47,7 @@ Simplifications:
 Defaults match the upstream `MaxTorqueTable = [600,1500; 800,2000; 900,2750; 1100,5300;
 1200,5500; 2100,5500; 2300,500]` and `SFOCtable = [605,185; 907.5,179; 1028.5,178; 1210,182]`.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -67,19 +69,19 @@ Defaults match the upstream `MaxTorqueTable = [600,1500; 800,2000; 900,2750; 110
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `rpm`         |                          | --  | 
-| `rpm_demand_clamped`         |                          | --  | 
-| `shaft_w`         |                          | rad/s  | 
-| `err_int`         |                          | --  | 
-| `tau_pi`         |                          | --  | 
-| `max_tau`         |                          | --  | 
-| `tau_cmd`         |                          | --  | 
-| `shaft_power`         |                          | W  | 
-| `shaft_power_kW`         |                          | --  | 
-| `joules`         |                          | --  | 
-| `sfoc`         |                          | --  | 
-| `fuel_g`         |                          | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `rpm`         |                          | --  |
+| `rpm_demand_clamped`         |                          | --  |
+| `shaft_w`         |                          | rad/s  |
+| `err_int`         |                          | --  |
+| `tau_pi`         |                          | --  |
+| `max_tau`         |                          | --  |
+| `tau_cmd`         |                          | --  |
+| `shaft_power`         |                          | W  |
+| `shaft_power_kW`         |                          | --  |
+| `joules`         |                          | --  |
+| `sfoc`         |                          | --  |
+| `fuel_g`         |                          | --  |
 """
 @component function SimpleDieselEngine(; name = nothing, J_engine=Float64(15), RPM_min=Float64(0), RPM_max=Float64(2200), k_PI=Float64(300), Ti_PI=0.5, tau_max_abs=Float64(6000), kwargs...)
   isnothing(name) && throw(ArgumentError("""
@@ -89,7 +91,7 @@ Defaults match the upstream `MaxTorqueTable = [600,1500; 800,2000; 900,2750; 110
     @named model = SimpleDieselEngine()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -108,8 +110,6 @@ Defaults match the upstream `MaxTorqueTable = [600,1500; 800,2000; 900,2750; 110
   ### Path Parameters (non-final)
 
   ### Final Parameters (declarations)
-
-  ### Final Parameters (assignments)
 
   ### Deferred assignment (default values that depend on final parameters)
 
@@ -132,6 +132,8 @@ Defaults match the upstream `MaxTorqueTable = [600,1500; 800,2000; 900,2750; 110
   __local__tau_max_abs = tau_max_abs
   append!(__params, @parameters (tau_max_abs::Real), [description = "PI output upper limit (matches original yMax = 6000)"])
   __initial_conditions[tau_max_abs] = __local__tau_max_abs
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (RPM_demand(t)::Real), [input = true])
@@ -211,7 +213,7 @@ Defaults match the upstream `MaxTorqueTable = [600,1500; 800,2000; 900,2750; 110
   push!(__eqs, shaft_power ~ shaft_w * tau_cmd)
   push!(__eqs, shaft_power_kW ~ shaft_power / 1000)
   push!(__eqs, ModelingToolkit.D_nounits(joules) ~ shaft_power)
-  push!(__eqs, KWh ~ joules / 3600000)
+  push!(__eqs, KWh ~ joules / 3600000.0)
   push!(__eqs, sfoc ~ ifelse(shaft_power_kW <= 605, 185, ifelse(shaft_power_kW <= 907.5, 185 + (179 - 185) * (shaft_power_kW - 605) / (907.5 - 605), ifelse(shaft_power_kW <= 1028.5, 179 + (178 - 179) * (shaft_power_kW - 907.5) / (1028.5 - 907.5), ifelse(shaft_power_kW <= 1210, 178 + (182 - 178) * (shaft_power_kW - 1028.5) / (1210 - 1028.5), 182)))))
   push!(__eqs, Inst_Fuel ~ sfoc * shaft_power_kW / 3600 / 1000)
   push!(__eqs, ModelingToolkit.D_nounits(fuel_g) ~ sfoc * shaft_power_kW / 3600)

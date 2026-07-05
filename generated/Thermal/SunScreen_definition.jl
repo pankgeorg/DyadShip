@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    SunScreen(; name, d, h, WindowHeight)
 
@@ -28,7 +30,7 @@ compares it to the solar altitude. The original Modelica branches on `h > 0`, `h
 `ifelse`. The four-branch saturation on the result (above the screen → no shade, below
 horizon → no light, between thresholds → linear shadow ramp) is preserved verbatim.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -44,15 +46,15 @@ horizon → no light, between thresholds → linear shadow ramp) is preserved ve
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `Th_inf`         |                          | --  | 
-| `Th_sup`         |                          | --  | 
-| `A`         |                          | --  | 
-| `I`         |                          | --  | 
-| `P`         |                          | --  | 
-| `p`         |                          | --  | 
-| `i_dist`         |                          | --  | 
-| `sun_rad`         |                          | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `Th_inf`         |                          | --  |
+| `Th_sup`         |                          | --  |
+| `A`         |                          | --  |
+| `I`         |                          | --  |
+| `P`         |                          | --  |
+| `p`         |                          | --  |
+| `i_dist`         |                          | --  |
+| `sun_rad`         |                          | --  |
 """
 @component function SunScreen(; name = nothing, d=nothing, h=nothing, WindowHeight=nothing, kwargs...)
   isnothing(name) && throw(ArgumentError("""
@@ -62,7 +64,7 @@ horizon → no light, between thresholds → linear shadow ramp) is preserved ve
     @named model = SunScreen()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -82,8 +84,6 @@ horizon → no light, between thresholds → linear shadow ramp) is preserved ve
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
@@ -96,6 +96,8 @@ horizon → no light, between thresholds → linear shadow ramp) is preserved ve
   __local__WindowHeight = WindowHeight
   append!(__params, @parameters (WindowHeight::Real))
   __initial_conditions[WindowHeight] = __local__WindowHeight
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (SunHeight(t)::Real), [input = true])

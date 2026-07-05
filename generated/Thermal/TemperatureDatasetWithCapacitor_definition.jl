@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    TemperatureDatasetWithCapacitor(; name)
 
@@ -18,7 +20,7 @@ the capacitor temperature track the time-table over a 24-hour run.
     @named model = TemperatureDatasetWithCapacitor()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -38,11 +40,11 @@ the capacitor temperature track the time-table over a 24-hour run.
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 
@@ -55,16 +57,13 @@ the capacitor temperature track the time-table over a 24-hour run.
 
   ### Components
   # Subcomponent air of type DyadShip.Thermal.TemperatureDataset
-  air_overrides = Dict(Symbol(replace(string(k), r"^air__" => "")) => v for (k, v) in __overrides if startswith(string(k), "air__"))
-  filter!(p -> !startswith(string(first(p)), "air__"), __overrides)
+  air_overrides = __pop_subcomponent_overrides!(__overrides, "air")
   push!(__systems, @named air = DyadShip.Thermal.TemperatureDataset(air_overrides...))
   # Subcomponent cap of type ThermalComponents.Components.HeatCapacitor
-  cap_overrides = Dict(Symbol(replace(string(k), r"^cap__" => "")) => v for (k, v) in __overrides if startswith(string(k), "cap__"))
-  filter!(p -> !startswith(string(first(p)), "cap__"), __overrides)
+  cap_overrides = __pop_subcomponent_overrides!(__overrides, "cap")
   push!(__systems, @named cap = ThermalComponents.Components.HeatCapacitor(C=1000, T0=290, cap_overrides...))
   # Subcomponent cond of type ThermalComponents.Components.ThermalConductor
-  cond_overrides = Dict(Symbol(replace(string(k), r"^cond__" => "")) => v for (k, v) in __overrides if startswith(string(k), "cond__"))
-  filter!(p -> !startswith(string(first(p)), "cond__"), __overrides)
+  cond_overrides = __pop_subcomponent_overrides!(__overrides, "cond")
   push!(__systems, @named cond = ThermalComponents.Components.ThermalConductor(G=100, cond_overrides...))
 
   ### Check there are no unmatched overrides

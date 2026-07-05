@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    Hull3DOF(; name, mass, Iz, Du, Du_quad, Dv, Dv_quad, Dr, Dr_quad)
 
@@ -31,7 +33,7 @@ extra-input contributions.
 Outputs `u`, `v`, `r` are the body-frame surge / sway / yaw rate; `pos_x`, `pos_y`,
 `psi` are world-frame; `vx_world`, `vy_world` are world-frame velocities.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -60,7 +62,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
  * `vx_world` - This connector represents a real signal as an output from a component ([`RealOutput`](@ref))
  * `vy_world` - This connector represents a real signal as an output from a component ([`RealOutput`](@ref))
 """
-@component function Hull3DOF(; name = nothing, mass=Float64(5000000), Iz=Float64(5000000000), Du=Float64(0), Du_quad=Float64(0), Dv=Float64(0), Dv_quad=Float64(0), Dr=Float64(0), Dr_quad=Float64(0), kwargs...)
+@component function Hull3DOF(; name = nothing, mass=Float64(5000000.0), Iz=Float64(5000000000.0), Du=Float64(0), Du_quad=Float64(0), Dv=Float64(0), Dv_quad=Float64(0), Dr=Float64(0), Dr_quad=Float64(0), kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -68,7 +70,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
     @named model = Hull3DOF()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -87,8 +89,6 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   ### Path Parameters (non-final)
 
   ### Final Parameters (declarations)
-
-  ### Final Parameters (assignments)
 
   ### Deferred assignment (default values that depend on final parameters)
 
@@ -118,6 +118,8 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   append!(__params, @parameters (Dr_quad::Real))
   __initial_conditions[Dr_quad] = __local__Dr_quad
 
+  ### Final Parameters (assignments)
+
   ### Final Path Parameters
   append!(__vars, @variables (Fx_extra(t)::Real), [input = true])
   append!(__vars, @variables (Fy_extra(t)::Real), [input = true])
@@ -141,12 +143,10 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   ### Components
   push!(__systems, @named frame_a = __Dyad__Frame2D())
   # Subcomponent body of type MultibodyComponents.PlanarMechanics.Body
-  body_overrides = Dict(Symbol(replace(string(k), r"^body__" => "")) => v for (k, v) in __overrides if startswith(string(k), "body__"))
-  filter!(p -> !startswith(string(first(p)), "body__"), __overrides)
+  body_overrides = __pop_subcomponent_overrides!(__overrides, "body")
   push!(__systems, @named body = MultibodyComponents.PlanarMechanics.Body(m=mass, I=Iz, render=false, body_overrides...))
   # Subcomponent forcer of type MultibodyComponents.PlanarMechanics.WorldForceTorque
-  forcer_overrides = Dict(Symbol(replace(string(k), r"^forcer__" => "")) => v for (k, v) in __overrides if startswith(string(k), "forcer__"))
-  filter!(p -> !startswith(string(first(p)), "forcer__"), __overrides)
+  forcer_overrides = __pop_subcomponent_overrides!(__overrides, "forcer")
   push!(__systems, @named forcer = MultibodyComponents.PlanarMechanics.WorldForceTorque(resolve_in_frame=MultibodyComponents.ResolveInFrame.FrameB(), forcer_overrides...))
 
   ### Check there are no unmatched overrides

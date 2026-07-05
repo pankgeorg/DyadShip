@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    Cable(; name, k)
 
@@ -21,7 +23,7 @@ externally.
 The unstretched length `SetLength` is taken as a real input (matching upstream's
 `SetLenght` connector).
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -38,13 +40,13 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `dx`         |                          | --  | 
-| `dy`         |                          | --  | 
-| `Length`         |                          | --  | 
-| `Force`         |                          | N  | 
-| `nx`         |                          | --  | 
-| `ny`         |                          | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `dx`         |                          | --  |
+| `dy`         |                          | --  |
+| `Length`         |                          | --  |
+| `Force`         |                          | N  |
+| `nx`         |                          | --  |
+| `ny`         |                          | --  |
 """
 @component function Cable(; name = nothing, k=nothing, kwargs...)
   isnothing(name) && throw(ArgumentError("""
@@ -54,7 +56,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
     @named model = Cable()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -74,14 +76,14 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
   __local__k = k
   append!(__params, @parameters (k::Real), [description = "Cable spring constant [N/m]"])
   __initial_conditions[k] = __local__k
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (SetLength(t)::Real), [input = true])

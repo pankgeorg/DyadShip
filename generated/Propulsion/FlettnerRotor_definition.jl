@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    FlettnerRotor(; name, cl_dataset, cd_dataset, R, H, MaxOmega, AirDensity)
 
@@ -52,12 +54,12 @@ Outputs:
   rotating into the world frame.
 - `SpinRatio` — current ξ.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
-| `cl_dataset`         | CFD-derived Cl(ξ) table (WaterLily SpinCyl, default = bundled sweep)                         | --  |   DyadData.DyadTimeseries("dyad://DyadShip/flettner_coeffs.csv", independent_var = "xi", dependent_vars = ["Cl"]) |
-| `cd_dataset`         | CFD-derived Cd(ξ) table (same CSV, Cd column)                         | --  |   DyadData.DyadTimeseries("dyad://DyadShip/flettner_coeffs.csv", independent_var = "xi", dependent_vars = ["Cd"]) |
+| `cl_dataset`         | CFD-derived Cl(ξ) table (WaterLily SpinCyl, default = bundled sweep)                         | --  |   DyadData.Dy...ars=["Cl"]) |
+| `cd_dataset`         | CFD-derived Cd(ξ) table (same CSV, Cd column)                         | --  |   DyadData.Dy...ars=["Cd"]) |
 | `R`         |                          | m  |   2.5 |
 | `H`         |                          | m  |   24 |
 | `MaxOmega`         |                          | --  |   250 |
@@ -80,17 +82,17 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `U_app`         |                          | m/s  | 
-| `xi`         |                          | --  | 
-| `Cl`         |                          | --  | 
-| `Cd`         |                          | --  | 
-| `q`         |                          | --  | 
-| `ex`         |                          | --  | 
-| `ey`         |                          | --  | 
-| `sign_omega`         |                          | --  | 
-| `A_proj`         |                          | m2  | 
-| `omega_clamped`         |                          | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `U_app`         |                          | m/s  |
+| `xi`         |                          | --  |
+| `Cl`         |                          | --  |
+| `Cd`         |                          | --  |
+| `q`         |                          | --  |
+| `ex`         |                          | --  |
+| `ey`         |                          | --  |
+| `sign_omega`         |                          | --  |
+| `A_proj`         |                          | m2  |
+| `omega_clamped`         |                          | --  |
 """
 @component function FlettnerRotor(; name = nothing, cl_dataset=DyadData.DyadTimeseries("dyad://DyadShip/flettner_coeffs.csv"; independent_var="xi", dependent_vars=["Cl"]), cd_dataset=DyadData.DyadTimeseries("dyad://DyadShip/flettner_coeffs.csv"; independent_var="xi", dependent_vars=["Cd"]), R=2.5, H=Float64(24), MaxOmega=Float64(250), AirDensity=1.29, kwargs...)
   isnothing(name) && throw(ArgumentError("""
@@ -100,7 +102,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
     @named model = FlettnerRotor()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -120,8 +122,6 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
@@ -137,6 +137,8 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   __local__AirDensity = AirDensity
   append!(__params, @parameters (AirDensity::Real), [bounds = (0, Inf)])
   __initial_conditions[AirDensity] = __local__AirDensity
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (Omega_Order(t)::Real), [input = true])
@@ -189,12 +191,10 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   ### Components
   push!(__systems, @named frame_a = __Dyad__Frame2D())
   # Subcomponent Cl_lookup of type BlockComponents.Tables.Interpolation
-  Cl_lookup_overrides = Dict(Symbol(replace(string(k), r"^Cl_lookup__" => "")) => v for (k, v) in __overrides if startswith(string(k), "Cl_lookup__"))
-  filter!(p -> !startswith(string(first(p)), "Cl_lookup__"), __overrides)
+  Cl_lookup_overrides = __pop_subcomponent_overrides!(__overrides, "Cl_lookup")
   push!(__systems, @named Cl_lookup = BlockComponents.Tables.Interpolation(interpolation_type=BlockComponents.Tables.InterpolationType.CubicSpline(), extrapolation_type=BlockComponents.Tables.ExtrapolationType.Constant(), dataset=cl_dataset, Cl_lookup_overrides...))
   # Subcomponent Cd_lookup of type BlockComponents.Tables.Interpolation
-  Cd_lookup_overrides = Dict(Symbol(replace(string(k), r"^Cd_lookup__" => "")) => v for (k, v) in __overrides if startswith(string(k), "Cd_lookup__"))
-  filter!(p -> !startswith(string(first(p)), "Cd_lookup__"), __overrides)
+  Cd_lookup_overrides = __pop_subcomponent_overrides!(__overrides, "Cd_lookup")
   push!(__systems, @named Cd_lookup = BlockComponents.Tables.Interpolation(interpolation_type=BlockComponents.Tables.InterpolationType.CubicSpline(), extrapolation_type=BlockComponents.Tables.ExtrapolationType.Constant(), dataset=cd_dataset, Cd_lookup_overrides...))
 
   ### Check there are no unmatched overrides
@@ -213,7 +213,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   push!(__eqs, U_app ~ sqrt(WindSpeedX_in ^ 2 + WindSpeedY_in ^ 2 + 0.000001))
   push!(__eqs, xi ~ abs(omega_clamped) * R / U_app)
   push!(__eqs, SpinRatio ~ xi)
-  push!(__eqs, sign_omega ~ ifelse(omega_clamped >= 0, 1, -1))
+  push!(__eqs, sign_omega ~ ifelse(omega_clamped >= 0, 1.0, -1.0))
   push!(__eqs, Cl_lookup.u ~ xi)
   push!(__eqs, Cd_lookup.u ~ xi)
   push!(__eqs, Cl ~ -Cl_lookup.y)

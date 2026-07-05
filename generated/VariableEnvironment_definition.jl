@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    VariableEnvironment(; name, SeaDensity, SeaKViscosity, AirDensity, AirKViscosity)
 
@@ -15,7 +17,7 @@ sea/air physical properties stay as parameters.
 
 Convention is the same as `Environment`: 0° is +Y, 90° is +X, vector is `-V·{sin θ, cos θ, 0}`.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -34,9 +36,9 @@ Convention is the same as `Environment`: 0° is +Y, 90° is +X, vector is `-V·{
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `WindVector`         |                          | --  | 
-| `CurrentVector`         |                          | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `WindVector`         |                          | --  |
+| `CurrentVector`         |                          | --  |
 """
 @component function VariableEnvironment(; name = nothing, SeaDensity=Float64(1025), SeaKViscosity=0.000001004, AirDensity=1.29, AirKViscosity=0.0000148, kwargs...)
   isnothing(name) && throw(ArgumentError("""
@@ -46,7 +48,7 @@ Convention is the same as `Environment`: 0° is +Y, 90° is +X, vector is `-V·{
     @named model = VariableEnvironment()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -66,8 +68,6 @@ Convention is the same as `Environment`: 0° is +Y, 90° is +X, vector is `-V·{
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
@@ -83,6 +83,8 @@ Convention is the same as `Environment`: 0° is +Y, 90° is +X, vector is `-V·{
   __local__AirKViscosity = AirKViscosity
   append!(__params, @parameters (AirKViscosity::Real), [description = "Air kinematic viscosity", bounds = (0, Inf)])
   __initial_conditions[AirKViscosity] = __local__AirKViscosity
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (WindSpeed(t)::Real), [input = true])

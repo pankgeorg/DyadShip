@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    PeakSamplerSine(; name)
 
@@ -18,7 +20,7 @@ should latch onto the first peak (~ amplitude + offset) and stay there.
     @named model = PeakSamplerSine()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -38,11 +40,11 @@ should latch onto the first peak (~ amplitude + offset) and stay there.
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 
@@ -55,12 +57,10 @@ should latch onto the first peak (~ amplitude + offset) and stay there.
 
   ### Components
   # Subcomponent sampler of type DyadShip.Machinery.PeakSampler
-  sampler_overrides = Dict(Symbol(replace(string(k), r"^sampler__" => "")) => v for (k, v) in __overrides if startswith(string(k), "sampler__"))
-  filter!(p -> !startswith(string(first(p)), "sampler__"), __overrides)
+  sampler_overrides = __pop_subcomponent_overrides!(__overrides, "sampler")
   push!(__systems, @named sampler = DyadShip.Machinery.PeakSampler(alpha=0, y_start=0, sampler_overrides...))
   # Subcomponent sine of type BlockComponents.Sources.Sine
-  sine_overrides = Dict(Symbol(replace(string(k), r"^sine__" => "")) => v for (k, v) in __overrides if startswith(string(k), "sine__"))
-  filter!(p -> !startswith(string(first(p)), "sine__"), __overrides)
+  sine_overrides = __pop_subcomponent_overrides!(__overrides, "sine")
   push!(__systems, @named sine = BlockComponents.Sources.Sine(amplitude=5, frequency=0.5, offset=0, sine_overrides...))
 
   ### Check there are no unmatched overrides

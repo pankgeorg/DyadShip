@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    RudderStep(; name)
 
@@ -23,7 +25,7 @@ Setup:
     @named model = RudderStep()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -43,11 +45,11 @@ Setup:
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 
@@ -60,16 +62,13 @@ Setup:
 
   ### Components
   # Subcomponent rudder of type DyadShip.Propulsion.Rudder
-  rudder_overrides = Dict(Symbol(replace(string(k), r"^rudder__" => "")) => v for (k, v) in __overrides if startswith(string(k), "rudder__"))
-  filter!(p -> !startswith(string(first(p)), "rudder__"), __overrides)
+  rudder_overrides = __pop_subcomponent_overrides!(__overrides, "rudder")
   push!(__systems, @named rudder = DyadShip.Propulsion.Rudder(rudder_overrides...))
   # Subcomponent step of type BlockComponents.Sources.Step
-  step_overrides = Dict(Symbol(replace(string(k), r"^step__" => "")) => v for (k, v) in __overrides if startswith(string(k), "step__"))
-  filter!(p -> !startswith(string(first(p)), "step__"), __overrides)
-  push!(__systems, @named step = BlockComponents.Sources.Step(height=20, start_time=1, offset=0, step_overrides...))
+  step_overrides = __pop_subcomponent_overrides!(__overrides, "step")
+  push!(__systems, @named step = BlockComponents.Sources.Step(height=20, start_time=1.0, offset=0, step_overrides...))
   # Subcomponent fixed of type MultibodyComponents.PlanarMechanics.Fixed
-  fixed_overrides = Dict(Symbol(replace(string(k), r"^fixed__" => "")) => v for (k, v) in __overrides if startswith(string(k), "fixed__"))
-  filter!(p -> !startswith(string(first(p)), "fixed__"), __overrides)
+  fixed_overrides = __pop_subcomponent_overrides!(__overrides, "fixed")
   push!(__systems, @named fixed = MultibodyComponents.PlanarMechanics.Fixed(fixed_overrides...))
 
   ### Check there are no unmatched overrides

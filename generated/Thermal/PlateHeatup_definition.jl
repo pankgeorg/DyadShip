@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    PlateHeatup(; name)
 
@@ -18,7 +20,7 @@ the other face insulated. After several minutes, all nodes converge to 373 K.
     @named model = PlateHeatup()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -38,11 +40,11 @@ the other face insulated. After several minutes, all nodes converge to 373 K.
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 
@@ -55,16 +57,13 @@ the other face insulated. After several minutes, all nodes converge to 373 K.
 
   ### Components
   # Subcomponent plate of type DyadShip.Thermal.PlateTransient
-  plate_overrides = Dict(Symbol(replace(string(k), r"^plate__" => "")) => v for (k, v) in __overrides if startswith(string(k), "plate__"))
-  filter!(p -> !startswith(string(first(p)), "plate__"), __overrides)
-  push!(__systems, @named plate = DyadShip.Thermal.PlateTransient(e=0.01, Asur=1, k=50, rhoCp=4000000, T_init=273.15, plate_overrides...))
+  plate_overrides = __pop_subcomponent_overrides!(__overrides, "plate")
+  push!(__systems, @named plate = DyadShip.Thermal.PlateTransient(e=0.01, Asur=1.0, k=50, rhoCp=4000000.0, T_init=273.15, plate_overrides...))
   # Subcomponent hot of type ThermalComponents.Sources.FixedTemperature
-  hot_overrides = Dict(Symbol(replace(string(k), r"^hot__" => "")) => v for (k, v) in __overrides if startswith(string(k), "hot__"))
-  filter!(p -> !startswith(string(first(p)), "hot__"), __overrides)
+  hot_overrides = __pop_subcomponent_overrides!(__overrides, "hot")
   push!(__systems, @named hot = ThermalComponents.Sources.FixedTemperature(T=373.15, hot_overrides...))
   # Subcomponent insulated of type ThermalComponents.Sources.FixedHeatFlow
-  insulated_overrides = Dict(Symbol(replace(string(k), r"^insulated__" => "")) => v for (k, v) in __overrides if startswith(string(k), "insulated__"))
-  filter!(p -> !startswith(string(first(p)), "insulated__"), __overrides)
+  insulated_overrides = __pop_subcomponent_overrides!(__overrides, "insulated")
   push!(__systems, @named insulated = ThermalComponents.Sources.FixedHeatFlow(Q_flow=0, insulated_overrides...))
 
   ### Check there are no unmatched overrides

@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    CylinderHeatup(; name)
 
@@ -19,7 +21,7 @@ with inner nodes lagging according to their thermal time constant.
     @named model = CylinderHeatup()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -39,11 +41,11 @@ with inner nodes lagging according to their thermal time constant.
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 
@@ -56,12 +58,10 @@ with inner nodes lagging according to their thermal time constant.
 
   ### Components
   # Subcomponent cyl of type DyadShip.Thermal.CylinderTransient
-  cyl_overrides = Dict(Symbol(replace(string(k), r"^cyl__" => "")) => v for (k, v) in __overrides if startswith(string(k), "cyl__"))
-  filter!(p -> !startswith(string(first(p)), "cyl__"), __overrides)
-  push!(__systems, @named cyl = DyadShip.Thermal.CylinderTransient(R=0.05, L=1, k=50, rhoCp=4000000, T_start=273.15, N=5, cyl_overrides...))
+  cyl_overrides = __pop_subcomponent_overrides!(__overrides, "cyl")
+  push!(__systems, @named cyl = DyadShip.Thermal.CylinderTransient(R=0.05, L=1.0, k=50, rhoCp=4000000.0, T_start=273.15, N=5, cyl_overrides...))
   # Subcomponent hot of type ThermalComponents.Sources.FixedTemperature
-  hot_overrides = Dict(Symbol(replace(string(k), r"^hot__" => "")) => v for (k, v) in __overrides if startswith(string(k), "hot__"))
-  filter!(p -> !startswith(string(first(p)), "hot__"), __overrides)
+  hot_overrides = __pop_subcomponent_overrides!(__overrides, "hot")
   push!(__systems, @named hot = ThermalComponents.Sources.FixedTemperature(T=373.15, hot_overrides...))
 
   ### Check there are no unmatched overrides

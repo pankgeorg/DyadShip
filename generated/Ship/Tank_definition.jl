@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    Tank(; name, CoG_trans, V, H, rho, initial_fill_fraction)
 
@@ -26,7 +28,7 @@ Differences from upstream:
 - `der_m_esc` (derivative of moment input) is calculated but not used downstream, just as
   in the original. We drop it.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -48,10 +50,10 @@ Differences from upstream:
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `inter_volume`         |                          | --  | 
-| `indi_pos`         |                          | --  | 
-| `indi_moment`         |                          | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `inter_volume`         |                          | --  |
+| `indi_pos`         |                          | --  |
+| `indi_moment`         |                          | --  |
 """
 @component function Tank(; name = nothing, CoG_trans=8.77, V=211.47, H=Float64(5), rho=1.025, initial_fill_fraction=0.45, kwargs...)
   isnothing(name) && throw(ArgumentError("""
@@ -61,7 +63,7 @@ Differences from upstream:
     @named model = Tank()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -81,8 +83,6 @@ Differences from upstream:
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
@@ -101,6 +101,8 @@ Differences from upstream:
   __local__initial_fill_fraction = initial_fill_fraction
   append!(__params, @parameters (initial_fill_fraction::Real), [description = "Initial fill fraction (0..1)"])
   __initial_conditions[initial_fill_fraction] = __local__initial_fill_fraction
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (M_input(t)::Real), [input = true])

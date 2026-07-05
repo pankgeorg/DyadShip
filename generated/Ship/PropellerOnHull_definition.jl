@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    PropellerOnHull(; name)
 
@@ -22,7 +24,7 @@ propeller is connected via `frame_a` so thrust is applied directly in 2D multibo
     @named model = PropellerOnHull()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -42,11 +44,11 @@ propeller is connected via `frame_a` so thrust is applied directly in 2D multibo
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 
@@ -59,33 +61,26 @@ propeller is connected via `frame_a` so thrust is applied directly in 2D multibo
 
   ### Components
   # Subcomponent world of type MultibodyComponents.PlanarMechanics.World
-  world_overrides = Dict(Symbol(replace(string(k), r"^world__" => "")) => v for (k, v) in __overrides if startswith(string(k), "world__"))
-  filter!(p -> !startswith(string(first(p)), "world__"), __overrides)
+  world_overrides = __pop_subcomponent_overrides!(__overrides, "world")
   push!(__systems, @named world = MultibodyComponents.PlanarMechanics.World(g=0, render=false, world_overrides...))
   # Subcomponent prop of type DyadShip.Propulsion.Propeller1Q
-  prop_overrides = Dict(Symbol(replace(string(k), r"^prop__" => "")) => v for (k, v) in __overrides if startswith(string(k), "prop__"))
-  filter!(p -> !startswith(string(first(p)), "prop__"), __overrides)
-  push!(__systems, @named prop = DyadShip.Propulsion.Propeller1Q(Diameter=4, P_D=1, Ae_Ao=0.55, Z=4, prop_overrides...))
+  prop_overrides = __pop_subcomponent_overrides!(__overrides, "prop")
+  push!(__systems, @named prop = DyadShip.Propulsion.Propeller1Q(Diameter=4, P_D=1.0, Ae_Ao=0.55, Z=4, prop_overrides...))
   # Subcomponent shaft of type RotationalComponents.Components.Inertia
-  shaft_overrides = Dict(Symbol(replace(string(k), r"^shaft__" => "")) => v for (k, v) in __overrides if startswith(string(k), "shaft__"))
-  filter!(p -> !startswith(string(first(p)), "shaft__"), __overrides)
+  shaft_overrides = __pop_subcomponent_overrides!(__overrides, "shaft")
   push!(__systems, @named shaft = RotationalComponents.Components.Inertia(J=5000, shaft_overrides...))
   # Subcomponent src of type RotationalComponents.Sources.TorqueSource
-  src_overrides = Dict(Symbol(replace(string(k), r"^src__" => "")) => v for (k, v) in __overrides if startswith(string(k), "src__"))
-  filter!(p -> !startswith(string(first(p)), "src__"), __overrides)
+  src_overrides = __pop_subcomponent_overrides!(__overrides, "src")
   push!(__systems, @named src = RotationalComponents.Sources.TorqueSource(src_overrides...))
   # Subcomponent k_tau of type BlockComponents.Sources.Constant
-  k_tau_overrides = Dict(Symbol(replace(string(k), r"^k_tau__" => "")) => v for (k, v) in __overrides if startswith(string(k), "k_tau__"))
-  filter!(p -> !startswith(string(first(p)), "k_tau__"), __overrides)
+  k_tau_overrides = __pop_subcomponent_overrides!(__overrides, "k_tau")
   push!(__systems, @named k_tau = BlockComponents.Sources.Constant(k=80000, k_tau_overrides...))
   # Subcomponent ground of type RotationalComponents.Components.Fixed
-  ground_overrides = Dict(Symbol(replace(string(k), r"^ground__" => "")) => v for (k, v) in __overrides if startswith(string(k), "ground__"))
-  filter!(p -> !startswith(string(first(p)), "ground__"), __overrides)
+  ground_overrides = __pop_subcomponent_overrides!(__overrides, "ground")
   push!(__systems, @named ground = RotationalComponents.Components.Fixed(ground_overrides...))
   # Subcomponent hull of type DyadShip.Ship.Hull3DOF
-  hull_overrides = Dict(Symbol(replace(string(k), r"^hull__" => "")) => v for (k, v) in __overrides if startswith(string(k), "hull__"))
-  filter!(p -> !startswith(string(first(p)), "hull__"), __overrides)
-  push!(__systems, @named hull = DyadShip.Ship.Hull3DOF(mass=1000000, Iz=100000000, Du=5000, Dv=1000000, Dr=10000000, hull_overrides...))
+  hull_overrides = __pop_subcomponent_overrides!(__overrides, "hull")
+  push!(__systems, @named hull = DyadShip.Ship.Hull3DOF(mass=1000000.0, Iz=100000000.0, Du=5000, Dv=1000000.0, Dr=10000000.0, hull_overrides...))
 
   ### Check there are no unmatched overrides
   isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))

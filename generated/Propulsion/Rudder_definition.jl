@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    Rudder(; name, Lpp, B, Cb, T, C, s, MaxRudderAngle, Rudder_Tau, a_h, SeaKViscosity, SeaDensity, Cl0, Cl1, Cl2, Cd0, Cd1, Cd2, Cm0, Cm1, Cm2, Surf)
 
@@ -29,7 +31,7 @@ This Dyad port:
 Note: the `Force_X`, `Force_Y`, `Moment` real outputs remain available for non-multibody
 diagnostics; they hold the *same* values written to `frame_a`. Don't double-apply.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -75,19 +77,19 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `rudder_angle_state`         |                          | --  | 
-| `Alpha`         |                          | rad  | 
-| `Beta`         |                          | rad  | 
-| `Water_Speed_X`         |                          | m/s  | 
-| `Water_Speed_Y`         |                          | m/s  | 
-| `WaterSpeed`         |                          | m/s  | 
-| `Re`         |                          | --  | 
-| `Cl`         |                          | --  | 
-| `Cd`         |                          | --  | 
-| `Cm`         |                          | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `rudder_angle_state`         |                          | --  |
+| `Alpha`         |                          | rad  |
+| `Beta`         |                          | rad  |
+| `Water_Speed_X`         |                          | m/s  |
+| `Water_Speed_Y`         |                          | m/s  |
+| `WaterSpeed`         |                          | m/s  |
+| `Re`         |                          | --  |
+| `Cl`         |                          | --  |
+| `Cd`         |                          | --  |
+| `Cm`         |                          | --  |
 """
-@component function Rudder(; name = nothing, Lpp=Float64(100), B=Float64(20), Cb=0.693, T=Float64(4), C=Float64(2), s=3.5, MaxRudderAngle=Float64(35), Rudder_Tau=0.4, a_h=Float64(1), SeaKViscosity=0.000001004, SeaDensity=Float64(1025), Cl0=Float64(0), Cl1=5.7, Cl2=-0, Cd0=0.012, Cd1=Float64(0), Cd2=1.5, Cm0=Float64(0), Cm1=-0.8, Cm2=Float64(0), Surf=C * s, kwargs...)
+@component function Rudder(; name = nothing, Lpp=Float64(100), B=Float64(20), Cb=0.693, T=Float64(4), C=Float64(2), s=3.5, MaxRudderAngle=Float64(35), Rudder_Tau=0.4, a_h=Float64(1.0), SeaKViscosity=0.000001004, SeaDensity=Float64(1025), Cl0=Float64(0.0), Cl1=5.7, Cl2=-0.0, Cd0=0.012, Cd1=Float64(0.0), Cd2=1.5, Cm0=Float64(0.0), Cm1=-0.8, Cm2=Float64(0.0), Surf=C * s, kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -95,7 +97,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
     @named model = Rudder()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -114,8 +116,6 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   ### Path Parameters (non-final)
 
   ### Final Parameters (declarations)
-
-  ### Final Parameters (assignments)
 
   ### Deferred assignment (default values that depend on final parameters)
 
@@ -183,6 +183,8 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   __local__Surf = Surf
   append!(__params, @parameters (Surf::Real))
   __initial_conditions[Surf] = __local__Surf
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (Rudder_Order(t)::Real), [input = true])

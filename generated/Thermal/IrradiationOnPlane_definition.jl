@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    IrradiationOnPlane(; name)
 
@@ -38,11 +40,11 @@ I = \\max\\left(-\\vec{S} \\cdot \\hat{n}_{plane}, \\; 0\\right)
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `SunVector`         |                          | --  | 
-| `PlaneVector`         |                          | --  | 
-| `plane_norm`         |                          | --  | 
-| `dot_neg`         |                          | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `SunVector`         |                          | --  |
+| `PlaneVector`         |                          | --  |
+| `plane_norm`         |                          | --  |
+| `dot_neg`         |                          | --  |
 """
 @component function IrradiationOnPlane(; name = nothing, kwargs...)
   isnothing(name) && throw(ArgumentError("""
@@ -52,7 +54,7 @@ I = \\max\\left(-\\vec{S} \\cdot \\hat{n}_{plane}, \\; 0\\right)
     @named model = IrradiationOnPlane()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -72,11 +74,11 @@ I = \\max\\left(-\\vec{S} \\cdot \\hat{n}_{plane}, \\; 0\\right)
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (Irradiance(t)::Real), [output = true])

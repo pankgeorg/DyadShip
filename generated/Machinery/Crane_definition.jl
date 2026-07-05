@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    Crane(; name, PedestalHeight, BoomLength, BoomInitialAngle, Boom_Tau, Cable_k)
 
@@ -31,7 +33,7 @@ Limitations:
 - Boom angle servo: first-order filter to clamped order; matches the upstream
   slew-rate-limited Position source qualitatively.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -53,10 +55,10 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `boom_angle_state`         |                          | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `boom_angle_state`         |                          | --  |
 """
-@component function Crane(; name = nothing, PedestalHeight=Float64(5), BoomLength=Float64(10), BoomInitialAngle=Float64(30), Boom_Tau=0.25, Cable_k=Float64(100000), kwargs...)
+@component function Crane(; name = nothing, PedestalHeight=Float64(5), BoomLength=Float64(10), BoomInitialAngle=Float64(30), Boom_Tau=0.25, Cable_k=Float64(100000.0), kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -64,7 +66,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
     @named model = Crane()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -83,8 +85,6 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   ### Path Parameters (non-final)
 
   ### Final Parameters (declarations)
-
-  ### Final Parameters (assignments)
 
   ### Deferred assignment (default values that depend on final parameters)
 
@@ -105,6 +105,8 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   append!(__params, @parameters (Cable_k::Real))
   __initial_conditions[Cable_k] = __local__Cable_k
 
+  ### Final Parameters (assignments)
+
   ### Final Path Parameters
   append!(__vars, @variables (BoomAngle_Order(t)::Real), [input = true])
   append!(__vars, @variables (CableLength(t)::Real), [input = true])
@@ -123,28 +125,22 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   push!(__systems, @named frame_a = __Dyad__Frame2D())
   push!(__systems, @named frame_b = __Dyad__Frame2D())
   # Subcomponent pedestal of type MultibodyComponents.PlanarMechanics.FixedTranslation
-  pedestal_overrides = Dict(Symbol(replace(string(k), r"^pedestal__" => "")) => v for (k, v) in __overrides if startswith(string(k), "pedestal__"))
-  filter!(p -> !startswith(string(first(p)), "pedestal__"), __overrides)
+  pedestal_overrides = __pop_subcomponent_overrides!(__overrides, "pedestal")
   push!(__systems, @named pedestal = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[0, PedestalHeight], render=false, pedestal_overrides...))
   # Subcomponent boom_pivot of type MultibodyComponents.PlanarMechanics.Revolute
-  boom_pivot_overrides = Dict(Symbol(replace(string(k), r"^boom_pivot__" => "")) => v for (k, v) in __overrides if startswith(string(k), "boom_pivot__"))
-  filter!(p -> !startswith(string(first(p)), "boom_pivot__"), __overrides)
+  boom_pivot_overrides = __pop_subcomponent_overrides!(__overrides, "boom_pivot")
   push!(__systems, @named boom_pivot = MultibodyComponents.PlanarMechanics.Revolute(render=false, boom_pivot_overrides...))
   # Subcomponent boom of type MultibodyComponents.PlanarMechanics.FixedTranslation
-  boom_overrides = Dict(Symbol(replace(string(k), r"^boom__" => "")) => v for (k, v) in __overrides if startswith(string(k), "boom__"))
-  filter!(p -> !startswith(string(first(p)), "boom__"), __overrides)
+  boom_overrides = __pop_subcomponent_overrides!(__overrides, "boom")
   push!(__systems, @named boom = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[BoomLength, 0], render=false, boom_overrides...))
   # Subcomponent cable of type DyadShip.Machinery.Cable
-  cable_overrides = Dict(Symbol(replace(string(k), r"^cable__" => "")) => v for (k, v) in __overrides if startswith(string(k), "cable__"))
-  filter!(p -> !startswith(string(first(p)), "cable__"), __overrides)
+  cable_overrides = __pop_subcomponent_overrides!(__overrides, "cable")
   push!(__systems, @named cable = DyadShip.Machinery.Cable(k=Cable_k, cable_overrides...))
   # Subcomponent pivot_servo of type RotationalComponents.Sources.Position
-  pivot_servo_overrides = Dict(Symbol(replace(string(k), r"^pivot_servo__" => "")) => v for (k, v) in __overrides if startswith(string(k), "pivot_servo__"))
-  filter!(p -> !startswith(string(first(p)), "pivot_servo__"), __overrides)
+  pivot_servo_overrides = __pop_subcomponent_overrides!(__overrides, "pivot_servo")
   push!(__systems, @named pivot_servo = RotationalComponents.Sources.Position(pivot_servo_overrides...))
   # Subcomponent pivot_ground of type RotationalComponents.Components.Fixed
-  pivot_ground_overrides = Dict(Symbol(replace(string(k), r"^pivot_ground__" => "")) => v for (k, v) in __overrides if startswith(string(k), "pivot_ground__"))
-  filter!(p -> !startswith(string(first(p)), "pivot_ground__"), __overrides)
+  pivot_ground_overrides = __pop_subcomponent_overrides!(__overrides, "pivot_ground")
   push!(__systems, @named pivot_ground = RotationalComponents.Components.Fixed(pivot_ground_overrides...))
 
   ### Check there are no unmatched overrides

@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    TemperatureDataset(; name, dataset)
 
@@ -32,15 +34,15 @@ The original's `tableOnFile = true` always-load-from-disk behaviour is replaced 
 extrapolation outside the data range is hard-coded to match the upstream
 `HoldLastPoint` behaviour.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
-| `dataset`         | Time-series of (time [s], temperature [K]) — defaults to the bundled 24-h sample.                         | --  |   DyadData.DyadTimeseries("dyad://DyadShip/temperature_24h.csv", independent_var = "time", dependent_vars = ["T"]) |
+| `dataset`         | Time-series of (time [s], temperature [K]) — defaults to the bundled 24-h sample.                         | --  |   DyadData.Dy...vars=["T"]) |
 
 ## Connectors
 
- * `port_AirTemp` - This connector represents a thermal node with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
+ * `port_AirTemp` - This connector represents a thermal port with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
 """
 @component function TemperatureDataset(; name = nothing, dataset=DyadData.DyadTimeseries("dyad://DyadShip/temperature_24h.csv"; independent_var="time", dependent_vars=["T"]), kwargs...)
   isnothing(name) && throw(ArgumentError("""
@@ -50,7 +52,7 @@ extrapolation outside the data range is hard-coded to match the upstream
     @named model = TemperatureDataset()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -70,11 +72,11 @@ extrapolation outside the data range is hard-coded to match the upstream
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 
@@ -88,12 +90,10 @@ extrapolation outside the data range is hard-coded to match the upstream
   ### Components
   push!(__systems, @named port_AirTemp = __Dyad__HeatPort())
   # Subcomponent TemperatureData of type BlockComponents.Tables.Interpolation
-  TemperatureData_overrides = Dict(Symbol(replace(string(k), r"^TemperatureData__" => "")) => v for (k, v) in __overrides if startswith(string(k), "TemperatureData__"))
-  filter!(p -> !startswith(string(first(p)), "TemperatureData__"), __overrides)
+  TemperatureData_overrides = __pop_subcomponent_overrides!(__overrides, "TemperatureData")
   push!(__systems, @named TemperatureData = BlockComponents.Tables.Interpolation(interpolation_type=BlockComponents.Tables.InterpolationType.LinearInterpolation(), extrapolation_type=BlockComponents.Tables.ExtrapolationType.Constant(), dataset=dataset, TemperatureData_overrides...))
   # Subcomponent prescribedTemperature of type ThermalComponents.Sources.PrescribedTemperature
-  prescribedTemperature_overrides = Dict(Symbol(replace(string(k), r"^prescribedTemperature__" => "")) => v for (k, v) in __overrides if startswith(string(k), "prescribedTemperature__"))
-  filter!(p -> !startswith(string(first(p)), "prescribedTemperature__"), __overrides)
+  prescribedTemperature_overrides = __pop_subcomponent_overrides!(__overrides, "prescribedTemperature")
   push!(__systems, @named prescribedTemperature = ThermalComponents.Sources.PrescribedTemperature(prescribedTemperature_overrides...))
 
   ### Check there are no unmatched overrides

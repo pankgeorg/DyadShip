@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    SimpleAutoPilot(; name, k_rudder, Td_rudder, Rudder_max, k_shaft, Td_shaft, Shaft_max, Shaft_min, Tf_rudder, Tf_shaft, Deadband_rudder)
 
@@ -35,7 +37,7 @@ Outputs:
 - `course_difference` — signed angle between current course and waypoint bearing [rad]
 - `distance_to_target` — current distance to the active waypoint [m]
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -68,16 +70,16 @@ Outputs:
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `course_difference`         |                          | --  | 
-| `distance_to_target`         |                          | --  | 
-| `speed_module`         |                          | --  | 
-| `course_diff_filt`         |                          | --  | 
-| `speed_err_filt`         |                          | --  | 
-| `rudder_raw`         |                          | --  | 
-| `shaft_raw`         |                          | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `course_difference`         |                          | --  |
+| `distance_to_target`         |                          | --  |
+| `speed_module`         |                          | --  |
+| `course_diff_filt`         |                          | --  |
+| `speed_err_filt`         |                          | --  |
+| `rudder_raw`         |                          | --  |
+| `shaft_raw`         |                          | --  |
 """
-@component function SimpleAutoPilot(; name = nothing, k_rudder=Float64(10), Td_rudder=Float64(40), Rudder_max=Float64(35), k_shaft=Float64(5000), Td_shaft=0.0001, Shaft_max=Float64(300), Shaft_min=0.0001, Tf_rudder=Float64(1), Tf_shaft=0.1, Deadband_rudder=Float64(0), kwargs...)
+@component function SimpleAutoPilot(; name = nothing, k_rudder=Float64(10), Td_rudder=Float64(40), Rudder_max=Float64(35), k_shaft=Float64(5000), Td_shaft=0.0001, Shaft_max=Float64(300), Shaft_min=0.0001, Tf_rudder=Float64(1.0), Tf_shaft=0.1, Deadband_rudder=Float64(0.0), kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -85,7 +87,7 @@ Outputs:
     @named model = SimpleAutoPilot()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -104,8 +106,6 @@ Outputs:
   ### Path Parameters (non-final)
 
   ### Final Parameters (declarations)
-
-  ### Final Parameters (assignments)
 
   ### Deferred assignment (default values that depend on final parameters)
 
@@ -143,6 +143,8 @@ Outputs:
   chasing tiny errors and prevents the limit-cycle oscillation that
   otherwise arises with a strongly-effective rudder."])
   __initial_conditions[Deadband_rudder] = __local__Deadband_rudder
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (pos_x(t)::Real), [input = true])

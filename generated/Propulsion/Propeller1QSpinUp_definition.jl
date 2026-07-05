@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    Propeller1QSpinUp(; name)
 
@@ -21,7 +23,7 @@ ShipSpeed). With Kq positive at small J, the spin-up reaches a steady-state RPM.
     @named model = Propeller1QSpinUp()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -41,11 +43,11 @@ ShipSpeed). With Kq positive at small J, the spin-up reaches a steady-state RPM.
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 
@@ -58,28 +60,22 @@ ShipSpeed). With Kq positive at small J, the spin-up reaches a steady-state RPM.
 
   ### Components
   # Subcomponent prop of type DyadShip.Propulsion.Propeller1Q
-  prop_overrides = Dict(Symbol(replace(string(k), r"^prop__" => "")) => v for (k, v) in __overrides if startswith(string(k), "prop__"))
-  filter!(p -> !startswith(string(first(p)), "prop__"), __overrides)
-  push!(__systems, @named prop = DyadShip.Propulsion.Propeller1Q(Diameter=4, P_D=1, Ae_Ao=0.55, Z=4, prop_overrides...))
+  prop_overrides = __pop_subcomponent_overrides!(__overrides, "prop")
+  push!(__systems, @named prop = DyadShip.Propulsion.Propeller1Q(Diameter=4, P_D=1.0, Ae_Ao=0.55, Z=4, prop_overrides...))
   # Subcomponent shaft of type RotationalComponents.Components.Inertia
-  shaft_overrides = Dict(Symbol(replace(string(k), r"^shaft__" => "")) => v for (k, v) in __overrides if startswith(string(k), "shaft__"))
-  filter!(p -> !startswith(string(first(p)), "shaft__"), __overrides)
+  shaft_overrides = __pop_subcomponent_overrides!(__overrides, "shaft")
   push!(__systems, @named shaft = RotationalComponents.Components.Inertia(J=5000, shaft_overrides...))
   # Subcomponent src of type RotationalComponents.Sources.TorqueSource
-  src_overrides = Dict(Symbol(replace(string(k), r"^src__" => "")) => v for (k, v) in __overrides if startswith(string(k), "src__"))
-  filter!(p -> !startswith(string(first(p)), "src__"), __overrides)
+  src_overrides = __pop_subcomponent_overrides!(__overrides, "src")
   push!(__systems, @named src = RotationalComponents.Sources.TorqueSource(src_overrides...))
   # Subcomponent k_tau of type BlockComponents.Sources.Constant
-  k_tau_overrides = Dict(Symbol(replace(string(k), r"^k_tau__" => "")) => v for (k, v) in __overrides if startswith(string(k), "k_tau__"))
-  filter!(p -> !startswith(string(first(p)), "k_tau__"), __overrides)
+  k_tau_overrides = __pop_subcomponent_overrides!(__overrides, "k_tau")
   push!(__systems, @named k_tau = BlockComponents.Sources.Constant(k=100000, k_tau_overrides...))
   # Subcomponent ground of type RotationalComponents.Components.Fixed
-  ground_overrides = Dict(Symbol(replace(string(k), r"^ground__" => "")) => v for (k, v) in __overrides if startswith(string(k), "ground__"))
-  filter!(p -> !startswith(string(first(p)), "ground__"), __overrides)
+  ground_overrides = __pop_subcomponent_overrides!(__overrides, "ground")
   push!(__systems, @named ground = RotationalComponents.Components.Fixed(ground_overrides...))
   # Subcomponent fixed of type MultibodyComponents.PlanarMechanics.Fixed
-  fixed_overrides = Dict(Symbol(replace(string(k), r"^fixed__" => "")) => v for (k, v) in __overrides if startswith(string(k), "fixed__"))
-  filter!(p -> !startswith(string(first(p)), "fixed__"), __overrides)
+  fixed_overrides = __pop_subcomponent_overrides!(__overrides, "fixed")
   push!(__systems, @named fixed = MultibodyComponents.PlanarMechanics.Fixed(fixed_overrides...))
 
   ### Check there are no unmatched overrides

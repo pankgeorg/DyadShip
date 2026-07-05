@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    Buoyancy1D(; name, mass, Lpp, B, Cb, rho_sea, g, Dz)
 
@@ -48,7 +50,7 @@ Pair this with `Hull3DOF` (planar) for a 4-DOF maneuvering + heave model. Both
 components share the same `mass` parameter conceptually but their DOFs are orthogonal,
 so they don't directly couple in equations.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -71,12 +73,12 @@ so they don't directly couple in equations.
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `z_state`         |                          | m  | 
-| `w_state`         |                          | m/s  | 
-| `F_buoy`         |                          | N  | 
+| ------------ | ----------------------------------- | ------ |
+| `z_state`         |                          | m  |
+| `w_state`         |                          | m/s  |
+| `F_buoy`         |                          | N  |
 """
-@component function Buoyancy1D(; name = nothing, mass=Float64(5000000), Lpp=Float64(100), B=Float64(20), Cb=0.693, rho_sea=Float64(1025), g=9.80665, Dz=Float64(1000000), kwargs...)
+@component function Buoyancy1D(; name = nothing, mass=Float64(5000000.0), Lpp=Float64(100), B=Float64(20), Cb=0.693, rho_sea=Float64(1025), g=9.80665, Dz=Float64(1000000.0), kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -84,7 +86,7 @@ so they don't directly couple in equations.
     @named model = Buoyancy1D()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -103,8 +105,6 @@ so they don't directly couple in equations.
   ### Path Parameters (non-final)
 
   ### Final Parameters (declarations)
-
-  ### Final Parameters (assignments)
 
   ### Deferred assignment (default values that depend on final parameters)
 
@@ -130,6 +130,8 @@ so they don't directly couple in equations.
   __local__Dz = Dz
   append!(__params, @parameters (Dz::Real), [description = "Linear heave damping coefficient [N·s/m] (≥ 0)"])
   __initial_conditions[Dz] = __local__Dz
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (Fz_extra(t)::Real), [input = true])

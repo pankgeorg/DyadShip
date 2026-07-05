@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    HullMMG(; name, Lpp, B, Draft, Cb, mass, Iz, SeaDensity, R3, R2, R1, U_floor, render, body_radius, X_vv, X_vvvv, X_rr, X_vr, Y_v, Y_vvv, Y_r, Y_rrr, Y_vrr, Y_vvr, N_v, N_vvv, N_r, N_rrr, N_vrr, N_vvr)
 
@@ -46,7 +48,7 @@ Limitations vs upstream:
 - Per upstream's known issue, the resistance curve is a function of
   surge speed only (not of total apparent speed U).
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -63,22 +65,22 @@ Limitations vs upstream:
 | `U_floor`         |                          | m/s  |   0.1 |
 | `render`         | Whether the internal Body's sphere shape should render                         | --  |   false |
 | `body_radius`         | Body sphere radius for animation [m] — scale with world extent for visibility                         | m  |   5.0 |
-| `X_vv`         |                          | --  |   1.15 * Cb * B / Lpp - 0.18 |
-| `X_vvvv`         |                          | --  |   -6.68 * Cb * B / Lpp + 1.1 |
-| `X_rr`         |                          | --  |   (-0.0027 + 0.0076 * Cb * Draft / B) * (Lpp / Draft) |
-| `X_vr`         |                          | --  |   -0.117 * my / 100 * (0.5 + Cb) * (Lpp / Draft) |
-| `Y_v`         |                          | --  |   (-π * (Draft / Lpp) ^ 2 * (1 + 0.4 * Cb * B / Draft)) * (Lpp / Draft) |
-| `Y_vvv`         |                          | --  |   (-0.6469 * (1 - Cb) * (Draft / B) + 0.0027) * (Lpp / Draft) |
-| `Y_r`         |                          | --  |   (-π * (Draft / Lpp) ^ 2 * (-0.32)) * (Lpp / Draft) |
-| `Y_rrr`         |                          | --  |   (-0.0233 * Cb * Draft / B + 0.0063) * (Lpp / Draft) |
-| `Y_vrr`         |                          | --  |   -(5.95 * (1 - Cb) * Draft / B) |
-| `Y_vvr`         |                          | --  |   (1.5 * Draft * Cb / B - 0.65) |
-| `N_v`         |                          | --  |   (-π * (Draft / Lpp) ^ 2 * (0.5 + 2.4 * Draft / Lpp)) * (Lpp / Draft) |
-| `N_vvv`         |                          | --  |   (0.0348 - 0.5283 * (1 - Cb) * Draft / B) * (Lpp / Draft) |
-| `N_r`         |                          | --  |   -π * (Draft / Lpp) ^ 2 * ((1.3192 - 0.68228 * Cb - 0.00019 * (Lpp / Draft) ^ 2) / π) * (Lpp / Draft) |
-| `N_rrr`         |                          | --  |   0.25 * Cb * B / Lpp - 0.056 |
-| `N_vrr`         |                          | --  |   (0.5 * Draft * Cb / B) - 0.05 |
-| `N_vvr`         |                          | --  |   -(57.5 * (Cb * B / Lpp) ^ 2 - 18.4 * (Cb * B / Lpp) + 1.6) |
+| `X_vv`         |                          | --  |   1.15 * Cb *... Lpp - 0.18 |
+| `X_vvvv`         |                          | --  |   -6.68 * Cb .../ Lpp + 1.1 |
+| `X_rr`         |                          | --  |   (-0.0027 + ...pp / Draft) |
+| `X_vr`         |                          | --  |   -0.117 * my...pp / Draft) |
+| `Y_v`         |                          | --  |   (-π * (Draf...pp / Draft) |
+| `Y_vvv`         |                          | --  |   (-0.6469 * ...pp / Draft) |
+| `Y_r`         |                          | --  |   (-π * (Draf...pp / Draft) |
+| `Y_rrr`         |                          | --  |   (-0.0233 * ...pp / Draft) |
+| `Y_vrr`         |                          | --  |   -(5.95 * (1... Draft / B) |
+| `Y_vvr`         |                          | --  |   (1.5 * Draf.../ B - 0.65) |
+| `N_v`         |                          | --  |   (-π * (Draf...pp / Draft) |
+| `N_vvv`         |                          | --  |   (0.0348 - 0...pp / Draft) |
+| `N_r`         |                          | --  |   -π * (Draft...pp / Draft) |
+| `N_rrr`         |                          | --  |   0.25 * Cb *...Lpp - 0.056 |
+| `N_vrr`         |                          | --  |   (0.5 * Draf.../ B) - 0.05 |
+| `N_vvr`         |                          | --  |   -(57.5 * (C...Lpp) + 1.6) |
 
 ## Connectors
 
@@ -101,16 +103,16 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `v_nd`         |                          | --  | 
-| `r_nd`         |                          | --  | 
-| `NonDimXY`         |                          | --  | 
-| `NonDimN`         |                          | --  | 
-| `X_damp`         |                          | N  | 
-| `Y_damp`         |                          | N  | 
-| `N_damp`         |                          | N.m  | 
+| ------------ | ----------------------------------- | ------ |
+| `v_nd`         |                          | --  |
+| `r_nd`         |                          | --  |
+| `NonDimXY`         |                          | --  |
+| `NonDimN`         |                          | --  |
+| `X_damp`         |                          | N  |
+| `Y_damp`         |                          | N  |
+| `N_damp`         |                          | N.m  |
 """
-@component function HullMMG(; name = nothing, Lpp=Float64(100), B=Float64(20), Draft=Float64(4), Cb=0.693, mass=Float64(1000000), Iz=Float64(100000000), SeaDensity=Float64(1025), R3=914.37, R2=-5286.3, R1=Float64(19657), U_floor=0.1, render=false, body_radius=Float64(5), X_vv=1.15 * Cb * B / Lpp - 0.18, X_vvvv=-6.68 * Cb * B / Lpp + 1.1, X_rr=(-0.0027 + 0.0076 * Cb * Draft / B) * (Lpp / Draft), X_vr=nothing, Y_v=(-π * (Draft / Lpp) ^ 2 * (1 + 0.4 * Cb * B / Draft)) * (Lpp / Draft), Y_vvv=(-0.6469 * (1 - Cb) * (Draft / B) + 0.0027) * (Lpp / Draft), Y_r=(-π * (Draft / Lpp) ^ 2 * (-0.32)) * (Lpp / Draft), Y_rrr=(-0.0233 * Cb * Draft / B + 0.0063) * (Lpp / Draft), Y_vrr=-(5.95 * (1 - Cb) * Draft / B), Y_vvr=(1.5 * Draft * Cb / B - 0.65), N_v=(-π * (Draft / Lpp) ^ 2 * (0.5 + 2.4 * Draft / Lpp)) * (Lpp / Draft), N_vvv=(0.0348 - 0.5283 * (1 - Cb) * Draft / B) * (Lpp / Draft), N_r=-π * (Draft / Lpp) ^ 2 * ((1.3192 - 0.68228 * Cb - 0.00019 * (Lpp / Draft) ^ 2) / π) * (Lpp / Draft), N_rrr=0.25 * Cb * B / Lpp - 0.056, N_vrr=(0.5 * Draft * Cb / B) - 0.05, N_vvr=-(57.5 * (Cb * B / Lpp) ^ 2 - 18.4 * (Cb * B / Lpp) + 1.6), kwargs...)
+@component function HullMMG(; name = nothing, Lpp=Float64(100), B=Float64(20), Draft=Float64(4), Cb=0.693, mass=Float64(1000000.0), Iz=Float64(100000000.0), SeaDensity=Float64(1025), R3=914.37, R2=-5286.3, R1=Float64(19657.0), U_floor=0.1, render=false, body_radius=Float64(5.0), X_vr=nothing, X_vv=1.15 * Cb * B / Lpp - 0.18, X_vvvv=-6.68 * Cb * B / Lpp + 1.1, X_rr=(-0.0027 + 0.0076 * Cb * Draft / B) * (Lpp / Draft), Y_v=(-π * (Draft / Lpp) ^ 2 * (1 + 0.4 * Cb * B / Draft)) * (Lpp / Draft), Y_vvv=(-0.6469 * (1 - Cb) * (Draft / B) + 0.0027) * (Lpp / Draft), Y_r=(-π * (Draft / Lpp) ^ 2 * (-0.32)) * (Lpp / Draft), Y_rrr=(-0.0233 * Cb * Draft / B + 0.0063) * (Lpp / Draft), Y_vrr=-(5.95 * (1 - Cb) * Draft / B), Y_vvr=(1.5 * Draft * Cb / B - 0.65), N_v=(-π * (Draft / Lpp) ^ 2 * (0.5 + 2.4 * Draft / Lpp)) * (Lpp / Draft), N_vvv=(0.0348 - 0.5283 * (1 - Cb) * Draft / B) * (Lpp / Draft), N_r=-π * (Draft / Lpp) ^ 2 * ((1.3192 - 0.68228 * Cb - 0.00019 * (Lpp / Draft) ^ 2) / π) * (Lpp / Draft), N_rrr=0.25 * Cb * B / Lpp - 0.056, N_vrr=(0.5 * Draft * Cb / B) - 0.05, N_vvr=-(57.5 * (Cb * B / Lpp) ^ 2 - 18.4 * (Cb * B / Lpp) + 1.6), kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -118,7 +120,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
     @named model = HullMMG()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -139,10 +141,6 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   ### Final Parameters (declarations)
   append!(__params, @parameters (mx::Real), [misc = "final"])
   append!(__params, @parameters (my::Real), [misc = "final"])
-
-  ### Final Parameters (assignments)
-  __bindings[mx] = 1 / (π * sqrt(Lpp ^ 2 / (B * Draft * Cb * SeaDensity)) - 14)
-  __bindings[my] = 0.882 - 0.54 * Cb * (1 - 1.6 * Draft / B) - 0.156 * (1 - 0.673 * Cb) * Lpp / B + 0.826 * (Draft / B) * (Lpp / B) * (1 - 0.678 * Draft / B) - 0.638 * Cb * (Draft / B) * (Lpp / B) * (1 - 0.669 * Draft / B)
 
   ### Deferred assignment (default values that depend on final parameters)
   isnothing(X_vr) && (X_vr = -0.117 * my / 100 * (0.5 + Cb) * (Lpp / Draft))
@@ -236,6 +234,10 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   append!(__params, @parameters (N_vvr::Real))
   __initial_conditions[N_vvr] = __local__N_vvr
 
+  ### Final Parameters (assignments)
+  __bindings[mx] = 1.0 / (π * sqrt(Lpp ^ 2 / (B * Draft * Cb * SeaDensity)) - 14)
+  __bindings[my] = 0.882 - 0.54 * Cb * (1 - 1.6 * Draft / B) - 0.156 * (1 - 0.673 * Cb) * Lpp / B + 0.826 * (Draft / B) * (Lpp / B) * (1 - 0.678 * Draft / B) - 0.638 * Cb * (Draft / B) * (Lpp / B) * (1 - 0.669 * Draft / B)
+
   ### Final Path Parameters
   append!(__vars, @variables (Fx_extra(t)::Real), [input = true])
   append!(__vars, @variables (Fy_extra(t)::Real), [input = true])
@@ -282,12 +284,10 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   ### Components
   push!(__systems, @named frame_a = __Dyad__Frame2D())
   # Subcomponent body of type MultibodyComponents.PlanarMechanics.Body
-  body_overrides = Dict(Symbol(replace(string(k), r"^body__" => "")) => v for (k, v) in __overrides if startswith(string(k), "body__"))
-  filter!(p -> !startswith(string(first(p)), "body__"), __overrides)
+  body_overrides = __pop_subcomponent_overrides!(__overrides, "body")
   push!(__systems, @named body = MultibodyComponents.PlanarMechanics.Body(m=mass, I=Iz, render=render, radius=body_radius, body_overrides...))
   # Subcomponent forcer of type MultibodyComponents.PlanarMechanics.WorldForceTorque
-  forcer_overrides = Dict(Symbol(replace(string(k), r"^forcer__" => "")) => v for (k, v) in __overrides if startswith(string(k), "forcer__"))
-  filter!(p -> !startswith(string(first(p)), "forcer__"), __overrides)
+  forcer_overrides = __pop_subcomponent_overrides!(__overrides, "forcer")
   push!(__systems, @named forcer = MultibodyComponents.PlanarMechanics.WorldForceTorque(resolve_in_frame=MultibodyComponents.ResolveInFrame.FrameB(), forcer_overrides...))
 
   ### Check there are no unmatched overrides

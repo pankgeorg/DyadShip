@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    HeadingAutoPilot(; name, k_p, k_i, Rudder_max, Integral_max, Deadband, Throttle_full_dist, Throttle_off_dist)
 
@@ -22,7 +24,7 @@ Sign convention: with positive `k_p`, a positive `course_difference`
 command. If the rudder/hull plant has the opposite convention, set
 `k_p < 0`.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -50,11 +52,11 @@ command. If the rudder/hull plant has the opposite convention, set
 ## Variables
 
 | Name         | Description                         | Units  | 
-| ------------ | ----------------------------------- | ------ | 
-| `integ`         |                          | --  | 
-| `rudder_raw`         |                          | --  | 
+| ------------ | ----------------------------------- | ------ |
+| `integ`         |                          | --  |
+| `rudder_raw`         |                          | --  |
 """
-@component function HeadingAutoPilot(; name = nothing, k_p=Float64(30), k_i=Float64(1), Rudder_max=Float64(35), Integral_max=Float64(30), Deadband=Float64(0), Throttle_full_dist=Float64(300), Throttle_off_dist=Float64(100), kwargs...)
+@component function HeadingAutoPilot(; name = nothing, k_p=Float64(30), k_i=Float64(1), Rudder_max=Float64(35), Integral_max=Float64(30), Deadband=Float64(0.0), Throttle_full_dist=Float64(300.0), Throttle_off_dist=Float64(100.0), kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -62,7 +64,7 @@ command. If the rudder/hull plant has the opposite convention, set
     @named model = HeadingAutoPilot()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -81,8 +83,6 @@ command. If the rudder/hull plant has the opposite convention, set
   ### Path Parameters (non-final)
 
   ### Final Parameters (declarations)
-
-  ### Final Parameters (assignments)
 
   ### Deferred assignment (default values that depend on final parameters)
 
@@ -108,6 +108,8 @@ command. If the rudder/hull plant has the opposite convention, set
   __local__Throttle_off_dist = Throttle_off_dist
   append!(__params, @parameters (Throttle_off_dist::Real), [description = "Distance-to-target [m] below which the throttle output is 0 (engine off)."])
   __initial_conditions[Throttle_off_dist] = __local__Throttle_off_dist
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
   append!(__vars, @variables (pos_x(t)::Real), [input = true])

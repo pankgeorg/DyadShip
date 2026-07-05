@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    DieselEngineRamp(; name)
 
@@ -19,7 +21,7 @@ integrators should accumulate accordingly.
     @named model = DieselEngineRamp()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -39,11 +41,11 @@ integrators should accumulate accordingly.
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 
@@ -56,25 +58,20 @@ integrators should accumulate accordingly.
 
   ### Components
   # Subcomponent engine of type DyadShip.Propulsion.SimpleDieselEngine
-  engine_overrides = Dict(Symbol(replace(string(k), r"^engine__" => "")) => v for (k, v) in __overrides if startswith(string(k), "engine__"))
-  filter!(p -> !startswith(string(first(p)), "engine__"), __overrides)
+  engine_overrides = __pop_subcomponent_overrides!(__overrides, "engine")
   push!(__systems, @named engine = DyadShip.Propulsion.SimpleDieselEngine(engine_overrides...))
   # Subcomponent inertia of type RotationalComponents.Components.Inertia
-  inertia_overrides = Dict(Symbol(replace(string(k), r"^inertia__" => "")) => v for (k, v) in __overrides if startswith(string(k), "inertia__"))
-  filter!(p -> !startswith(string(first(p)), "inertia__"), __overrides)
+  inertia_overrides = __pop_subcomponent_overrides!(__overrides, "inertia")
   push!(__systems, @named inertia = RotationalComponents.Components.Inertia(J=50, inertia_overrides...))
   # Subcomponent ground of type RotationalComponents.Components.Damper
-  ground_overrides = Dict(Symbol(replace(string(k), r"^ground__" => "")) => v for (k, v) in __overrides if startswith(string(k), "ground__"))
-  filter!(p -> !startswith(string(first(p)), "ground__"), __overrides)
+  ground_overrides = __pop_subcomponent_overrides!(__overrides, "ground")
   push!(__systems, @named ground = RotationalComponents.Components.Damper(d=10, ground_overrides...))
   # Subcomponent fixed of type RotationalComponents.Components.Fixed
-  fixed_overrides = Dict(Symbol(replace(string(k), r"^fixed__" => "")) => v for (k, v) in __overrides if startswith(string(k), "fixed__"))
-  filter!(p -> !startswith(string(first(p)), "fixed__"), __overrides)
+  fixed_overrides = __pop_subcomponent_overrides!(__overrides, "fixed")
   push!(__systems, @named fixed = RotationalComponents.Components.Fixed(fixed_overrides...))
   # Subcomponent step of type BlockComponents.Sources.Step
-  step_overrides = Dict(Symbol(replace(string(k), r"^step__" => "")) => v for (k, v) in __overrides if startswith(string(k), "step__"))
-  filter!(p -> !startswith(string(first(p)), "step__"), __overrides)
-  push!(__systems, @named step = BlockComponents.Sources.Step(height=300, start_time=2, offset=1500, step_overrides...))
+  step_overrides = __pop_subcomponent_overrides!(__overrides, "step")
+  push!(__systems, @named step = BlockComponents.Sources.Step(height=300, start_time=2.0, offset=1500, step_overrides...))
 
   ### Check there are no unmatched overrides
   isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))

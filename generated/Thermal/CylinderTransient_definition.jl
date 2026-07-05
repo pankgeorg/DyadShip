@@ -4,6 +4,8 @@
 ### Instead, update the Dyad source code and regenerate this file
 
 
+import Moshi as __Ext__Moshi
+
 @doc Markdown.doc"""
    CylinderTransient(; name, R, L, k, rhoCp, T_start, N, A, V_ring, C_node, G_array)
 
@@ -26,7 +28,7 @@ Limitations vs upstream:
   conditional connector.
 - `Tavg` and `Energy` outputs dropped.
 
-## Parameters: 
+## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
@@ -39,13 +41,13 @@ Limitations vs upstream:
 | `A`         |                          | --  |   π * R ^ 2 |
 | `V_ring`         |                          | --  |   A * L / N |
 | `C_node`         |                          | --  |   rhoCp * V_ring |
-| `G_array`         |                          | --  |   discretize_cylinder_conductances(R, L, k, N) |
+| `G_array`         |                          | --  |   discretize_...R, L, k, N) |
 
 ## Connectors
 
- * `port_b` - This connector represents a thermal node with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
+ * `port_b` - This connector represents a thermal port with temperature and heat flow as the potential and flow variables, respectively. ([`HeatPort`](@ref))
 """
-@component function CylinderTransient(; name = nothing, R=0.05, L=Float64(1), k=Float64(200), rhoCp=Float64(4000000), T_start=273.15, N=5, A=π * R ^ 2, V_ring=A * L / N, C_node=rhoCp * V_ring, G_array=discretize_cylinder_conductances(R, L, k, N), kwargs...)
+@component function CylinderTransient(; name = nothing, R=0.05, L=Float64(1.0), k=Float64(200), rhoCp=Float64(4000000.0), T_start=273.15, N=5, A=π * R ^ 2, G_array=discretize_cylinder_conductances(R, L, k, N), V_ring=A * L / N, C_node=rhoCp * V_ring, kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -53,7 +55,7 @@ Limitations vs upstream:
     @named model = CylinderTransient()
   """))
 
-  __overrides = Dict{String, Symbolics.SymbolicT}(string(k) => v for (k, v) in kwargs)
+  __overrides = __build_overrides(kwargs)
   __params = Symbolics.SymbolicT[]
   __vars = Symbolics.SymbolicT[]
   __systems = System[]
@@ -73,11 +75,11 @@ Limitations vs upstream:
 
   ### Final Parameters (declarations)
 
-  ### Final Parameters (assignments)
-
   ### Deferred assignment (default values that depend on final parameters)
 
   ### Symbolic Parameters
+
+  ### Final Parameters (assignments)
 
   ### Final Path Parameters
 
@@ -91,19 +93,17 @@ Limitations vs upstream:
   ### Components
   push!(__systems, @named port_b = __Dyad__HeatPort())
   # Subcomponent caps of type ThermalComponents.Components.HeatCapacitor
-  caps_overrides = Dict(Symbol(replace(string(k), r"^caps__" => "")) => v for (k, v) in __overrides if startswith(string(k), "caps__"))
-  filter!(p -> !startswith(string(first(p)), "caps__"), __overrides)
+  caps_overrides = __pop_subcomponent_overrides!(__overrides, "caps")
   caps = System[]
   for i in 1:N
-    push!(caps, ThermalComponents.Components.HeatCapacitor(C=C_node, T0=T_start, name=Symbol("caps", "⸺", i), caps_overrides...))
+    push!(caps, ThermalComponents.Components.HeatCapacitor(C=ModelingToolkit.default_to_parentscope(C_node), T0=ModelingToolkit.default_to_parentscope(T_start), name=Symbol("caps", "⸺", i), caps_overrides...))
   end
   append!(__systems, caps)
   # Subcomponent conds of type ThermalComponents.Components.ThermalConductor
-  conds_overrides = Dict(Symbol(replace(string(k), r"^conds__" => "")) => v for (k, v) in __overrides if startswith(string(k), "conds__"))
-  filter!(p -> !startswith(string(first(p)), "conds__"), __overrides)
+  conds_overrides = __pop_subcomponent_overrides!(__overrides, "conds")
   conds = System[]
   for i in 1:N
-    push!(conds, ThermalComponents.Components.ThermalConductor(G=G_array[i], name=Symbol("conds", "⸺", i), conds_overrides...))
+    push!(conds, ThermalComponents.Components.ThermalConductor(G=ModelingToolkit.default_to_parentscope(G_array[i]), name=Symbol("conds", "⸺", i), conds_overrides...))
   end
   append!(__systems, conds)
 
