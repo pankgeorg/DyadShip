@@ -1,0 +1,80 @@
+"""
+Open-loop, human-controllable ship: hull + propeller + rudder, no autopilot.
+
+The user inputs are the tunable parameters `rpm_cmd` (commanded shaft speed [rpm]) and
+`rudder_cmd` (commanded rudder angle [deg]). Each command feeds a first-order *input
+state* (engine-telegraph / steering-gear lag) so live command changes arrive smoothly:
+`der(rpm_state) = (rpm_cmd - rpm_state) / T_rpm` and likewise for the rudder. The shaft
+is driven by a filtered `SpeedSource` tracking `rpm_state` (ideal governor — load torque
+does not stall the engine), and `rudder_state` becomes the rudder order (the `Rudder`
+component applies its own ±`MaxRudderAngle` clamp and actuator lag). Intended for
+interactive (WASM model-exchange) use where `rpm_cmd`/`rudder_cmd` are re-tuned between
+integration steps; also works as a plain transient analysis.
+"""
+test component ManualShip
+  "Commanded shaft speed [rpm] (user input)"
+  parameter rpm_cmd::Real = 60
+  "Commanded rudder angle [deg], positive turns to port (user input)"
+  parameter rudder_cmd::Real = 0
+  "Engine telegraph lag time constant"
+  parameter T_rpm::Time = 5
+  "Steering-gear command lag time constant"
+  parameter T_rudder::Time = 1
+
+  world = MultibodyComponents.PlanarMechanics.World(g = 0, render = false)
+  hull = HullMMG(mass = 1e6, Iz = 1e8, Lpp = 100, B = 20, Draft = 4, Cb = 0.693)
+
+  prop = DyadShip.Propulsion.Propeller1Q(Diameter = 4, P_D = 1.0, Ae_Ao = 0.55, Z = 4)
+  shaft = RotationalComponents.Components.Inertia(J = 5000)
+  src = RotationalComponents.Sources.SpeedSource()
+  ground = RotationalComponents.Components.Fixed()
+
+  rudder = DyadShip.Propulsion.Rudder()
+
+  # Prop at the aft perpendicular; rudder 2 m behind it (same layout as FullShip).
+  prop_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r = [-50, 0], render = false)
+  rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r = [-52, 0], render = false)
+
+  "Lagged shaft-speed input state [rpm]"
+  variable rpm_state::Real
+  "Lagged rudder-order input state [deg]"
+  variable rudder_state::Real
+relations
+  initial shaft.phi = 0
+  initial rpm_state = 0
+  initial rudder_state = 0
+
+  der(rpm_state) = (rpm_cmd - rpm_state) / T_rpm
+  der(rudder_state) = (rudder_cmd - rudder_state) / T_rudder
+
+  # rpm -> rad/s
+  src.w_ref = rpm_state * π / 30
+  connect(src.support, ground.spline)
+  connect(src.spline, shaft.spline_a)
+  connect(shaft.spline_b, prop.flange)
+
+  connect(hull.frame_a, prop_arm.frame_a, rudder_arm.frame_a)
+  connect(prop_arm.frame_b, prop.frame_a)
+  connect(rudder_arm.frame_b, rudder.frame_a)
+
+  # Propeller surge speed in body frame (same as hull.u).
+  prop.ShipSpeed = hull.u
+
+  rudder.WaterSpeedX_in = hull.u
+  rudder.WaterSpeedY_in = hull.v
+  rudder.Propeller_speed = prop.Propeller_speed
+  rudder.Propeller_flow_diameter = prop.Propeller_flow_diameter
+  rudder.Wake_Fraction = prop.Wake_Fraction
+  rudder.Rudder_Order = rudder_state
+
+  hull.Fx_extra = 0
+  hull.Fy_extra = 0
+  hull.Mz_extra = 0
+end
+
+# optimize = None keeps parameters in the Tunable buffer: the 3.2 default (Aggressive)
+# bakes them into the equations, which would freeze rpm_cmd/rudder_cmd in the WASM kernel.
+analysis ManualShipTransient
+  extends TransientAnalysis(stop = 600.0, optimize = OptimizationLevel.None())
+  model = ManualShip()
+end
