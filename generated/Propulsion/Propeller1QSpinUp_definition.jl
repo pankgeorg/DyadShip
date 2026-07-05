@@ -61,25 +61,25 @@ ShipSpeed). With Kq positive at small J, the spin-up reaches a steady-state RPM.
   ### Components
   # Subcomponent prop of type DyadShip.Propulsion.Propeller1Q
   prop_overrides = __pop_subcomponent_overrides!(__overrides, "prop")
-  push!(__systems, @named prop = DyadShip.Propulsion.Propeller1Q(Diameter=4, P_D=1.0, Ae_Ao=0.55, Z=4, prop_overrides...))
+  push!(__systems, @named prop = DyadShip.Propulsion.Propeller1Q(; Diameter=Float64(4), P_D=Float64(1.0), Ae_Ao=0.55, Z=Float64(4), prop_overrides...))
   # Subcomponent shaft of type RotationalComponents.Components.Inertia
   shaft_overrides = __pop_subcomponent_overrides!(__overrides, "shaft")
-  push!(__systems, @named shaft = RotationalComponents.Components.Inertia(J=5000, shaft_overrides...))
+  push!(__systems, @named shaft = RotationalComponents.Components.Inertia(; J=Float64(5000), shaft_overrides...))
   # Subcomponent src of type RotationalComponents.Sources.TorqueSource
   src_overrides = __pop_subcomponent_overrides!(__overrides, "src")
-  push!(__systems, @named src = RotationalComponents.Sources.TorqueSource(src_overrides...))
+  push!(__systems, @named src = RotationalComponents.Sources.TorqueSource(; src_overrides...))
   # Subcomponent k_tau of type BlockComponents.Sources.Constant
   k_tau_overrides = __pop_subcomponent_overrides!(__overrides, "k_tau")
-  push!(__systems, @named k_tau = BlockComponents.Sources.Constant(k=100000, k_tau_overrides...))
+  push!(__systems, @named k_tau = BlockComponents.Sources.Constant(; k=Float64(100000), k_tau_overrides...))
   # Subcomponent ground of type RotationalComponents.Components.Fixed
   ground_overrides = __pop_subcomponent_overrides!(__overrides, "ground")
-  push!(__systems, @named ground = RotationalComponents.Components.Fixed(ground_overrides...))
+  push!(__systems, @named ground = RotationalComponents.Components.Fixed(; ground_overrides...))
   # Subcomponent fixed of type MultibodyComponents.PlanarMechanics.Fixed
   fixed_overrides = __pop_subcomponent_overrides!(__overrides, "fixed")
-  push!(__systems, @named fixed = MultibodyComponents.PlanarMechanics.Fixed(fixed_overrides...))
+  push!(__systems, @named fixed = MultibodyComponents.PlanarMechanics.Fixed(; fixed_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

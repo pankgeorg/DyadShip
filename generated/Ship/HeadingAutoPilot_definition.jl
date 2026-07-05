@@ -30,9 +30,9 @@ command. If the rudder/hull plant has the opposite convention, set
 | ------------ | ----------------------------------- | ------ | --------------- |
 | `k_p`         | Proportional gain [deg of rudder per rad of heading error]                         | --  |   30 |
 | `k_i`         | Integral gain [deg/rad·s]. Set 0 to disable integral action.                         | --  |   1 |
-| `Rudder_max`         | Maximum |rudder| output [deg]                         | --  |   35 |
+| `Rudder_max`         | Maximum \|rudder\| output [deg]                         | --  |   35 |
 | `Integral_max`         | Cap on the integral state [deg]. Bounds the integral wind-up.                         | --  |   30 |
-| `Deadband`         | Course-error deadband [rad]. While |course_diff| < Deadband the rudder is set to zero AND the integral is frozen.                         | rad  |   0.0 |
+| `Deadband`         | Course-error deadband [rad]. While \|course_diff\| < Deadband the rudder is set to zero AND the integral is frozen.                         | rad  |   0.0 |
 | `Throttle_full_dist`         | Distance-to-target [m] above which the throttle output is 1 (full power).                         | m  |   300.0 |
 | `Throttle_off_dist`         | Distance-to-target [m] below which the throttle output is 0 (engine off).                         | m  |   100.0 |
 
@@ -139,7 +139,7 @@ command. If the rudder/hull plant has the opposite convention, set
   ### Components
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

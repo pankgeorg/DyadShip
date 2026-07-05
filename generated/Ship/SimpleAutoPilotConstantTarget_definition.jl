@@ -62,10 +62,10 @@ speed module up toward `target_speed`.
   ### Components
   # Subcomponent pilot of type DyadShip.Ship.SimpleAutoPilot
   pilot_overrides = __pop_subcomponent_overrides!(__overrides, "pilot")
-  push!(__systems, @named pilot = DyadShip.Ship.SimpleAutoPilot(pilot_overrides...))
+  push!(__systems, @named pilot = DyadShip.Ship.SimpleAutoPilot(; pilot_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

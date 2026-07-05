@@ -59,16 +59,16 @@ sail forces have a node to discharge into.
   ### Components
   # Subcomponent sail of type DyadShip.Propulsion.WingSail
   sail_overrides = __pop_subcomponent_overrides!(__overrides, "sail")
-  push!(__systems, @named sail = DyadShip.Propulsion.WingSail(sail_overrides...))
+  push!(__systems, @named sail = DyadShip.Propulsion.WingSail(; sail_overrides...))
   # Subcomponent angle_cmd of type BlockComponents.Sources.Step
   angle_cmd_overrides = __pop_subcomponent_overrides!(__overrides, "angle_cmd")
-  push!(__systems, @named angle_cmd = BlockComponents.Sources.Step(height=25, start_time=1, offset=0, angle_cmd_overrides...))
+  push!(__systems, @named angle_cmd = BlockComponents.Sources.Step(; height=Float64(25), start_time=Float64(1), offset=Float64(0), angle_cmd_overrides...))
   # Subcomponent fixed of type MultibodyComponents.PlanarMechanics.Fixed
   fixed_overrides = __pop_subcomponent_overrides!(__overrides, "fixed")
-  push!(__systems, @named fixed = MultibodyComponents.PlanarMechanics.Fixed(fixed_overrides...))
+  push!(__systems, @named fixed = MultibodyComponents.PlanarMechanics.Fixed(; fixed_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

@@ -63,19 +63,19 @@ seeing the ship heel and driving the pump that fills the Tank.
   ### Components
   # Subcomponent ah of type DyadShip.Ship.AntiHeeling
   ah_overrides = __pop_subcomponent_overrides!(__overrides, "ah")
-  push!(__systems, @named ah = DyadShip.Ship.AntiHeeling(startup_delay=5, ah_overrides...))
+  push!(__systems, @named ah = DyadShip.Ship.AntiHeeling(; startup_delay=Float64(5), ah_overrides...))
   # Subcomponent tank_starboard of type DyadShip.Ship.Tank
   tank_starboard_overrides = __pop_subcomponent_overrides!(__overrides, "tank_starboard")
-  push!(__systems, @named tank_starboard = DyadShip.Ship.Tank(CoG_trans=8.77, tank_starboard_overrides...))
+  push!(__systems, @named tank_starboard = DyadShip.Ship.Tank(; CoG_trans=8.77, tank_starboard_overrides...))
   # Subcomponent heel_in of type BlockComponents.Sources.Step
   heel_in_overrides = __pop_subcomponent_overrides!(__overrides, "heel_in")
-  push!(__systems, @named heel_in = BlockComponents.Sources.Step(height=0.2, start_time=10, offset=0, heel_in_overrides...))
+  push!(__systems, @named heel_in = BlockComponents.Sources.Step(; height=0.2, start_time=Float64(10), offset=Float64(0), heel_in_overrides...))
   # Subcomponent fixed of type MultibodyComponents.PlanarMechanics.Fixed
   fixed_overrides = __pop_subcomponent_overrides!(__overrides, "fixed")
-  push!(__systems, @named fixed = MultibodyComponents.PlanarMechanics.Fixed(fixed_overrides...))
+  push!(__systems, @named fixed = MultibodyComponents.PlanarMechanics.Fixed(; fixed_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

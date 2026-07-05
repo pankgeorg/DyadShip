@@ -192,13 +192,13 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   push!(__systems, @named frame_a = __Dyad__Frame2D())
   # Subcomponent Cl_lookup of type BlockComponents.Tables.Interpolation
   Cl_lookup_overrides = __pop_subcomponent_overrides!(__overrides, "Cl_lookup")
-  push!(__systems, @named Cl_lookup = BlockComponents.Tables.Interpolation(interpolation_type=BlockComponents.Tables.InterpolationType.CubicSpline(), extrapolation_type=BlockComponents.Tables.ExtrapolationType.Constant(), dataset=cl_dataset, Cl_lookup_overrides...))
+  push!(__systems, @named Cl_lookup = BlockComponents.Tables.Interpolation(; interpolation_type=BlockComponents.Tables.InterpolationType.CubicSpline(), extrapolation_type=BlockComponents.Tables.ExtrapolationType.Constant(), dataset=cl_dataset, Cl_lookup_overrides...))
   # Subcomponent Cd_lookup of type BlockComponents.Tables.Interpolation
   Cd_lookup_overrides = __pop_subcomponent_overrides!(__overrides, "Cd_lookup")
-  push!(__systems, @named Cd_lookup = BlockComponents.Tables.Interpolation(interpolation_type=BlockComponents.Tables.InterpolationType.CubicSpline(), extrapolation_type=BlockComponents.Tables.ExtrapolationType.Constant(), dataset=cd_dataset, Cd_lookup_overrides...))
+  push!(__systems, @named Cd_lookup = BlockComponents.Tables.Interpolation(; interpolation_type=BlockComponents.Tables.InterpolationType.CubicSpline(), extrapolation_type=BlockComponents.Tables.ExtrapolationType.Constant(), dataset=cd_dataset, Cd_lookup_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

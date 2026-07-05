@@ -144,13 +144,13 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   push!(__systems, @named frame_a = __Dyad__Frame2D())
   # Subcomponent body of type MultibodyComponents.PlanarMechanics.Body
   body_overrides = __pop_subcomponent_overrides!(__overrides, "body")
-  push!(__systems, @named body = MultibodyComponents.PlanarMechanics.Body(m=mass, I=Iz, render=false, body_overrides...))
+  push!(__systems, @named body = MultibodyComponents.PlanarMechanics.Body(; m=mass, I=Iz, render=false, body_overrides...))
   # Subcomponent forcer of type MultibodyComponents.PlanarMechanics.WorldForceTorque
   forcer_overrides = __pop_subcomponent_overrides!(__overrides, "forcer")
-  push!(__systems, @named forcer = MultibodyComponents.PlanarMechanics.WorldForceTorque(resolve_in_frame=MultibodyComponents.ResolveInFrame.FrameB(), forcer_overrides...))
+  push!(__systems, @named forcer = MultibodyComponents.PlanarMechanics.WorldForceTorque(; resolve_in_frame=MultibodyComponents.ResolveInFrame.FrameB(), forcer_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

@@ -96,19 +96,19 @@ Limitations vs upstream:
   caps_overrides = __pop_subcomponent_overrides!(__overrides, "caps")
   caps = System[]
   for i in 1:N
-    push!(caps, ThermalComponents.Components.HeatCapacitor(C=ModelingToolkit.default_to_parentscope(C_node), T0=ModelingToolkit.default_to_parentscope(T_start), name=Symbol("caps", "⸺", i), caps_overrides...))
+    push!(caps, ThermalComponents.Components.HeatCapacitor(C=ModelingToolkit.default_to_parentscope(C_node), T0=ModelingToolkit.default_to_parentscope(T_start), name=Symbol("caps", "⸺", i); caps_overrides...))
   end
   append!(__systems, caps)
   # Subcomponent conds of type ThermalComponents.Components.ThermalConductor
   conds_overrides = __pop_subcomponent_overrides!(__overrides, "conds")
   conds = System[]
   for i in 1:N
-    push!(conds, ThermalComponents.Components.ThermalConductor(G=ModelingToolkit.default_to_parentscope(G_array[i]), name=Symbol("conds", "⸺", i), conds_overrides...))
+    push!(conds, ThermalComponents.Components.ThermalConductor(G=ModelingToolkit.default_to_parentscope(G_array[i]), name=Symbol("conds", "⸺", i); conds_overrides...))
   end
   append!(__systems, conds)
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

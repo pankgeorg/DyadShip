@@ -105,25 +105,25 @@ Limitations vs upstream:
   caps_overrides = __pop_subcomponent_overrides!(__overrides, "caps")
   caps = System[]
   for i in 1:nNodes
-    push!(caps, ThermalComponents.Components.HeatCapacitor(C=ModelingToolkit.default_to_parentscope(C_node), T0=ModelingToolkit.default_to_parentscope(T_init), name=Symbol("caps", "⸺", i), caps_overrides...))
+    push!(caps, ThermalComponents.Components.HeatCapacitor(C=ModelingToolkit.default_to_parentscope(C_node), T0=ModelingToolkit.default_to_parentscope(T_init), name=Symbol("caps", "⸺", i); caps_overrides...))
   end
   append!(__systems, caps)
   # Subcomponent cond_internal of type ThermalComponents.Components.ThermalConductor
   cond_internal_overrides = __pop_subcomponent_overrides!(__overrides, "cond_internal")
   cond_internal = System[]
   for i in 1:nInterior
-    push!(cond_internal, ThermalComponents.Components.ThermalConductor(G=ModelingToolkit.default_to_parentscope(G_internal), name=Symbol("cond_internal", "⸺", i), cond_internal_overrides...))
+    push!(cond_internal, ThermalComponents.Components.ThermalConductor(G=ModelingToolkit.default_to_parentscope(G_internal), name=Symbol("cond_internal", "⸺", i); cond_internal_overrides...))
   end
   append!(__systems, cond_internal)
   # Subcomponent cond_face_a of type ThermalComponents.Components.ThermalConductor
   cond_face_a_overrides = __pop_subcomponent_overrides!(__overrides, "cond_face_a")
-  push!(__systems, @named cond_face_a = ThermalComponents.Components.ThermalConductor(G=G_face, cond_face_a_overrides...))
+  push!(__systems, @named cond_face_a = ThermalComponents.Components.ThermalConductor(; G=G_face, cond_face_a_overrides...))
   # Subcomponent cond_face_b of type ThermalComponents.Components.ThermalConductor
   cond_face_b_overrides = __pop_subcomponent_overrides!(__overrides, "cond_face_b")
-  push!(__systems, @named cond_face_b = ThermalComponents.Components.ThermalConductor(G=G_face, cond_face_b_overrides...))
+  push!(__systems, @named cond_face_b = ThermalComponents.Components.ThermalConductor(; G=G_face, cond_face_b_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

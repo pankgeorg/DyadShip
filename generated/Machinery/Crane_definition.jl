@@ -126,25 +126,25 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   push!(__systems, @named frame_b = __Dyad__Frame2D())
   # Subcomponent pedestal of type MultibodyComponents.PlanarMechanics.FixedTranslation
   pedestal_overrides = __pop_subcomponent_overrides!(__overrides, "pedestal")
-  push!(__systems, @named pedestal = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[0, PedestalHeight], render=false, pedestal_overrides...))
+  push!(__systems, @named pedestal = MultibodyComponents.PlanarMechanics.FixedTranslation(; r=[Float64(0), PedestalHeight], render=false, pedestal_overrides...))
   # Subcomponent boom_pivot of type MultibodyComponents.PlanarMechanics.Revolute
   boom_pivot_overrides = __pop_subcomponent_overrides!(__overrides, "boom_pivot")
-  push!(__systems, @named boom_pivot = MultibodyComponents.PlanarMechanics.Revolute(render=false, boom_pivot_overrides...))
+  push!(__systems, @named boom_pivot = MultibodyComponents.PlanarMechanics.Revolute(; render=false, boom_pivot_overrides...))
   # Subcomponent boom of type MultibodyComponents.PlanarMechanics.FixedTranslation
   boom_overrides = __pop_subcomponent_overrides!(__overrides, "boom")
-  push!(__systems, @named boom = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[BoomLength, 0], render=false, boom_overrides...))
+  push!(__systems, @named boom = MultibodyComponents.PlanarMechanics.FixedTranslation(; r=[BoomLength, Float64(0)], render=false, boom_overrides...))
   # Subcomponent cable of type DyadShip.Machinery.Cable
   cable_overrides = __pop_subcomponent_overrides!(__overrides, "cable")
-  push!(__systems, @named cable = DyadShip.Machinery.Cable(k=Cable_k, cable_overrides...))
+  push!(__systems, @named cable = DyadShip.Machinery.Cable(; k=Cable_k, cable_overrides...))
   # Subcomponent pivot_servo of type RotationalComponents.Sources.Position
   pivot_servo_overrides = __pop_subcomponent_overrides!(__overrides, "pivot_servo")
-  push!(__systems, @named pivot_servo = RotationalComponents.Sources.Position(pivot_servo_overrides...))
+  push!(__systems, @named pivot_servo = RotationalComponents.Sources.Position(; pivot_servo_overrides...))
   # Subcomponent pivot_ground of type RotationalComponents.Components.Fixed
   pivot_ground_overrides = __pop_subcomponent_overrides!(__overrides, "pivot_ground")
-  push!(__systems, @named pivot_ground = RotationalComponents.Components.Fixed(pivot_ground_overrides...))
+  push!(__systems, @named pivot_ground = RotationalComponents.Components.Fixed(; pivot_ground_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

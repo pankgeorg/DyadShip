@@ -59,13 +59,13 @@ with inner nodes lagging according to their thermal time constant.
   ### Components
   # Subcomponent cyl of type DyadShip.Thermal.CylinderTransient
   cyl_overrides = __pop_subcomponent_overrides!(__overrides, "cyl")
-  push!(__systems, @named cyl = DyadShip.Thermal.CylinderTransient(R=0.05, L=1.0, k=50, rhoCp=4000000.0, T_start=273.15, N=5, cyl_overrides...))
+  push!(__systems, @named cyl = DyadShip.Thermal.CylinderTransient(; R=0.05, L=Float64(1.0), k=Float64(50), rhoCp=Float64(4000000.0), T_start=273.15, N=5, cyl_overrides...))
   # Subcomponent hot of type ThermalComponents.Sources.FixedTemperature
   hot_overrides = __pop_subcomponent_overrides!(__overrides, "hot")
-  push!(__systems, @named hot = ThermalComponents.Sources.FixedTemperature(T=373.15, hot_overrides...))
+  push!(__systems, @named hot = ThermalComponents.Sources.FixedTemperature(; T=373.15, hot_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

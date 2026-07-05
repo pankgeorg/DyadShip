@@ -63,16 +63,16 @@ Setup:
   ### Components
   # Subcomponent rudder of type DyadShip.Propulsion.Rudder
   rudder_overrides = __pop_subcomponent_overrides!(__overrides, "rudder")
-  push!(__systems, @named rudder = DyadShip.Propulsion.Rudder(rudder_overrides...))
+  push!(__systems, @named rudder = DyadShip.Propulsion.Rudder(; rudder_overrides...))
   # Subcomponent step of type BlockComponents.Sources.Step
   step_overrides = __pop_subcomponent_overrides!(__overrides, "step")
-  push!(__systems, @named step = BlockComponents.Sources.Step(height=20, start_time=1.0, offset=0, step_overrides...))
+  push!(__systems, @named step = BlockComponents.Sources.Step(; height=Float64(20), start_time=Float64(1.0), offset=Float64(0), step_overrides...))
   # Subcomponent fixed of type MultibodyComponents.PlanarMechanics.Fixed
   fixed_overrides = __pop_subcomponent_overrides!(__overrides, "fixed")
-  push!(__systems, @named fixed = MultibodyComponents.PlanarMechanics.Fixed(fixed_overrides...))
+  push!(__systems, @named fixed = MultibodyComponents.PlanarMechanics.Fixed(; fixed_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

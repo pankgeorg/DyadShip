@@ -58,10 +58,10 @@ set around t=20 h, with peak `IrradianceOnPanel` near `irradiance_ref`.
   ### Components
   # Subcomponent sun of type DyadShip.Thermal.SolarIrradiation
   sun_overrides = __pop_subcomponent_overrides!(__overrides, "sun")
-  push!(__systems, @named sun = DyadShip.Thermal.SolarIrradiation(sun_overrides...))
+  push!(__systems, @named sun = DyadShip.Thermal.SolarIrradiation(; sun_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

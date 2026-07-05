@@ -31,17 +31,17 @@ ThermalComponents = "084a29d9-4f48-4925-95b4-b7d4c79725f4"
 TranslationalComponents = "42acc370-819b-4877-bdd6-eb3294461f5d"
 
 [compat]
-BlockComponents = "=4.0.9"
+BlockComponents = "=4.2.0"
 DyadData = "2.0.1"
 ElectricalComponents = "=2.2.1"
 Markdown = "1"
-MultibodyComponents = "0.1.3"
+MultibodyComponents = "0.2.0"
 RotationalComponents = "=2.5.1"
 ThermalComponents = "=2.0.5"
 TranslationalComponents = "=2.4.2"
 
 [dyad]
-kernel = "3.1.1"
+kernel = "3.2.0-rc2"
 
 [extras]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"

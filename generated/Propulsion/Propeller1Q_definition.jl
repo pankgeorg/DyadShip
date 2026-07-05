@@ -97,7 +97,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 | `V_x`         |                          | m/s  |
 | `Delta_r`         |                          | m  |
 """
-@component function Propeller1Q(; name = nothing, Diameter=Float64(4), Z=Float64(4), P_D=Float64(1), Ae_Ao=0.3, Density_Prop=Float64(7600), SeaDensity=Float64(1025), WakeFraction=0.25, ThrustDeduction=0.18, RotativeRelative=Float64(1.0), Kt0=0.45, Kt1=-0.3, Kt2=-0.2, Kq0=0.06, Kq1=-0.04, Kq2=-0.02, w_floor=0.001, Inertia=0.0002744 * Ae_Ao * (Ae_Ao + 3) * Density_Prop * Diameter ^ 5, Rudder_distance=Diameter * 1.2, Add_Inertia=0.3 * Inertia, kwargs...)
+@component function Propeller1Q(; name = nothing, Diameter=Float64(4), Z=Float64(4), P_D=Float64(1), Ae_Ao=0.3, Density_Prop=Float64(7600), SeaDensity=Float64(1025), WakeFraction=0.25, ThrustDeduction=0.18, RotativeRelative=Float64(1.0), Kt0=0.45, Kt1=-0.3, Kt2=-0.2, Kq0=0.06, Kq1=-0.04, Kq2=-0.02, w_floor=0.001, Rudder_distance=Diameter * 1.2, Inertia=0.0002744 * Ae_Ao * (Ae_Ao + 3) * Density_Prop * Diameter ^ 5, Add_Inertia=0.3 * Inertia, kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -252,7 +252,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   push!(__systems, @named frame_a = __Dyad__Frame2D())
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

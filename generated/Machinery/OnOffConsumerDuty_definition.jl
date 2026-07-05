@@ -58,13 +58,13 @@ Starts off; turns on at t=10 s; the consumer ramps to nominal over `StartTime` s
   ### Components
   # Subcomponent consumer of type DyadShip.Machinery.OnOffConsumer
   consumer_overrides = __pop_subcomponent_overrides!(__overrides, "consumer")
-  push!(__systems, @named consumer = DyadShip.Machinery.OnOffConsumer(NominalPower=1000, Kr=0.85, StartTime=5, consumer_overrides...))
+  push!(__systems, @named consumer = DyadShip.Machinery.OnOffConsumer(; NominalPower=Float64(1000), Kr=0.85, StartTime=Float64(5), consumer_overrides...))
   # Subcomponent square of type BlockComponents.Sources.Square
   square_overrides = __pop_subcomponent_overrides!(__overrides, "square")
-  push!(__systems, @named square = BlockComponents.Sources.Square(amplitude=0.5, frequency=1 / 60, offset=0.5, start_time=10, square_overrides...))
+  push!(__systems, @named square = BlockComponents.Sources.Square(; amplitude=0.5, frequency=Float64(1 / 60), offset=0.5, start_time=Float64(10), square_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

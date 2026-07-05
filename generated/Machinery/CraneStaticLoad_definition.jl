@@ -58,25 +58,25 @@ spring cable until equilibrium. The crane base is fixed; boom angle is held at 0
   ### Components
   # Subcomponent world of type MultibodyComponents.PlanarMechanics.World
   world_overrides = __pop_subcomponent_overrides!(__overrides, "world")
-  push!(__systems, @named world = MultibodyComponents.PlanarMechanics.World(g=9.81, render=false, world_overrides...))
+  push!(__systems, @named world = MultibodyComponents.PlanarMechanics.World(; g=9.81, render=false, world_overrides...))
   # Subcomponent base_fixed of type MultibodyComponents.PlanarMechanics.Fixed
   base_fixed_overrides = __pop_subcomponent_overrides!(__overrides, "base_fixed")
-  push!(__systems, @named base_fixed = MultibodyComponents.PlanarMechanics.Fixed(base_fixed_overrides...))
+  push!(__systems, @named base_fixed = MultibodyComponents.PlanarMechanics.Fixed(; base_fixed_overrides...))
   # Subcomponent crane of type DyadShip.Machinery.Crane
   crane_overrides = __pop_subcomponent_overrides!(__overrides, "crane")
-  push!(__systems, @named crane = DyadShip.Machinery.Crane(PedestalHeight=5, BoomLength=10, BoomInitialAngle=0, Cable_k=100000.0, crane_overrides...))
+  push!(__systems, @named crane = DyadShip.Machinery.Crane(; PedestalHeight=Float64(5), BoomLength=Float64(10), BoomInitialAngle=Float64(0), Cable_k=Float64(100000.0), crane_overrides...))
   # Subcomponent load of type MultibodyComponents.PlanarMechanics.Body
   load_overrides = __pop_subcomponent_overrides!(__overrides, "load")
-  push!(__systems, @named load = MultibodyComponents.PlanarMechanics.Body(m=1000, I=100, render=false, load_overrides...))
+  push!(__systems, @named load = MultibodyComponents.PlanarMechanics.Body(; m=Float64(1000), I=Float64(100), render=false, load_overrides...))
   # Subcomponent boom_cmd of type BlockComponents.Sources.Constant
   boom_cmd_overrides = __pop_subcomponent_overrides!(__overrides, "boom_cmd")
-  push!(__systems, @named boom_cmd = BlockComponents.Sources.Constant(k=0, boom_cmd_overrides...))
+  push!(__systems, @named boom_cmd = BlockComponents.Sources.Constant(; k=Float64(0), boom_cmd_overrides...))
   # Subcomponent cable_cmd of type BlockComponents.Sources.Constant
   cable_cmd_overrides = __pop_subcomponent_overrides!(__overrides, "cable_cmd")
-  push!(__systems, @named cable_cmd = BlockComponents.Sources.Constant(k=8, cable_cmd_overrides...))
+  push!(__systems, @named cable_cmd = BlockComponents.Sources.Constant(; k=Float64(8), cable_cmd_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

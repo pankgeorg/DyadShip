@@ -58,16 +58,16 @@ the capacitor temperature track the time-table over a 24-hour run.
   ### Components
   # Subcomponent air of type DyadShip.Thermal.TemperatureDataset
   air_overrides = __pop_subcomponent_overrides!(__overrides, "air")
-  push!(__systems, @named air = DyadShip.Thermal.TemperatureDataset(air_overrides...))
+  push!(__systems, @named air = DyadShip.Thermal.TemperatureDataset(; air_overrides...))
   # Subcomponent cap of type ThermalComponents.Components.HeatCapacitor
   cap_overrides = __pop_subcomponent_overrides!(__overrides, "cap")
-  push!(__systems, @named cap = ThermalComponents.Components.HeatCapacitor(C=1000, T0=290, cap_overrides...))
+  push!(__systems, @named cap = ThermalComponents.Components.HeatCapacitor(; C=Float64(1000), T0=Float64(290), cap_overrides...))
   # Subcomponent cond of type ThermalComponents.Components.ThermalConductor
   cond_overrides = __pop_subcomponent_overrides!(__overrides, "cond")
-  push!(__systems, @named cond = ThermalComponents.Components.ThermalConductor(G=100, cond_overrides...))
+  push!(__systems, @named cond = ThermalComponents.Components.ThermalConductor(; G=Float64(100), cond_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

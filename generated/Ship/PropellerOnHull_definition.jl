@@ -62,28 +62,28 @@ propeller is connected via `frame_a` so thrust is applied directly in 2D multibo
   ### Components
   # Subcomponent world of type MultibodyComponents.PlanarMechanics.World
   world_overrides = __pop_subcomponent_overrides!(__overrides, "world")
-  push!(__systems, @named world = MultibodyComponents.PlanarMechanics.World(g=0, render=false, world_overrides...))
+  push!(__systems, @named world = MultibodyComponents.PlanarMechanics.World(; g=Float64(0), render=false, world_overrides...))
   # Subcomponent prop of type DyadShip.Propulsion.Propeller1Q
   prop_overrides = __pop_subcomponent_overrides!(__overrides, "prop")
-  push!(__systems, @named prop = DyadShip.Propulsion.Propeller1Q(Diameter=4, P_D=1.0, Ae_Ao=0.55, Z=4, prop_overrides...))
+  push!(__systems, @named prop = DyadShip.Propulsion.Propeller1Q(; Diameter=Float64(4), P_D=Float64(1.0), Ae_Ao=0.55, Z=Float64(4), prop_overrides...))
   # Subcomponent shaft of type RotationalComponents.Components.Inertia
   shaft_overrides = __pop_subcomponent_overrides!(__overrides, "shaft")
-  push!(__systems, @named shaft = RotationalComponents.Components.Inertia(J=5000, shaft_overrides...))
+  push!(__systems, @named shaft = RotationalComponents.Components.Inertia(; J=Float64(5000), shaft_overrides...))
   # Subcomponent src of type RotationalComponents.Sources.TorqueSource
   src_overrides = __pop_subcomponent_overrides!(__overrides, "src")
-  push!(__systems, @named src = RotationalComponents.Sources.TorqueSource(src_overrides...))
+  push!(__systems, @named src = RotationalComponents.Sources.TorqueSource(; src_overrides...))
   # Subcomponent k_tau of type BlockComponents.Sources.Constant
   k_tau_overrides = __pop_subcomponent_overrides!(__overrides, "k_tau")
-  push!(__systems, @named k_tau = BlockComponents.Sources.Constant(k=80000, k_tau_overrides...))
+  push!(__systems, @named k_tau = BlockComponents.Sources.Constant(; k=Float64(80000), k_tau_overrides...))
   # Subcomponent ground of type RotationalComponents.Components.Fixed
   ground_overrides = __pop_subcomponent_overrides!(__overrides, "ground")
-  push!(__systems, @named ground = RotationalComponents.Components.Fixed(ground_overrides...))
+  push!(__systems, @named ground = RotationalComponents.Components.Fixed(; ground_overrides...))
   # Subcomponent hull of type DyadShip.Ship.Hull3DOF
   hull_overrides = __pop_subcomponent_overrides!(__overrides, "hull")
-  push!(__systems, @named hull = DyadShip.Ship.Hull3DOF(mass=1000000.0, Iz=100000000.0, Du=5000, Dv=1000000.0, Dr=10000000.0, hull_overrides...))
+  push!(__systems, @named hull = DyadShip.Ship.Hull3DOF(; mass=Float64(1000000.0), Iz=Float64(100000000.0), Du=Float64(5000), Dv=Float64(1000000.0), Dr=Float64(10000000.0), hull_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

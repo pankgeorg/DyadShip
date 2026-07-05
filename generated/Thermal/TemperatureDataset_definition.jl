@@ -91,13 +91,13 @@ extrapolation outside the data range is hard-coded to match the upstream
   push!(__systems, @named port_AirTemp = __Dyad__HeatPort())
   # Subcomponent TemperatureData of type BlockComponents.Tables.Interpolation
   TemperatureData_overrides = __pop_subcomponent_overrides!(__overrides, "TemperatureData")
-  push!(__systems, @named TemperatureData = BlockComponents.Tables.Interpolation(interpolation_type=BlockComponents.Tables.InterpolationType.LinearInterpolation(), extrapolation_type=BlockComponents.Tables.ExtrapolationType.Constant(), dataset=dataset, TemperatureData_overrides...))
+  push!(__systems, @named TemperatureData = BlockComponents.Tables.Interpolation(; interpolation_type=BlockComponents.Tables.InterpolationType.LinearInterpolation(), extrapolation_type=BlockComponents.Tables.ExtrapolationType.Constant(), dataset=dataset, TemperatureData_overrides...))
   # Subcomponent prescribedTemperature of type ThermalComponents.Sources.PrescribedTemperature
   prescribedTemperature_overrides = __pop_subcomponent_overrides!(__overrides, "prescribedTemperature")
-  push!(__systems, @named prescribedTemperature = ThermalComponents.Sources.PrescribedTemperature(prescribedTemperature_overrides...))
+  push!(__systems, @named prescribedTemperature = ThermalComponents.Sources.PrescribedTemperature(; prescribedTemperature_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

@@ -112,7 +112,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 | `Y_damp`         |                          | N  |
 | `N_damp`         |                          | N.m  |
 """
-@component function HullMMG(; name = nothing, Lpp=Float64(100), B=Float64(20), Draft=Float64(4), Cb=0.693, mass=Float64(1000000.0), Iz=Float64(100000000.0), SeaDensity=Float64(1025), R3=914.37, R2=-5286.3, R1=Float64(19657.0), U_floor=0.1, render=false, body_radius=Float64(5.0), X_vr=nothing, X_vv=1.15 * Cb * B / Lpp - 0.18, X_vvvv=-6.68 * Cb * B / Lpp + 1.1, X_rr=(-0.0027 + 0.0076 * Cb * Draft / B) * (Lpp / Draft), Y_v=(-π * (Draft / Lpp) ^ 2 * (1 + 0.4 * Cb * B / Draft)) * (Lpp / Draft), Y_vvv=(-0.6469 * (1 - Cb) * (Draft / B) + 0.0027) * (Lpp / Draft), Y_r=(-π * (Draft / Lpp) ^ 2 * (-0.32)) * (Lpp / Draft), Y_rrr=(-0.0233 * Cb * Draft / B + 0.0063) * (Lpp / Draft), Y_vrr=-(5.95 * (1 - Cb) * Draft / B), Y_vvr=(1.5 * Draft * Cb / B - 0.65), N_v=(-π * (Draft / Lpp) ^ 2 * (0.5 + 2.4 * Draft / Lpp)) * (Lpp / Draft), N_vvv=(0.0348 - 0.5283 * (1 - Cb) * Draft / B) * (Lpp / Draft), N_r=-π * (Draft / Lpp) ^ 2 * ((1.3192 - 0.68228 * Cb - 0.00019 * (Lpp / Draft) ^ 2) / π) * (Lpp / Draft), N_rrr=0.25 * Cb * B / Lpp - 0.056, N_vrr=(0.5 * Draft * Cb / B) - 0.05, N_vvr=-(57.5 * (Cb * B / Lpp) ^ 2 - 18.4 * (Cb * B / Lpp) + 1.6), kwargs...)
+@component function HullMMG(; name = nothing, Lpp=Float64(100), B=Float64(20), Draft=Float64(4), Cb=0.693, mass=Float64(1000000.0), Iz=Float64(100000000.0), SeaDensity=Float64(1025), R3=914.37, R2=-5286.3, R1=Float64(19657.0), U_floor=0.1, render=false, body_radius=Float64(5.0), X_vr=nothing, Y_r=(-π * (Draft / Lpp) ^ 2 * (-0.32)) * (Lpp / Draft), N_v=(-π * (Draft / Lpp) ^ 2 * (0.5 + 2.4 * Draft / Lpp)) * (Lpp / Draft), X_vv=1.15 * Cb * B / Lpp - 0.18, X_vvvv=-6.68 * Cb * B / Lpp + 1.1, X_rr=(-0.0027 + 0.0076 * Cb * Draft / B) * (Lpp / Draft), Y_v=(-π * (Draft / Lpp) ^ 2 * (1 + 0.4 * Cb * B / Draft)) * (Lpp / Draft), Y_vvv=(-0.6469 * (1 - Cb) * (Draft / B) + 0.0027) * (Lpp / Draft), Y_rrr=(-0.0233 * Cb * Draft / B + 0.0063) * (Lpp / Draft), Y_vrr=-(5.95 * (1 - Cb) * Draft / B), Y_vvr=(1.5 * Draft * Cb / B - 0.65), N_vvv=(0.0348 - 0.5283 * (1 - Cb) * Draft / B) * (Lpp / Draft), N_r=-π * (Draft / Lpp) ^ 2 * ((1.3192 - 0.68228 * Cb - 0.00019 * (Lpp / Draft) ^ 2) / π) * (Lpp / Draft), N_rrr=0.25 * Cb * B / Lpp - 0.056, N_vrr=(0.5 * Draft * Cb / B) - 0.05, N_vvr=-(57.5 * (Cb * B / Lpp) ^ 2 - 18.4 * (Cb * B / Lpp) + 1.6), kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -285,13 +285,13 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   push!(__systems, @named frame_a = __Dyad__Frame2D())
   # Subcomponent body of type MultibodyComponents.PlanarMechanics.Body
   body_overrides = __pop_subcomponent_overrides!(__overrides, "body")
-  push!(__systems, @named body = MultibodyComponents.PlanarMechanics.Body(m=mass, I=Iz, render=render, radius=body_radius, body_overrides...))
+  push!(__systems, @named body = MultibodyComponents.PlanarMechanics.Body(; m=mass, I=Iz, render=render, radius=body_radius, body_overrides...))
   # Subcomponent forcer of type MultibodyComponents.PlanarMechanics.WorldForceTorque
   forcer_overrides = __pop_subcomponent_overrides!(__overrides, "forcer")
-  push!(__systems, @named forcer = MultibodyComponents.PlanarMechanics.WorldForceTorque(resolve_in_frame=MultibodyComponents.ResolveInFrame.FrameB(), forcer_overrides...))
+  push!(__systems, @named forcer = MultibodyComponents.PlanarMechanics.WorldForceTorque(; resolve_in_frame=MultibodyComponents.ResolveInFrame.FrameB(), forcer_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

@@ -35,8 +35,7 @@ the rotor's contribution is purely additive and the residual analysis surfaces
 | `wind_direction_mean`         |                          | --  |   45 |
 | `rotor_R`         | Rotor radius [m]                         | m  |   2.5 |
 | `rotor_H`         | Rotor height [m]                         | m  |   24 |
-| `omega_target`         | Target rotor angular velocity [rad/s] — sized so ξ at design wind sits near
- the CFD-derived Cl peak (around ξ ≈ 4) rather than far in the saturated tail.                         | --  |   28 |
+| `omega_target`         | Target rotor angular velocity [rad/s] — sized so ξ at design wind sits near the CFD-derived Cl peak (around ξ ≈ 4) rather than far in the saturated tail.                         | --  |   28 |
 | `rotor_arm`         | Rotor mount arm forward of hull CG [m]                         | m  |   30 |
 
 ## Variables
@@ -103,7 +102,7 @@ the rotor's contribution is purely additive and the residual analysis surfaces
   __initial_conditions[rotor_H] = __local__rotor_H
   __local__omega_target = omega_target
   append!(__params, @parameters (omega_target::Real), [description = "Target rotor angular velocity [rad/s] — sized so ξ at design wind sits near
- the CFD-derived Cl peak (around ξ ≈ 4) rather than far in the saturated tail."])
+  append!(__params, @parameters (omega_target::Real), [description =  the CFD-derived Cl peak (around ξ ≈ 4) rather than far in the saturated tail."])
   __initial_conditions[omega_target] = __local__omega_target
   __local__rotor_arm = rotor_arm
   append!(__params, @parameters (rotor_arm::Real), [description = "Rotor mount arm forward of hull CG [m]"])
@@ -138,52 +137,52 @@ the rotor's contribution is purely additive and the residual analysis surfaces
   ### Components
   # Subcomponent world of type MultibodyComponents.PlanarMechanics.World
   world_overrides = __pop_subcomponent_overrides!(__overrides, "world")
-  push!(__systems, @named world = MultibodyComponents.PlanarMechanics.World(g=0, render=true, world_overrides...))
+  push!(__systems, @named world = MultibodyComponents.PlanarMechanics.World(; g=Float64(0), render=true, world_overrides...))
   # Subcomponent hull of type DyadShip.Ship.HullMMG
   hull_overrides = __pop_subcomponent_overrides!(__overrides, "hull")
-  push!(__systems, @named hull = DyadShip.Ship.HullMMG(mass=1000000.0, Iz=100000000.0, Lpp=100, B=20, Draft=4, Cb=0.693, render=true, body_radius=600, hull_overrides...))
+  push!(__systems, @named hull = DyadShip.Ship.HullMMG(; mass=Float64(1000000.0), Iz=Float64(100000000.0), Lpp=Float64(100), B=Float64(20), Draft=Float64(4), Cb=0.693, render=true, body_radius=Float64(600), hull_overrides...))
   # Subcomponent prop of type DyadShip.Propulsion.Propeller1Q
   prop_overrides = __pop_subcomponent_overrides!(__overrides, "prop")
-  push!(__systems, @named prop = DyadShip.Propulsion.Propeller1Q(Diameter=4, P_D=1.0, Ae_Ao=0.55, Z=4, prop_overrides...))
+  push!(__systems, @named prop = DyadShip.Propulsion.Propeller1Q(; Diameter=Float64(4), P_D=Float64(1.0), Ae_Ao=0.55, Z=Float64(4), prop_overrides...))
   # Subcomponent shaft of type RotationalComponents.Components.Inertia
   shaft_overrides = __pop_subcomponent_overrides!(__overrides, "shaft")
-  push!(__systems, @named shaft = RotationalComponents.Components.Inertia(J=5000, shaft_overrides...))
+  push!(__systems, @named shaft = RotationalComponents.Components.Inertia(; J=Float64(5000), shaft_overrides...))
   # Subcomponent src of type RotationalComponents.Sources.TorqueSource
   src_overrides = __pop_subcomponent_overrides!(__overrides, "src")
-  push!(__systems, @named src = RotationalComponents.Sources.TorqueSource(src_overrides...))
+  push!(__systems, @named src = RotationalComponents.Sources.TorqueSource(; src_overrides...))
   # Subcomponent ground of type RotationalComponents.Components.Fixed
   ground_overrides = __pop_subcomponent_overrides!(__overrides, "ground")
-  push!(__systems, @named ground = RotationalComponents.Components.Fixed(ground_overrides...))
+  push!(__systems, @named ground = RotationalComponents.Components.Fixed(; ground_overrides...))
   # Subcomponent rudder of type DyadShip.Propulsion.Rudder
   rudder_overrides = __pop_subcomponent_overrides!(__overrides, "rudder")
-  push!(__systems, @named rudder = DyadShip.Propulsion.Rudder(rudder_overrides...))
+  push!(__systems, @named rudder = DyadShip.Propulsion.Rudder(; rudder_overrides...))
   # Subcomponent pilot of type DyadShip.Ship.HeadingAutoPilot
   pilot_overrides = __pop_subcomponent_overrides!(__overrides, "pilot")
-  push!(__systems, @named pilot = DyadShip.Ship.HeadingAutoPilot(k_p=30, k_i=1, Deadband=π / 180, pilot_overrides...))
+  push!(__systems, @named pilot = DyadShip.Ship.HeadingAutoPilot(; k_p=Float64(30), k_i=Float64(1), Deadband=π / 180, pilot_overrides...))
   # Subcomponent prop_arm of type MultibodyComponents.PlanarMechanics.FixedTranslation
   prop_arm_overrides = __pop_subcomponent_overrides!(__overrides, "prop_arm")
-  push!(__systems, @named prop_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[-50, 0], render=true, radius=100, prop_arm_overrides...))
+  push!(__systems, @named prop_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(; r=[Float64(-50), Float64(0)], render=true, radius=Float64(100), prop_arm_overrides...))
   # Subcomponent rudder_arm of type MultibodyComponents.PlanarMechanics.FixedTranslation
   rudder_arm_overrides = __pop_subcomponent_overrides!(__overrides, "rudder_arm")
-  push!(__systems, @named rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[-52, 0], render=true, radius=100, rudder_arm_overrides...))
+  push!(__systems, @named rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(; r=[Float64(-52), Float64(0)], render=true, radius=Float64(100), rudder_arm_overrides...))
   # Subcomponent rotor_arm_t of type MultibodyComponents.PlanarMechanics.FixedTranslation
   rotor_arm_t_overrides = __pop_subcomponent_overrides!(__overrides, "rotor_arm_t")
-  push!(__systems, @named rotor_arm_t = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[rotor_arm, 0], render=true, radius=100, rotor_arm_t_overrides...))
+  push!(__systems, @named rotor_arm_t = MultibodyComponents.PlanarMechanics.FixedTranslation(; r=[rotor_arm, Float64(0)], render=true, radius=Float64(100), rotor_arm_t_overrides...))
   # Subcomponent env of type DyadShip.VariableEnvironment
   env_overrides = __pop_subcomponent_overrides!(__overrides, "env")
-  push!(__systems, @named env = DyadShip.VariableEnvironment(env_overrides...))
+  push!(__systems, @named env = DyadShip.VariableEnvironment(; env_overrides...))
   # Subcomponent apparent of type DyadShip.ApparentSpeedXY
   apparent_overrides = __pop_subcomponent_overrides!(__overrides, "apparent")
-  push!(__systems, @named apparent = DyadShip.ApparentSpeedXY(apparent_overrides...))
+  push!(__systems, @named apparent = DyadShip.ApparentSpeedXY(; apparent_overrides...))
   # Subcomponent wind of type DyadShip.Ship.ShipWind
   wind_overrides = __pop_subcomponent_overrides!(__overrides, "wind")
-  push!(__systems, @named wind = DyadShip.Ship.ShipWind(wind_overrides...))
+  push!(__systems, @named wind = DyadShip.Ship.ShipWind(; wind_overrides...))
   # Subcomponent rotor of type DyadShip.Propulsion.FlettnerRotor
   rotor_overrides = __pop_subcomponent_overrides!(__overrides, "rotor")
-  push!(__systems, @named rotor = DyadShip.Propulsion.FlettnerRotor(R=rotor_R, H=rotor_H, rotor_overrides...))
+  push!(__systems, @named rotor = DyadShip.Propulsion.FlettnerRotor(; R=rotor_R, H=rotor_H, rotor_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

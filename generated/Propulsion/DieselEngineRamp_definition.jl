@@ -59,22 +59,22 @@ integrators should accumulate accordingly.
   ### Components
   # Subcomponent engine of type DyadShip.Propulsion.SimpleDieselEngine
   engine_overrides = __pop_subcomponent_overrides!(__overrides, "engine")
-  push!(__systems, @named engine = DyadShip.Propulsion.SimpleDieselEngine(engine_overrides...))
+  push!(__systems, @named engine = DyadShip.Propulsion.SimpleDieselEngine(; engine_overrides...))
   # Subcomponent inertia of type RotationalComponents.Components.Inertia
   inertia_overrides = __pop_subcomponent_overrides!(__overrides, "inertia")
-  push!(__systems, @named inertia = RotationalComponents.Components.Inertia(J=50, inertia_overrides...))
+  push!(__systems, @named inertia = RotationalComponents.Components.Inertia(; J=Float64(50), inertia_overrides...))
   # Subcomponent ground of type RotationalComponents.Components.Damper
   ground_overrides = __pop_subcomponent_overrides!(__overrides, "ground")
-  push!(__systems, @named ground = RotationalComponents.Components.Damper(d=10, ground_overrides...))
+  push!(__systems, @named ground = RotationalComponents.Components.Damper(; d=Float64(10), ground_overrides...))
   # Subcomponent fixed of type RotationalComponents.Components.Fixed
   fixed_overrides = __pop_subcomponent_overrides!(__overrides, "fixed")
-  push!(__systems, @named fixed = RotationalComponents.Components.Fixed(fixed_overrides...))
+  push!(__systems, @named fixed = RotationalComponents.Components.Fixed(; fixed_overrides...))
   # Subcomponent step of type BlockComponents.Sources.Step
   step_overrides = __pop_subcomponent_overrides!(__overrides, "step")
-  push!(__systems, @named step = BlockComponents.Sources.Step(height=300, start_time=2.0, offset=1500, step_overrides...))
+  push!(__systems, @named step = BlockComponents.Sources.Step(; height=Float64(300), start_time=Float64(2.0), offset=Float64(1500), step_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

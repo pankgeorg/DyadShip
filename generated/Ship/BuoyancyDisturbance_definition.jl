@@ -62,13 +62,13 @@ Two scenarios for `Buoyancy1D`:
   ### Components
   # Subcomponent hull of type DyadShip.Ship.Buoyancy1D
   hull_overrides = __pop_subcomponent_overrides!(__overrides, "hull")
-  push!(__systems, @named hull = DyadShip.Ship.Buoyancy1D(mass=1000000.0, Lpp=100, B=20, Cb=0.7, Dz=500000.0, hull_overrides...))
+  push!(__systems, @named hull = DyadShip.Ship.Buoyancy1D(; mass=Float64(1000000.0), Lpp=Float64(100), B=Float64(20), Cb=0.7, Dz=Float64(500000.0), hull_overrides...))
   # Subcomponent pulse of type BlockComponents.Sources.Step
   pulse_overrides = __pop_subcomponent_overrides!(__overrides, "pulse")
-  push!(__systems, @named pulse = BlockComponents.Sources.Step(height=-5000000.0, start_time=2.0, offset=0, pulse_overrides...))
+  push!(__systems, @named pulse = BlockComponents.Sources.Step(; height=-5000000.0, start_time=Float64(2.0), offset=Float64(0), pulse_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

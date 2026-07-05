@@ -63,16 +63,16 @@ forward (+X) for this wind orientation — that's the propulsion direction.
   ### Components
   # Subcomponent rotor of type DyadShip.Propulsion.FlettnerRotor
   rotor_overrides = __pop_subcomponent_overrides!(__overrides, "rotor")
-  push!(__systems, @named rotor = DyadShip.Propulsion.FlettnerRotor(rotor_overrides...))
+  push!(__systems, @named rotor = DyadShip.Propulsion.FlettnerRotor(; rotor_overrides...))
   # Subcomponent spin_cmd of type BlockComponents.Sources.Ramp
   spin_cmd_overrides = __pop_subcomponent_overrides!(__overrides, "spin_cmd")
-  push!(__systems, @named spin_cmd = BlockComponents.Sources.Ramp(height=100, duration=5, start_time=1, offset=0, spin_cmd_overrides...))
+  push!(__systems, @named spin_cmd = BlockComponents.Sources.Ramp(; height=Float64(100), duration=Float64(5), start_time=Float64(1), offset=Float64(0), spin_cmd_overrides...))
   # Subcomponent fixed of type MultibodyComponents.PlanarMechanics.Fixed
   fixed_overrides = __pop_subcomponent_overrides!(__overrides, "fixed")
-  push!(__systems, @named fixed = MultibodyComponents.PlanarMechanics.Fixed(fixed_overrides...))
+  push!(__systems, @named fixed = MultibodyComponents.PlanarMechanics.Fixed(; fixed_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

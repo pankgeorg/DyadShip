@@ -58,16 +58,16 @@ the other face insulated. After several minutes, all nodes converge to 373 K.
   ### Components
   # Subcomponent plate of type DyadShip.Thermal.PlateTransient
   plate_overrides = __pop_subcomponent_overrides!(__overrides, "plate")
-  push!(__systems, @named plate = DyadShip.Thermal.PlateTransient(e=0.01, Asur=1.0, k=50, rhoCp=4000000.0, T_init=273.15, plate_overrides...))
+  push!(__systems, @named plate = DyadShip.Thermal.PlateTransient(; e=0.01, Asur=Float64(1.0), k=Float64(50), rhoCp=Float64(4000000.0), T_init=273.15, plate_overrides...))
   # Subcomponent hot of type ThermalComponents.Sources.FixedTemperature
   hot_overrides = __pop_subcomponent_overrides!(__overrides, "hot")
-  push!(__systems, @named hot = ThermalComponents.Sources.FixedTemperature(T=373.15, hot_overrides...))
+  push!(__systems, @named hot = ThermalComponents.Sources.FixedTemperature(; T=373.15, hot_overrides...))
   # Subcomponent insulated of type ThermalComponents.Sources.FixedHeatFlow
   insulated_overrides = __pop_subcomponent_overrides!(__overrides, "insulated")
-  push!(__systems, @named insulated = ThermalComponents.Sources.FixedHeatFlow(Q_flow=0, insulated_overrides...))
+  push!(__systems, @named insulated = ThermalComponents.Sources.FixedHeatFlow(; Q_flow=Float64(0), insulated_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

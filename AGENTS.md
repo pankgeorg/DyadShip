@@ -16,10 +16,10 @@ The wrapper sets the environment this project requires:
 
 - `JULIAUP_DEPOT_PATH=~/.julia/juliaup-depots/juliahub.com`
 - `JULIAUP_SERVER=https://juliahub.com/juliabin`
-- `JULIAUP_CHANNEL=dyad-3.0.0-rc5`
+- `JULIAUP_CHANNEL=dyad-3.2.0-rc1`
 - `JULIA_PKG_SERVER=juliahub.com`
 
-It also launches the `dyad-3.0.0-rc5` channel, passes `--optimize=0`, and uses `--project=@.` so the active directory's project is used. Any extra args are forwarded.
+It launches the `dyad-3.2.0-rc1` channel and uses `--project=@.` so the active directory's project is used. Any extra args are forwarded.
 
 Examples:
 
@@ -31,7 +31,7 @@ Examples:
 
 ## Running Dyad
 
-Use `../dyad.sh` (i.e. `/home/pgeorgakopoulos/dyad-ship/dyad.sh`) to invoke the Dyad CLI. It runs `node ~/dyad-lang/apps/cli/dist/scripts/entry.js` and forwards all arguments verbatim.
+Use `../dyad.sh` (i.e. `/home/pgeorgakopoulos/dyad-ship/dyad.sh`) to invoke the Dyad CLI. It runs `npx --yes @juliacomputing/dyad-cli@3.2.0-rc2` (GitHub Packages registry, token in `~/.npmrc`) and forwards all arguments verbatim.
 
 Examples:
 

@@ -79,37 +79,37 @@ their forces produce the correct lever-arm yaw moment.
   ### Components
   # Subcomponent world of type MultibodyComponents.PlanarMechanics.World
   world_overrides = __pop_subcomponent_overrides!(__overrides, "world")
-  push!(__systems, @named world = MultibodyComponents.PlanarMechanics.World(g=0, render=false, world_overrides...))
+  push!(__systems, @named world = MultibodyComponents.PlanarMechanics.World(; g=Float64(0), render=false, world_overrides...))
   # Subcomponent hull of type DyadShip.Ship.HullMMG
   hull_overrides = __pop_subcomponent_overrides!(__overrides, "hull")
-  push!(__systems, @named hull = DyadShip.Ship.HullMMG(mass=1000000.0, Iz=100000000.0, Lpp=100, B=20, Draft=4, Cb=0.693, hull_overrides...))
+  push!(__systems, @named hull = DyadShip.Ship.HullMMG(; mass=Float64(1000000.0), Iz=Float64(100000000.0), Lpp=Float64(100), B=Float64(20), Draft=Float64(4), Cb=0.693, hull_overrides...))
   # Subcomponent prop of type DyadShip.Propulsion.Propeller1Q
   prop_overrides = __pop_subcomponent_overrides!(__overrides, "prop")
-  push!(__systems, @named prop = DyadShip.Propulsion.Propeller1Q(Diameter=4, P_D=1.0, Ae_Ao=0.55, Z=4, prop_overrides...))
+  push!(__systems, @named prop = DyadShip.Propulsion.Propeller1Q(; Diameter=Float64(4), P_D=Float64(1.0), Ae_Ao=0.55, Z=Float64(4), prop_overrides...))
   # Subcomponent shaft of type RotationalComponents.Components.Inertia
   shaft_overrides = __pop_subcomponent_overrides!(__overrides, "shaft")
-  push!(__systems, @named shaft = RotationalComponents.Components.Inertia(J=5000, shaft_overrides...))
+  push!(__systems, @named shaft = RotationalComponents.Components.Inertia(; J=Float64(5000), shaft_overrides...))
   # Subcomponent src of type RotationalComponents.Sources.TorqueSource
   src_overrides = __pop_subcomponent_overrides!(__overrides, "src")
-  push!(__systems, @named src = RotationalComponents.Sources.TorqueSource(src_overrides...))
+  push!(__systems, @named src = RotationalComponents.Sources.TorqueSource(; src_overrides...))
   # Subcomponent ground of type RotationalComponents.Components.Fixed
   ground_overrides = __pop_subcomponent_overrides!(__overrides, "ground")
-  push!(__systems, @named ground = RotationalComponents.Components.Fixed(ground_overrides...))
+  push!(__systems, @named ground = RotationalComponents.Components.Fixed(; ground_overrides...))
   # Subcomponent rudder of type DyadShip.Propulsion.Rudder
   rudder_overrides = __pop_subcomponent_overrides!(__overrides, "rudder")
-  push!(__systems, @named rudder = DyadShip.Propulsion.Rudder(rudder_overrides...))
+  push!(__systems, @named rudder = DyadShip.Propulsion.Rudder(; rudder_overrides...))
   # Subcomponent pilot of type DyadShip.Ship.HeadingAutoPilot
   pilot_overrides = __pop_subcomponent_overrides!(__overrides, "pilot")
-  push!(__systems, @named pilot = DyadShip.Ship.HeadingAutoPilot(k_p=30, k_i=1, Deadband=π / 180, pilot_overrides...))
+  push!(__systems, @named pilot = DyadShip.Ship.HeadingAutoPilot(; k_p=Float64(30), k_i=Float64(1), Deadband=π / 180, pilot_overrides...))
   # Subcomponent prop_arm of type MultibodyComponents.PlanarMechanics.FixedTranslation
   prop_arm_overrides = __pop_subcomponent_overrides!(__overrides, "prop_arm")
-  push!(__systems, @named prop_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[-50, 0], render=false, prop_arm_overrides...))
+  push!(__systems, @named prop_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(; r=[Float64(-50), Float64(0)], render=false, prop_arm_overrides...))
   # Subcomponent rudder_arm of type MultibodyComponents.PlanarMechanics.FixedTranslation
   rudder_arm_overrides = __pop_subcomponent_overrides!(__overrides, "rudder_arm")
-  push!(__systems, @named rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r=[-52, 0], render=false, rudder_arm_overrides...))
+  push!(__systems, @named rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(; r=[Float64(-52), Float64(0)], render=false, rudder_arm_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

@@ -43,17 +43,14 @@ Outputs:
 | ------------ | ----------------------------------- | ------ | --------------- |
 | `k_rudder`         | Proportional gain for rudder loop                         | --  |   10 |
 | `Td_rudder`         | Derivative time constant for rudder loop                         | --  |   40 |
-| `Rudder_max`         | Maximum |rudder| output                         | --  |   35 |
+| `Rudder_max`         | Maximum \|rudder\| output                         | --  |   35 |
 | `k_shaft`         | Proportional gain for shaft loop                         | --  |   5000 |
 | `Td_shaft`         | Derivative time constant for shaft loop                         | --  |   1e-4 |
 | `Shaft_max`         | Maximum shaft output                         | --  |   300 |
 | `Shaft_min`         | Minimum shaft output                         | --  |   1e-4 |
 | `Tf_rudder`         | Filter time constant for derivative approximation (rudder loop)                         | --  |   1.0 |
 | `Tf_shaft`         | Filter time constant for derivative approximation (shaft loop)                         | --  |   0.1 |
-| `Deadband_rudder`         | Course-error deadband [rad]. The rudder command stays at zero while
-  |course_difference| < Deadband_rudder; this stops the autopilot from
-  chasing tiny errors and prevents the limit-cycle oscillation that
-  otherwise arises with a strongly-effective rudder.                         | rad  |   0.0 |
+| `Deadband_rudder`         | Course-error deadband [rad]. The rudder command stays at zero while \|course_difference\| < Deadband_rudder; this stops the autopilot from chasing tiny errors and prevents the limit-cycle oscillation that otherwise arises with a strongly-effective rudder.                         | rad  |   0.0 |
 
 ## Connectors
 
@@ -139,9 +136,9 @@ Outputs:
   __initial_conditions[Tf_shaft] = __local__Tf_shaft
   __local__Deadband_rudder = Deadband_rudder
   append!(__params, @parameters (Deadband_rudder::Real), [description = "Course-error deadband [rad]. The rudder command stays at zero while
-  |course_difference| < Deadband_rudder; this stops the autopilot from
-  chasing tiny errors and prevents the limit-cycle oscillation that
-  otherwise arises with a strongly-effective rudder."])
+  append!(__params, @parameters (Deadband_rudder::Real), [description =   |course_difference| < Deadband_rudder; this stops the autopilot from
+  append!(__params, @parameters (Deadband_rudder::Real), [description =   chasing tiny errors and prevents the limit-cycle oscillation that
+  append!(__params, @parameters (Deadband_rudder::Real), [description =   otherwise arises with a strongly-effective rudder."])
   __initial_conditions[Deadband_rudder] = __local__Deadband_rudder
 
   ### Final Parameters (assignments)
@@ -188,7 +185,7 @@ Outputs:
   ### Components
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 

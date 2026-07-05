@@ -58,13 +58,13 @@ should latch onto the first peak (~ amplitude + offset) and stay there.
   ### Components
   # Subcomponent sampler of type DyadShip.Machinery.PeakSampler
   sampler_overrides = __pop_subcomponent_overrides!(__overrides, "sampler")
-  push!(__systems, @named sampler = DyadShip.Machinery.PeakSampler(alpha=0, y_start=0, sampler_overrides...))
+  push!(__systems, @named sampler = DyadShip.Machinery.PeakSampler(; alpha=Float64(0), y_start=Float64(0), sampler_overrides...))
   # Subcomponent sine of type BlockComponents.Sources.Sine
   sine_overrides = __pop_subcomponent_overrides!(__overrides, "sine")
-  push!(__systems, @named sine = BlockComponents.Sources.Sine(amplitude=5, frequency=0.5, offset=0, sine_overrides...))
+  push!(__systems, @named sine = BlockComponents.Sources.Sine(; amplitude=Float64(5), frequency=0.5, offset=Float64(0), sine_overrides...))
 
   ### Check there are no unmatched overrides
-  isempty(__overrides) || throw(ArgumentError("overides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
+  isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
 
