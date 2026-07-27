@@ -116,20 +116,28 @@ horizon → no light, between thresholds → linear shadow ramp) is preserved ve
   ### Variables (assignments)
   __ovr_Th_inf = pop!(__overrides, "Th_inf", nothing); isnothing(__ovr_Th_inf) || push!(__eqs, Th_inf ~ __ovr_Th_inf)
   __ovr_Th_inf__initial = pop!(__overrides, "Th_inf__initial", nothing); isnothing(__ovr_Th_inf__initial) || (__initial_conditions[Th_inf] = __ovr_Th_inf__initial)
+  __ovr_Th_inf__guess = pop!(__overrides, "Th_inf__guess", nothing)
   __ovr_Th_sup = pop!(__overrides, "Th_sup", nothing); isnothing(__ovr_Th_sup) || push!(__eqs, Th_sup ~ __ovr_Th_sup)
   __ovr_Th_sup__initial = pop!(__overrides, "Th_sup__initial", nothing); isnothing(__ovr_Th_sup__initial) || (__initial_conditions[Th_sup] = __ovr_Th_sup__initial)
+  __ovr_Th_sup__guess = pop!(__overrides, "Th_sup__guess", nothing)
   __ovr_A = pop!(__overrides, "A", nothing); isnothing(__ovr_A) || push!(__eqs, A ~ __ovr_A)
   __ovr_A__initial = pop!(__overrides, "A__initial", nothing); isnothing(__ovr_A__initial) || (__initial_conditions[A] = __ovr_A__initial)
+  __ovr_A__guess = pop!(__overrides, "A__guess", nothing)
   __ovr_I = pop!(__overrides, "I", nothing); isnothing(__ovr_I) || push!(__eqs, I ~ __ovr_I)
   __ovr_I__initial = pop!(__overrides, "I__initial", nothing); isnothing(__ovr_I__initial) || (__initial_conditions[I] = __ovr_I__initial)
+  __ovr_I__guess = pop!(__overrides, "I__guess", nothing)
   __ovr_P = pop!(__overrides, "P", nothing); isnothing(__ovr_P) || push!(__eqs, P ~ __ovr_P)
   __ovr_P__initial = pop!(__overrides, "P__initial", nothing); isnothing(__ovr_P__initial) || (__initial_conditions[P] = __ovr_P__initial)
+  __ovr_P__guess = pop!(__overrides, "P__guess", nothing)
   __ovr_p = pop!(__overrides, "p", nothing); isnothing(__ovr_p) || push!(__eqs, p ~ __ovr_p)
   __ovr_p__initial = pop!(__overrides, "p__initial", nothing); isnothing(__ovr_p__initial) || (__initial_conditions[p] = __ovr_p__initial)
+  __ovr_p__guess = pop!(__overrides, "p__guess", nothing)
   __ovr_i_dist = pop!(__overrides, "i_dist", nothing); isnothing(__ovr_i_dist) || push!(__eqs, i_dist ~ __ovr_i_dist)
   __ovr_i_dist__initial = pop!(__overrides, "i_dist__initial", nothing); isnothing(__ovr_i_dist__initial) || (__initial_conditions[i_dist] = __ovr_i_dist__initial)
+  __ovr_i_dist__guess = pop!(__overrides, "i_dist__guess", nothing)
   __ovr_sun_rad = pop!(__overrides, "sun_rad", nothing); isnothing(__ovr_sun_rad) || push!(__eqs, sun_rad ~ __ovr_sun_rad)
   __ovr_sun_rad__initial = pop!(__overrides, "sun_rad__initial", nothing); isnothing(__ovr_sun_rad__initial) || (__initial_conditions[sun_rad] = __ovr_sun_rad__initial)
+  __ovr_sun_rad__guess = pop!(__overrides, "sun_rad__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -140,6 +148,14 @@ horizon → no light, between thresholds → linear shadow ramp) is preserved ve
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_Th_inf__guess) || (__guesses[Th_inf] = __ovr_Th_inf__guess)
+  isnothing(__ovr_Th_sup__guess) || (__guesses[Th_sup] = __ovr_Th_sup__guess)
+  isnothing(__ovr_A__guess) || (__guesses[A] = __ovr_A__guess)
+  isnothing(__ovr_I__guess) || (__guesses[I] = __ovr_I__guess)
+  isnothing(__ovr_P__guess) || (__guesses[P] = __ovr_P__guess)
+  isnothing(__ovr_p__guess) || (__guesses[p] = __ovr_p__guess)
+  isnothing(__ovr_i_dist__guess) || (__guesses[i_dist] = __ovr_i_dist__guess)
+  isnothing(__ovr_sun_rad__guess) || (__guesses[sun_rad] = __ovr_sun_rad__guess)
 
   ### Initialization Equations
 

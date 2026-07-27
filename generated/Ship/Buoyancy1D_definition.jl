@@ -148,10 +148,13 @@ so they don't directly couple in equations.
   ### Variables (assignments)
   __ovr_z_state = pop!(__overrides, "z_state", nothing); isnothing(__ovr_z_state) || push!(__eqs, z_state ~ __ovr_z_state)
   __ovr_z_state__initial = pop!(__overrides, "z_state__initial", nothing); isnothing(__ovr_z_state__initial) || (__initial_conditions[z_state] = __ovr_z_state__initial)
+  __ovr_z_state__guess = pop!(__overrides, "z_state__guess", nothing)
   __ovr_w_state = pop!(__overrides, "w_state", nothing); isnothing(__ovr_w_state) || push!(__eqs, w_state ~ __ovr_w_state)
   __ovr_w_state__initial = pop!(__overrides, "w_state__initial", nothing); isnothing(__ovr_w_state__initial) || (__initial_conditions[w_state] = __ovr_w_state__initial)
+  __ovr_w_state__guess = pop!(__overrides, "w_state__guess", nothing)
   __ovr_F_buoy = pop!(__overrides, "F_buoy", nothing); isnothing(__ovr_F_buoy) || push!(__eqs, F_buoy ~ __ovr_F_buoy)
   __ovr_F_buoy__initial = pop!(__overrides, "F_buoy__initial", nothing); isnothing(__ovr_F_buoy__initial) || (__initial_conditions[F_buoy] = __ovr_F_buoy__initial)
+  __ovr_F_buoy__guess = pop!(__overrides, "F_buoy__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -162,6 +165,9 @@ so they don't directly couple in equations.
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_z_state__guess) || (__guesses[z_state] = __ovr_z_state__guess)
+  isnothing(__ovr_w_state__guess) || (__guesses[w_state] = __ovr_w_state__guess)
+  isnothing(__ovr_F_buoy__guess) || (__guesses[F_buoy] = __ovr_F_buoy__guess)
 
   ### Initialization Equations
   push!(__initialization_eqs, w_state ~ 0)

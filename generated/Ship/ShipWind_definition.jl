@@ -199,12 +199,16 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   ### Variables (assignments)
   __ovr_Cx = pop!(__overrides, "Cx", nothing); isnothing(__ovr_Cx) || push!(__eqs, Cx ~ __ovr_Cx)
   __ovr_Cx__initial = pop!(__overrides, "Cx__initial", nothing); isnothing(__ovr_Cx__initial) || (__initial_conditions[Cx] = __ovr_Cx__initial)
+  __ovr_Cx__guess = pop!(__overrides, "Cx__guess", nothing)
   __ovr_Cy = pop!(__overrides, "Cy", nothing); isnothing(__ovr_Cy) || push!(__eqs, Cy ~ __ovr_Cy)
   __ovr_Cy__initial = pop!(__overrides, "Cy__initial", nothing); isnothing(__ovr_Cy__initial) || (__initial_conditions[Cy] = __ovr_Cy__initial)
+  __ovr_Cy__guess = pop!(__overrides, "Cy__guess", nothing)
   __ovr_Cn = pop!(__overrides, "Cn", nothing); isnothing(__ovr_Cn) || push!(__eqs, Cn ~ __ovr_Cn)
   __ovr_Cn__initial = pop!(__overrides, "Cn__initial", nothing); isnothing(__ovr_Cn__initial) || (__initial_conditions[Cn] = __ovr_Cn__initial)
+  __ovr_Cn__guess = pop!(__overrides, "Cn__guess", nothing)
   __ovr_q = pop!(__overrides, "q", nothing); isnothing(__ovr_q) || push!(__eqs, q ~ __ovr_q)
   __ovr_q__initial = pop!(__overrides, "q__initial", nothing); isnothing(__ovr_q__initial) || (__initial_conditions[q] = __ovr_q__initial)
+  __ovr_q__guess = pop!(__overrides, "q__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -216,6 +220,10 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_Cx__guess) || (__guesses[Cx] = __ovr_Cx__guess)
+  isnothing(__ovr_Cy__guess) || (__guesses[Cy] = __ovr_Cy__guess)
+  isnothing(__ovr_Cn__guess) || (__guesses[Cn] = __ovr_Cn__guess)
+  isnothing(__ovr_q__guess) || (__guesses[q] = __ovr_q__guess)
 
   ### Initialization Equations
 

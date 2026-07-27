@@ -42,7 +42,7 @@ ThermalComponents = "=2.0.5"
 TranslationalComponents = "=2.4.2"
 
 [dyad]
-kernel = "3.2.0-rc2"
+kernel = "3.2.1"
 
 [extras]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"

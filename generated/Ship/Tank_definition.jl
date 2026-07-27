@@ -120,10 +120,13 @@ Differences from upstream:
   ### Variables (assignments)
   __ovr_inter_volume = pop!(__overrides, "inter_volume", nothing); isnothing(__ovr_inter_volume) || push!(__eqs, inter_volume ~ __ovr_inter_volume)
   __ovr_inter_volume__initial = pop!(__overrides, "inter_volume__initial", nothing); isnothing(__ovr_inter_volume__initial) || (__initial_conditions[inter_volume] = __ovr_inter_volume__initial)
+  __ovr_inter_volume__guess = pop!(__overrides, "inter_volume__guess", nothing)
   __ovr_indi_pos = pop!(__overrides, "indi_pos", nothing); isnothing(__ovr_indi_pos) || push!(__eqs, indi_pos ~ __ovr_indi_pos)
   __ovr_indi_pos__initial = pop!(__overrides, "indi_pos__initial", nothing); isnothing(__ovr_indi_pos__initial) || (__initial_conditions[indi_pos] = __ovr_indi_pos__initial)
+  __ovr_indi_pos__guess = pop!(__overrides, "indi_pos__guess", nothing)
   __ovr_indi_moment = pop!(__overrides, "indi_moment", nothing); isnothing(__ovr_indi_moment) || push!(__eqs, indi_moment ~ __ovr_indi_moment)
   __ovr_indi_moment__initial = pop!(__overrides, "indi_moment__initial", nothing); isnothing(__ovr_indi_moment__initial) || (__initial_conditions[indi_moment] = __ovr_indi_moment__initial)
+  __ovr_indi_moment__guess = pop!(__overrides, "indi_moment__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -134,6 +137,9 @@ Differences from upstream:
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_inter_volume__guess) || (__guesses[inter_volume] = __ovr_inter_volume__guess)
+  isnothing(__ovr_indi_pos__guess) || (__guesses[indi_pos] = __ovr_indi_pos__guess)
+  isnothing(__ovr_indi_moment__guess) || (__guesses[indi_moment] = __ovr_indi_moment__guess)
 
   ### Initialization Equations
   push!(__initialization_eqs, inter_volume ~ initial_fill_fraction * V)

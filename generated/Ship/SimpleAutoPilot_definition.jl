@@ -163,18 +163,25 @@ Outputs:
   ### Variables (assignments)
   __ovr_course_difference = pop!(__overrides, "course_difference", nothing); isnothing(__ovr_course_difference) || push!(__eqs, course_difference ~ __ovr_course_difference)
   __ovr_course_difference__initial = pop!(__overrides, "course_difference__initial", nothing); isnothing(__ovr_course_difference__initial) || (__initial_conditions[course_difference] = __ovr_course_difference__initial)
+  __ovr_course_difference__guess = pop!(__overrides, "course_difference__guess", nothing)
   __ovr_distance_to_target = pop!(__overrides, "distance_to_target", nothing); isnothing(__ovr_distance_to_target) || push!(__eqs, distance_to_target ~ __ovr_distance_to_target)
   __ovr_distance_to_target__initial = pop!(__overrides, "distance_to_target__initial", nothing); isnothing(__ovr_distance_to_target__initial) || (__initial_conditions[distance_to_target] = __ovr_distance_to_target__initial)
+  __ovr_distance_to_target__guess = pop!(__overrides, "distance_to_target__guess", nothing)
   __ovr_speed_module = pop!(__overrides, "speed_module", nothing); isnothing(__ovr_speed_module) || push!(__eqs, speed_module ~ __ovr_speed_module)
   __ovr_speed_module__initial = pop!(__overrides, "speed_module__initial", nothing); isnothing(__ovr_speed_module__initial) || (__initial_conditions[speed_module] = __ovr_speed_module__initial)
+  __ovr_speed_module__guess = pop!(__overrides, "speed_module__guess", nothing)
   __ovr_course_diff_filt = pop!(__overrides, "course_diff_filt", nothing); isnothing(__ovr_course_diff_filt) || push!(__eqs, course_diff_filt ~ __ovr_course_diff_filt)
   __ovr_course_diff_filt__initial = pop!(__overrides, "course_diff_filt__initial", nothing); isnothing(__ovr_course_diff_filt__initial) || (__initial_conditions[course_diff_filt] = __ovr_course_diff_filt__initial)
+  __ovr_course_diff_filt__guess = pop!(__overrides, "course_diff_filt__guess", nothing)
   __ovr_speed_err_filt = pop!(__overrides, "speed_err_filt", nothing); isnothing(__ovr_speed_err_filt) || push!(__eqs, speed_err_filt ~ __ovr_speed_err_filt)
   __ovr_speed_err_filt__initial = pop!(__overrides, "speed_err_filt__initial", nothing); isnothing(__ovr_speed_err_filt__initial) || (__initial_conditions[speed_err_filt] = __ovr_speed_err_filt__initial)
+  __ovr_speed_err_filt__guess = pop!(__overrides, "speed_err_filt__guess", nothing)
   __ovr_rudder_raw = pop!(__overrides, "rudder_raw", nothing); isnothing(__ovr_rudder_raw) || push!(__eqs, rudder_raw ~ __ovr_rudder_raw)
   __ovr_rudder_raw__initial = pop!(__overrides, "rudder_raw__initial", nothing); isnothing(__ovr_rudder_raw__initial) || (__initial_conditions[rudder_raw] = __ovr_rudder_raw__initial)
+  __ovr_rudder_raw__guess = pop!(__overrides, "rudder_raw__guess", nothing)
   __ovr_shaft_raw = pop!(__overrides, "shaft_raw", nothing); isnothing(__ovr_shaft_raw) || push!(__eqs, shaft_raw ~ __ovr_shaft_raw)
   __ovr_shaft_raw__initial = pop!(__overrides, "shaft_raw__initial", nothing); isnothing(__ovr_shaft_raw__initial) || (__initial_conditions[shaft_raw] = __ovr_shaft_raw__initial)
+  __ovr_shaft_raw__guess = pop!(__overrides, "shaft_raw__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -185,6 +192,13 @@ Outputs:
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_course_difference__guess) || (__guesses[course_difference] = __ovr_course_difference__guess)
+  isnothing(__ovr_distance_to_target__guess) || (__guesses[distance_to_target] = __ovr_distance_to_target__guess)
+  isnothing(__ovr_speed_module__guess) || (__guesses[speed_module] = __ovr_speed_module__guess)
+  isnothing(__ovr_course_diff_filt__guess) || (__guesses[course_diff_filt] = __ovr_course_diff_filt__guess)
+  isnothing(__ovr_speed_err_filt__guess) || (__guesses[speed_err_filt] = __ovr_speed_err_filt__guess)
+  isnothing(__ovr_rudder_raw__guess) || (__guesses[rudder_raw] = __ovr_rudder_raw__guess)
+  isnothing(__ovr_shaft_raw__guess) || (__guesses[shaft_raw] = __ovr_shaft_raw__guess)
 
   ### Initialization Equations
   push!(__initialization_eqs, course_diff_filt ~ 0)

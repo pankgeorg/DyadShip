@@ -92,8 +92,10 @@ integration steps; also works as a plain transient analysis.
   ### Variables (assignments)
   __ovr_rpm_state = pop!(__overrides, "rpm_state", nothing); isnothing(__ovr_rpm_state) || push!(__eqs, rpm_state ~ __ovr_rpm_state)
   __ovr_rpm_state__initial = pop!(__overrides, "rpm_state__initial", nothing); isnothing(__ovr_rpm_state__initial) || (__initial_conditions[rpm_state] = __ovr_rpm_state__initial)
+  __ovr_rpm_state__guess = pop!(__overrides, "rpm_state__guess", nothing)
   __ovr_rudder_state = pop!(__overrides, "rudder_state", nothing); isnothing(__ovr_rudder_state) || push!(__eqs, rudder_state ~ __ovr_rudder_state)
   __ovr_rudder_state__initial = pop!(__overrides, "rudder_state__initial", nothing); isnothing(__ovr_rudder_state__initial) || (__initial_conditions[rudder_state] = __ovr_rudder_state__initial)
+  __ovr_rudder_state__guess = pop!(__overrides, "rudder_state__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -131,6 +133,8 @@ integration steps; also works as a plain transient analysis.
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_rpm_state__guess) || (__guesses[rpm_state] = __ovr_rpm_state__guess)
+  isnothing(__ovr_rudder_state__guess) || (__guesses[rudder_state] = __ovr_rudder_state__guess)
 
   ### Initialization Equations
   push!(__initialization_eqs, shaft.phi ~ 0)

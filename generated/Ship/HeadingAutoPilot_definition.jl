@@ -130,8 +130,10 @@ command. If the rudder/hull plant has the opposite convention, set
   ### Variables (assignments)
   __ovr_integ = pop!(__overrides, "integ", nothing); isnothing(__ovr_integ) || push!(__eqs, integ ~ __ovr_integ)
   __ovr_integ__initial = pop!(__overrides, "integ__initial", nothing); isnothing(__ovr_integ__initial) || (__initial_conditions[integ] = __ovr_integ__initial)
+  __ovr_integ__guess = pop!(__overrides, "integ__guess", nothing)
   __ovr_rudder_raw = pop!(__overrides, "rudder_raw", nothing); isnothing(__ovr_rudder_raw) || push!(__eqs, rudder_raw ~ __ovr_rudder_raw)
   __ovr_rudder_raw__initial = pop!(__overrides, "rudder_raw__initial", nothing); isnothing(__ovr_rudder_raw__initial) || (__initial_conditions[rudder_raw] = __ovr_rudder_raw__initial)
+  __ovr_rudder_raw__guess = pop!(__overrides, "rudder_raw__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -142,6 +144,8 @@ command. If the rudder/hull plant has the opposite convention, set
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_integ__guess) || (__guesses[integ] = __ovr_integ__guess)
+  isnothing(__ovr_rudder_raw__guess) || (__guesses[rudder_raw] = __ovr_rudder_raw__guess)
 
   ### Initialization Equations
   push!(__initialization_eqs, integ ~ 0)

@@ -128,6 +128,7 @@ Limitations:
   ### Variables (assignments)
   __ovr_sv = pop!(__overrides, "sv", nothing); isnothing(__ovr_sv) || push!(__eqs, sv ~ __ovr_sv)
   __ovr_sv__initial = pop!(__overrides, "sv__initial", nothing); isnothing(__ovr_sv__initial) || (__initial_conditions[sv] = __ovr_sv__initial)
+  __ovr_sv__guess = pop!(__overrides, "sv__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -138,6 +139,7 @@ Limitations:
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_sv__guess) || (__guesses[sv] = __ovr_sv__guess)
 
   ### Initialization Equations
 

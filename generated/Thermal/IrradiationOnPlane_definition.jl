@@ -98,12 +98,16 @@ I = \\max\\left(-\\vec{S} \\cdot \\hat{n}_{plane}, \\; 0\\right)
   ### Variables (assignments)
   __ovr_SunVector = pop!(__overrides, "SunVector", nothing); isnothing(__ovr_SunVector) || push!(__eqs, SunVector ~ __ovr_SunVector)
   __ovr_SunVector__initial = pop!(__overrides, "SunVector__initial", nothing); isnothing(__ovr_SunVector__initial) || (__initial_conditions[SunVector] = __ovr_SunVector__initial)
+  __ovr_SunVector__guess = pop!(__overrides, "SunVector__guess", nothing)
   __ovr_PlaneVector = pop!(__overrides, "PlaneVector", nothing); isnothing(__ovr_PlaneVector) || push!(__eqs, PlaneVector ~ __ovr_PlaneVector)
   __ovr_PlaneVector__initial = pop!(__overrides, "PlaneVector__initial", nothing); isnothing(__ovr_PlaneVector__initial) || (__initial_conditions[PlaneVector] = __ovr_PlaneVector__initial)
+  __ovr_PlaneVector__guess = pop!(__overrides, "PlaneVector__guess", nothing)
   __ovr_plane_norm = pop!(__overrides, "plane_norm", nothing); isnothing(__ovr_plane_norm) || push!(__eqs, plane_norm ~ __ovr_plane_norm)
   __ovr_plane_norm__initial = pop!(__overrides, "plane_norm__initial", nothing); isnothing(__ovr_plane_norm__initial) || (__initial_conditions[plane_norm] = __ovr_plane_norm__initial)
+  __ovr_plane_norm__guess = pop!(__overrides, "plane_norm__guess", nothing)
   __ovr_dot_neg = pop!(__overrides, "dot_neg", nothing); isnothing(__ovr_dot_neg) || push!(__eqs, dot_neg ~ __ovr_dot_neg)
   __ovr_dot_neg__initial = pop!(__overrides, "dot_neg__initial", nothing); isnothing(__ovr_dot_neg__initial) || (__initial_conditions[dot_neg] = __ovr_dot_neg__initial)
+  __ovr_dot_neg__guess = pop!(__overrides, "dot_neg__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -114,6 +118,10 @@ I = \\max\\left(-\\vec{S} \\cdot \\hat{n}_{plane}, \\; 0\\right)
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_SunVector__guess) || (__guesses[SunVector] = __ovr_SunVector__guess)
+  isnothing(__ovr_PlaneVector__guess) || (__guesses[PlaneVector] = __ovr_PlaneVector__guess)
+  isnothing(__ovr_plane_norm__guess) || (__guesses[plane_norm] = __ovr_plane_norm__guess)
+  isnothing(__ovr_dot_neg__guess) || (__guesses[dot_neg] = __ovr_dot_neg__guess)
 
   ### Initialization Equations
 

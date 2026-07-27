@@ -102,12 +102,16 @@ script can plot the wind glyph per frame.
   ### Variables (assignments)
   __ovr_wind_speed_now = pop!(__overrides, "wind_speed_now", nothing); isnothing(__ovr_wind_speed_now) || push!(__eqs, wind_speed_now ~ __ovr_wind_speed_now)
   __ovr_wind_speed_now__initial = pop!(__overrides, "wind_speed_now__initial", nothing); isnothing(__ovr_wind_speed_now__initial) || (__initial_conditions[wind_speed_now] = __ovr_wind_speed_now__initial)
+  __ovr_wind_speed_now__guess = pop!(__overrides, "wind_speed_now__guess", nothing)
   __ovr_wind_direction_now = pop!(__overrides, "wind_direction_now", nothing); isnothing(__ovr_wind_direction_now) || push!(__eqs, wind_direction_now ~ __ovr_wind_direction_now)
   __ovr_wind_direction_now__initial = pop!(__overrides, "wind_direction_now__initial", nothing); isnothing(__ovr_wind_direction_now__initial) || (__initial_conditions[wind_direction_now] = __ovr_wind_direction_now__initial)
+  __ovr_wind_direction_now__guess = pop!(__overrides, "wind_direction_now__guess", nothing)
   __ovr_wind_world_x = pop!(__overrides, "wind_world_x", nothing); isnothing(__ovr_wind_world_x) || push!(__eqs, wind_world_x ~ __ovr_wind_world_x)
   __ovr_wind_world_x__initial = pop!(__overrides, "wind_world_x__initial", nothing); isnothing(__ovr_wind_world_x__initial) || (__initial_conditions[wind_world_x] = __ovr_wind_world_x__initial)
+  __ovr_wind_world_x__guess = pop!(__overrides, "wind_world_x__guess", nothing)
   __ovr_wind_world_y = pop!(__overrides, "wind_world_y", nothing); isnothing(__ovr_wind_world_y) || push!(__eqs, wind_world_y ~ __ovr_wind_world_y)
   __ovr_wind_world_y__initial = pop!(__overrides, "wind_world_y__initial", nothing); isnothing(__ovr_wind_world_y__initial) || (__initial_conditions[wind_world_y] = __ovr_wind_world_y__initial)
+  __ovr_wind_world_y__guess = pop!(__overrides, "wind_world_y__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -157,6 +161,10 @@ script can plot the wind glyph per frame.
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_wind_speed_now__guess) || (__guesses[wind_speed_now] = __ovr_wind_speed_now__guess)
+  isnothing(__ovr_wind_direction_now__guess) || (__guesses[wind_direction_now] = __ovr_wind_direction_now__guess)
+  isnothing(__ovr_wind_world_x__guess) || (__guesses[wind_world_x] = __ovr_wind_world_x__guess)
+  isnothing(__ovr_wind_world_y__guess) || (__guesses[wind_world_y] = __ovr_wind_world_y__guess)
 
   ### Initialization Equations
   push!(__initialization_eqs, shaft.phi ~ 0)

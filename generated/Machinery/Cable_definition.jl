@@ -99,16 +99,22 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   ### Variables (assignments)
   __ovr_dx = pop!(__overrides, "dx", nothing); isnothing(__ovr_dx) || push!(__eqs, dx ~ __ovr_dx)
   __ovr_dx__initial = pop!(__overrides, "dx__initial", nothing); isnothing(__ovr_dx__initial) || (__initial_conditions[dx] = __ovr_dx__initial)
+  __ovr_dx__guess = pop!(__overrides, "dx__guess", nothing)
   __ovr_dy = pop!(__overrides, "dy", nothing); isnothing(__ovr_dy) || push!(__eqs, dy ~ __ovr_dy)
   __ovr_dy__initial = pop!(__overrides, "dy__initial", nothing); isnothing(__ovr_dy__initial) || (__initial_conditions[dy] = __ovr_dy__initial)
+  __ovr_dy__guess = pop!(__overrides, "dy__guess", nothing)
   __ovr_Length = pop!(__overrides, "Length", nothing); isnothing(__ovr_Length) || push!(__eqs, Length ~ __ovr_Length)
   __ovr_Length__initial = pop!(__overrides, "Length__initial", nothing); isnothing(__ovr_Length__initial) || (__initial_conditions[Length] = __ovr_Length__initial)
+  __ovr_Length__guess = pop!(__overrides, "Length__guess", nothing)
   __ovr_Force = pop!(__overrides, "Force", nothing); isnothing(__ovr_Force) || push!(__eqs, Force ~ __ovr_Force)
   __ovr_Force__initial = pop!(__overrides, "Force__initial", nothing); isnothing(__ovr_Force__initial) || (__initial_conditions[Force] = __ovr_Force__initial)
+  __ovr_Force__guess = pop!(__overrides, "Force__guess", nothing)
   __ovr_nx = pop!(__overrides, "nx", nothing); isnothing(__ovr_nx) || push!(__eqs, nx ~ __ovr_nx)
   __ovr_nx__initial = pop!(__overrides, "nx__initial", nothing); isnothing(__ovr_nx__initial) || (__initial_conditions[nx] = __ovr_nx__initial)
+  __ovr_nx__guess = pop!(__overrides, "nx__guess", nothing)
   __ovr_ny = pop!(__overrides, "ny", nothing); isnothing(__ovr_ny) || push!(__eqs, ny ~ __ovr_ny)
   __ovr_ny__initial = pop!(__overrides, "ny__initial", nothing); isnothing(__ovr_ny__initial) || (__initial_conditions[ny] = __ovr_ny__initial)
+  __ovr_ny__guess = pop!(__overrides, "ny__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -121,6 +127,12 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_dx__guess) || (__guesses[dx] = __ovr_dx__guess)
+  isnothing(__ovr_dy__guess) || (__guesses[dy] = __ovr_dy__guess)
+  isnothing(__ovr_Length__guess) || (__guesses[Length] = __ovr_Length__guess)
+  isnothing(__ovr_Force__guess) || (__guesses[Force] = __ovr_Force__guess)
+  isnothing(__ovr_nx__guess) || (__guesses[nx] = __ovr_nx__guess)
+  isnothing(__ovr_ny__guess) || (__guesses[ny] = __ovr_ny__guess)
 
   ### Initialization Equations
 

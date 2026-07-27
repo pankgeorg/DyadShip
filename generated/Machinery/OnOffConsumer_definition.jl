@@ -115,8 +115,10 @@ Limitations vs upstream:
   ### Variables (assignments)
   __ovr_time_on = pop!(__overrides, "time_on", nothing); isnothing(__ovr_time_on) || push!(__eqs, time_on ~ __ovr_time_on)
   __ovr_time_on__initial = pop!(__overrides, "time_on__initial", nothing); isnothing(__ovr_time_on__initial) || (__initial_conditions[time_on] = __ovr_time_on__initial)
+  __ovr_time_on__guess = pop!(__overrides, "time_on__guess", nothing)
   __ovr_shape = pop!(__overrides, "shape", nothing); isnothing(__ovr_shape) || push!(__eqs, shape ~ __ovr_shape)
   __ovr_shape__initial = pop!(__overrides, "shape__initial", nothing); isnothing(__ovr_shape__initial) || (__initial_conditions[shape] = __ovr_shape__initial)
+  __ovr_shape__guess = pop!(__overrides, "shape__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -127,6 +129,8 @@ Limitations vs upstream:
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_time_on__guess) || (__guesses[time_on] = __ovr_time_on__guess)
+  isnothing(__ovr_shape__guess) || (__guesses[shape] = __ovr_shape__guess)
 
   ### Initialization Equations
   push!(__initialization_eqs, time_on ~ 0)

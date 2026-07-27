@@ -94,8 +94,10 @@ Q_flow into a port is a heat input.
   ### Variables (assignments)
   __ovr_Q_flow_in = pop!(__overrides, "Q_flow_in", nothing); isnothing(__ovr_Q_flow_in) || push!(__eqs, Q_flow_in ~ __ovr_Q_flow_in)
   __ovr_Q_flow_in__initial = pop!(__overrides, "Q_flow_in__initial", nothing); isnothing(__ovr_Q_flow_in__initial) || (__initial_conditions[Q_flow_in] = __ovr_Q_flow_in__initial)
+  __ovr_Q_flow_in__guess = pop!(__overrides, "Q_flow_in__guess", nothing)
   __ovr_T_rel = pop!(__overrides, "T_rel", nothing); isnothing(__ovr_T_rel) || push!(__eqs, T_rel ~ __ovr_T_rel)
   __ovr_T_rel__initial = pop!(__overrides, "T_rel__initial", nothing); isnothing(__ovr_T_rel__initial) || (__initial_conditions[T_rel] = __ovr_T_rel__initial)
+  __ovr_T_rel__guess = pop!(__overrides, "T_rel__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -108,6 +110,8 @@ Q_flow into a port is a heat input.
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_Q_flow_in__guess) || (__guesses[Q_flow_in] = __ovr_Q_flow_in__guess)
+  isnothing(__ovr_T_rel__guess) || (__guesses[T_rel] = __ovr_T_rel__guess)
 
   ### Initialization Equations
 

@@ -89,8 +89,10 @@ ship on heading and reach the waypoint despite the disturbance.
   ### Variables (assignments)
   __ovr_wind_world_x = pop!(__overrides, "wind_world_x", nothing); isnothing(__ovr_wind_world_x) || push!(__eqs, wind_world_x ~ __ovr_wind_world_x)
   __ovr_wind_world_x__initial = pop!(__overrides, "wind_world_x__initial", nothing); isnothing(__ovr_wind_world_x__initial) || (__initial_conditions[wind_world_x] = __ovr_wind_world_x__initial)
+  __ovr_wind_world_x__guess = pop!(__overrides, "wind_world_x__guess", nothing)
   __ovr_wind_world_y = pop!(__overrides, "wind_world_y", nothing); isnothing(__ovr_wind_world_y) || push!(__eqs, wind_world_y ~ __ovr_wind_world_y)
   __ovr_wind_world_y__initial = pop!(__overrides, "wind_world_y__initial", nothing); isnothing(__ovr_wind_world_y__initial) || (__initial_conditions[wind_world_y] = __ovr_wind_world_y__initial)
+  __ovr_wind_world_y__guess = pop!(__overrides, "wind_world_y__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -149,6 +151,8 @@ ship on heading and reach the waypoint despite the disturbance.
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_wind_world_x__guess) || (__guesses[wind_world_x] = __ovr_wind_world_x__guess)
+  isnothing(__ovr_wind_world_y__guess) || (__guesses[wind_world_y] = __ovr_wind_world_y__guess)
 
   ### Initialization Equations
   push!(__initialization_eqs, shaft.phi ~ 0)

@@ -102,6 +102,7 @@ Limitations vs upstream:
   ### Variables (assignments)
   __ovr_y_state = pop!(__overrides, "y_state", nothing); isnothing(__ovr_y_state) || push!(__eqs, y_state ~ __ovr_y_state)
   __ovr_y_state__initial = pop!(__overrides, "y_state__initial", nothing); isnothing(__ovr_y_state__initial) || (__initial_conditions[y_state] = __ovr_y_state__initial)
+  __ovr_y_state__guess = pop!(__overrides, "y_state__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -112,6 +113,7 @@ Limitations vs upstream:
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_y_state__guess) || (__guesses[y_state] = __ovr_y_state__guess)
 
   ### Initialization Equations
   push!(__initialization_eqs, y_state ~ y_start)

@@ -117,6 +117,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   ### Variables (assignments)
   __ovr_boom_angle_state = pop!(__overrides, "boom_angle_state", nothing); isnothing(__ovr_boom_angle_state) || push!(__eqs, boom_angle_state ~ __ovr_boom_angle_state)
   __ovr_boom_angle_state__initial = pop!(__overrides, "boom_angle_state__initial", nothing); isnothing(__ovr_boom_angle_state__initial) || (__initial_conditions[boom_angle_state] = __ovr_boom_angle_state__initial)
+  __ovr_boom_angle_state__guess = pop!(__overrides, "boom_angle_state__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -147,6 +148,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_boom_angle_state__guess) || (__guesses[boom_angle_state] = __ovr_boom_angle_state__guess)
 
   ### Initialization Equations
   push!(__initialization_eqs, boom_angle_state ~ BoomInitialAngle)

@@ -104,8 +104,10 @@ rotated into the body frame.
   ### Variables (assignments)
   __ovr_rel_x = pop!(__overrides, "rel_x", nothing); isnothing(__ovr_rel_x) || push!(__eqs, rel_x ~ __ovr_rel_x)
   __ovr_rel_x__initial = pop!(__overrides, "rel_x__initial", nothing); isnothing(__ovr_rel_x__initial) || (__initial_conditions[rel_x] = __ovr_rel_x__initial)
+  __ovr_rel_x__guess = pop!(__overrides, "rel_x__guess", nothing)
   __ovr_rel_y = pop!(__overrides, "rel_y", nothing); isnothing(__ovr_rel_y) || push!(__eqs, rel_y ~ __ovr_rel_y)
   __ovr_rel_y__initial = pop!(__overrides, "rel_y__initial", nothing); isnothing(__ovr_rel_y__initial) || (__initial_conditions[rel_y] = __ovr_rel_y__initial)
+  __ovr_rel_y__guess = pop!(__overrides, "rel_y__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -116,6 +118,8 @@ rotated into the body frame.
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_rel_x__guess) || (__guesses[rel_x] = __ovr_rel_x__guess)
+  isnothing(__ovr_rel_y__guess) || (__guesses[rel_y] = __ovr_rel_y__guess)
 
   ### Initialization Equations
 

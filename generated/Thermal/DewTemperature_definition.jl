@@ -82,6 +82,7 @@ This is the same formula as in the upstream model, only the data plumbing is dif
   ### Variables (assignments)
   __ovr_P_vap = pop!(__overrides, "P_vap", nothing); isnothing(__ovr_P_vap) || push!(__eqs, P_vap ~ __ovr_P_vap)
   __ovr_P_vap__initial = pop!(__overrides, "P_vap__initial", nothing); isnothing(__ovr_P_vap__initial) || (__initial_conditions[P_vap] = __ovr_P_vap__initial)
+  __ovr_P_vap__guess = pop!(__overrides, "P_vap__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -92,6 +93,7 @@ This is the same formula as in the upstream model, only the data plumbing is dif
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_P_vap__guess) || (__guesses[P_vap] = __ovr_P_vap__guess)
 
   ### Initialization Equations
 

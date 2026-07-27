@@ -130,12 +130,16 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   ### Variables (assignments)
   __ovr_M_tks = pop!(__overrides, "M_tks", nothing); isnothing(__ovr_M_tks) || push!(__eqs, M_tks ~ __ovr_M_tks)
   __ovr_M_tks__initial = pop!(__overrides, "M_tks__initial", nothing); isnothing(__ovr_M_tks__initial) || (__initial_conditions[M_tks] = __ovr_M_tks__initial)
+  __ovr_M_tks__guess = pop!(__overrides, "M_tks__guess", nothing)
   __ovr_v_max = pop!(__overrides, "v_max", nothing); isnothing(__ovr_v_max) || push!(__eqs, v_max ~ __ovr_v_max)
   __ovr_v_max__initial = pop!(__overrides, "v_max__initial", nothing); isnothing(__ovr_v_max__initial) || (__initial_conditions[v_max] = __ovr_v_max__initial)
+  __ovr_v_max__guess = pop!(__overrides, "v_max__guess", nothing)
   __ovr_M_max = pop!(__overrides, "M_max", nothing); isnothing(__ovr_M_max) || push!(__eqs, M_max ~ __ovr_M_max)
   __ovr_M_max__initial = pop!(__overrides, "M_max__initial", nothing); isnothing(__ovr_M_max__initial) || (__initial_conditions[M_max] = __ovr_M_max__initial)
+  __ovr_M_max__guess = pop!(__overrides, "M_max__guess", nothing)
   __ovr_activation = pop!(__overrides, "activation", nothing); isnothing(__ovr_activation) || push!(__eqs, activation ~ __ovr_activation)
   __ovr_activation__initial = pop!(__overrides, "activation__initial", nothing); isnothing(__ovr_activation__initial) || (__initial_conditions[activation] = __ovr_activation__initial)
+  __ovr_activation__guess = pop!(__overrides, "activation__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -147,6 +151,10 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_M_tks__guess) || (__guesses[M_tks] = __ovr_M_tks__guess)
+  isnothing(__ovr_v_max__guess) || (__guesses[v_max] = __ovr_v_max__guess)
+  isnothing(__ovr_M_max__guess) || (__guesses[M_max] = __ovr_M_max__guess)
+  isnothing(__ovr_activation__guess) || (__guesses[activation] = __ovr_activation__guess)
 
   ### Initialization Equations
   push!(__initialization_eqs, M_tks ~ 0)

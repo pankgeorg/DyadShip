@@ -112,8 +112,10 @@ where `V` is the speed and `θ = direction · π / 180` is the angle in radians.
   ### Variables (assignments)
   __ovr_WindVector = pop!(__overrides, "WindVector", nothing); isnothing(__ovr_WindVector) || push!(__eqs, WindVector ~ __ovr_WindVector)
   __ovr_WindVector__initial = pop!(__overrides, "WindVector__initial", nothing); isnothing(__ovr_WindVector__initial) || (__initial_conditions[WindVector] = __ovr_WindVector__initial)
+  __ovr_WindVector__guess = pop!(__overrides, "WindVector__guess", nothing)
   __ovr_CurrentVector = pop!(__overrides, "CurrentVector", nothing); isnothing(__ovr_CurrentVector) || push!(__eqs, CurrentVector ~ __ovr_CurrentVector)
   __ovr_CurrentVector__initial = pop!(__overrides, "CurrentVector__initial", nothing); isnothing(__ovr_CurrentVector__initial) || (__initial_conditions[CurrentVector] = __ovr_CurrentVector__initial)
+  __ovr_CurrentVector__guess = pop!(__overrides, "CurrentVector__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -124,6 +126,8 @@ where `V` is the speed and `θ = direction · π / 180` is the angle in radians.
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_WindVector__guess) || (__guesses[WindVector] = __ovr_WindVector__guess)
+  isnothing(__ovr_CurrentVector__guess) || (__guesses[CurrentVector] = __ovr_CurrentVector__guess)
 
   ### Initialization Equations
 

@@ -128,12 +128,16 @@ Limitations vs upstream:
   ### Variables (assignments)
   __ovr_Q_solar = pop!(__overrides, "Q_solar", nothing); isnothing(__ovr_Q_solar) || push!(__eqs, Q_solar ~ __ovr_Q_solar)
   __ovr_Q_solar__initial = pop!(__overrides, "Q_solar__initial", nothing); isnothing(__ovr_Q_solar__initial) || (__initial_conditions[Q_solar] = __ovr_Q_solar__initial)
+  __ovr_Q_solar__guess = pop!(__overrides, "Q_solar__guess", nothing)
   __ovr_Q_conv = pop!(__overrides, "Q_conv", nothing); isnothing(__ovr_Q_conv) || push!(__eqs, Q_conv ~ __ovr_Q_conv)
   __ovr_Q_conv__initial = pop!(__overrides, "Q_conv__initial", nothing); isnothing(__ovr_Q_conv__initial) || (__initial_conditions[Q_conv] = __ovr_Q_conv__initial)
+  __ovr_Q_conv__guess = pop!(__overrides, "Q_conv__guess", nothing)
   __ovr_Q_rad = pop!(__overrides, "Q_rad", nothing); isnothing(__ovr_Q_rad) || push!(__eqs, Q_rad ~ __ovr_Q_rad)
   __ovr_Q_rad__initial = pop!(__overrides, "Q_rad__initial", nothing); isnothing(__ovr_Q_rad__initial) || (__initial_conditions[Q_rad] = __ovr_Q_rad__initial)
+  __ovr_Q_rad__guess = pop!(__overrides, "Q_rad__guess", nothing)
   __ovr_Q_total = pop!(__overrides, "Q_total", nothing); isnothing(__ovr_Q_total) || push!(__eqs, Q_total ~ __ovr_Q_total)
   __ovr_Q_total__initial = pop!(__overrides, "Q_total__initial", nothing); isnothing(__ovr_Q_total__initial) || (__initial_conditions[Q_total] = __ovr_Q_total__initial)
+  __ovr_Q_total__guess = pop!(__overrides, "Q_total__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -145,6 +149,10 @@ Limitations vs upstream:
   isempty(__overrides) || throw(ArgumentError("overrides: [$(join(keys(__overrides), ", "))] don't match names found in model. These names may exist in the model but could have been conditionally excluded."))
 
   ### Guesses
+  isnothing(__ovr_Q_solar__guess) || (__guesses[Q_solar] = __ovr_Q_solar__guess)
+  isnothing(__ovr_Q_conv__guess) || (__guesses[Q_conv] = __ovr_Q_conv__guess)
+  isnothing(__ovr_Q_rad__guess) || (__guesses[Q_rad] = __ovr_Q_rad__guess)
+  isnothing(__ovr_Q_total__guess) || (__guesses[Q_total] = __ovr_Q_total__guess)
 
   ### Initialization Equations
 
