@@ -111,6 +111,25 @@ waypoint cycling in the autopilot and the random schedules of
 Installing it precompiles a Lustre toolchain (`Heptagon_jll`,
 `Clang_unified_jll`): use `JULIA_NUM_PRECOMPILE_TASKS=1` and a 12 GB cap.
 
+## Other registry libraries checked (September 2026)
+
+- `DyadFMUGeneration` 0.2.1 installs on dyad-3.3.0 and provides
+  `FMUAnalysis` (FMI 2/3, model-exchange and co-simulation, named inputs and
+  outputs): the upstream `FMU` package can be reproduced by extending it from a
+  ship component.
+- `DyadControlSystems` 2.3.0 installs and provides linear analysis, PID
+  autotuning, closed-loop and LQG analyses; a candidate for tuning
+  `WaypointAutopilot` from a linearised `StandardShip`.
+- `BlockComponents` 4.6 (dyad-3.4.0-rc1) adds no discrete or hysteresis
+  blocks; nothing there we lack.
+- `MultibodyComponents` mesh visualisers load STL/OBJ through `MeshIO`, not
+  DXF; the upstream `Ship.dxf` hull would need converting.
+- `BuildingsHeatTransfer` (convection factors), `PrimitiveComponents` and
+  `TranslatedComponents` are pinned to older `DyadEcosystemDependencies` and
+  do not resolve on the 3.3.0 sysimage.
+- No moist-air or general fluid media library exists; `SourceMoistAir` stays
+  unported.
+
 ## Known limitations
 
 - With the default empirical derivatives the linear course-stability index of
