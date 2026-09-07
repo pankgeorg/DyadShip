@@ -16,6 +16,8 @@ end
 
 
 @testset "`DyadShip.Machinery`" begin
+include("EventPeakSamplerChirp_test.jl")
+include("EventPeakSampler_test.jl")
 include("OnOffConsumer_test.jl")
 include("PeakSampler_test.jl")
 end

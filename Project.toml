@@ -1,21 +1,11 @@
 name = "DyadShip"
 uuid = "06f36289-3465-4855-a938-d9d375dd888a"
 version = "0.1.0"
-authors = [
-  " <>"
-]
-
-[weakdeps]
-WaterLily = "ed894a53-35f9-47f1-b17f-85db9237eebd"
-
-[extensions]
-FlettnerCFDLiveExt = [
-  "WaterLily"
-]
+authors = [" <>"]
 
 [deps]
 BlockComponents = "1ef5d832-be8e-447f-9f2c-8b5d17d15fd3"
-StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+DiscreteComponents = "b5590941-51af-4a5a-9bca-5ae7cd448b75"
 DyadData = "cab12561-e36c-4498-ae70-c9a5e79fef2a"
 DyadInterface = "99806f68-afab-45ca-9d8c-ceff6bc61f54"
 ElectricalComponents = "3fc4c519-469d-4ff5-98c9-d4d06b1514a2"
@@ -28,11 +18,19 @@ OrdinaryDiffEqDefault = "50262376-6c5a-4cf5-baba-aaf4f84d72d7"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 RotationalComponents = "824fa3ed-d7dc-4365-8bdf-ac77a1ac2011"
 RuntimeGeneratedFunctions = "7e49a35a-f44a-4d26-94aa-eba1b4ca6b47"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 ThermalComponents = "084a29d9-4f48-4925-95b4-b7d4c79725f4"
 TranslationalComponents = "42acc370-819b-4877-bdd6-eb3294461f5d"
 
+[weakdeps]
+WaterLily = "ed894a53-35f9-47f1-b17f-85db9237eebd"
+
+[extensions]
+FlettnerCFDLiveExt = ["WaterLily"]
+
 [compat]
 BlockComponents = "=4.5.1"
+DiscreteComponents = "0.2.0"
 DyadData = "2.0.1"
 DyadInterface = "7.2"
 ElectricalComponents = "=2.2.1"
@@ -54,10 +52,4 @@ Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = [
-  "DyadEcosystemDependencies",
-  "CSV",
-  "DataFrames",
-  "Plots",
-  "Test"
-]
+test = ["DyadEcosystemDependencies", "CSV", "DataFrames", "Plots", "Test"]

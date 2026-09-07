@@ -6,6 +6,7 @@ using TranslationalComponents
 using ThermalComponents
 using MultibodyComponents
 using ElectricalComponents
+using DiscreteComponents
 using ModelingToolkit
 
 include("FlettnerCFDLive.jl")

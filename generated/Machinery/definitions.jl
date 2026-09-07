@@ -17,6 +17,7 @@ if isfile(joinpath((@__DIR__) |> Base.dirname |> Base.dirname, "dyad", "Machiner
 end
 
 import BlockComponents
+import DiscreteComponents
 import DyadData
 import DyadInterface
 import ElectricalComponents
@@ -202,5 +203,8 @@ component.
 end
 
 
+include("EventPeakSamplerChirp_definition.jl")
+include("EventPeakSamplerTransient_definition.jl")
+include("EventPeakSampler_definition.jl")
 include("OnOffConsumer_definition.jl")
 include("PeakSampler_definition.jl")

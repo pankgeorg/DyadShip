@@ -136,7 +136,8 @@ heading_deg = rad2deg.(res.sol[m.ship.Yaw])
 - `dyad/Ship6DOF/` — 6-DOF ship stack, analyses, `definitions.jl` (Wageningen
   polynomials, four-quadrant Fourier sets, draft polynomials).
 - `dyad/Ship/`, `dyad/Propulsion/` — planar stack, Flettner rotor, transits.
-- `dyad/Machinery/` — on-off consumer, peak sampler.
+- `dyad/Machinery/` — on-off consumer, continuous peak sampler and the
+  event-driven `EventPeakSampler` built on `DiscreteComponents` clocks.
 - `dyad/Thermal/` — solar irradiation, sun screen, plate and cylinder
   transients, temperature dataset, dew point, air exchanger.
 - `dyad/Environment.dyad`, `VariableEnvironment.dyad`, `ApparentSpeedXY.dyad` —

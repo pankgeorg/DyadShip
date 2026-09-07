@@ -1,0 +1,47 @@
+"""
+Event-driven peak sampler: the output latches the value of `u` at every
+local extremum, i.e. at each zero crossing of `der(u)`, using the clocked
+sublanguage from `DiscreteComponents` (a `ZeroCrossingClock` driving a
+`Sampler`, held back to continuous time by a `ZeroOrderHold`). This is the
+strict version of the upstream `ShipSIM.Components.DataProcessing.PeakSampler`;
+`PeakSampler` is the continuous approximation.
+
+Read the sampled series from a solution through the clocked signal,
+`sol[m.sampler.sampler.y]` (one entry per extremum); the held continuous
+output `y` is stored as a discrete parameter timeseries that symbolic
+indexing of the continuous solution does not reconstruct. The derivative
+filter time `T_slope` sets how sharply the turning point is located.
+"""
+component EventPeakSampler
+  u = RealInput()
+  y = RealOutput()
+  "Time constant of the derivative filter that locates the turning points"
+  parameter T_slope::Time = 0.01
+  slope = BlockComponents.Continuous.Derivative(k = 1, T = T_slope)
+  clock = DiscreteComponents.ZeroCrossingClock()
+  sampler = DiscreteComponents.Sampler()
+  hold = DiscreteComponents.ZeroOrderHold()
+relations
+  connect(u, slope.u)
+  connect(slope.y, clock.u)
+  connect(u, sampler.u)
+  connect(clock.y, sampler.y)
+  connect(sampler.y, hold.u)
+  connect(hold.y, y)
+end
+
+"""
+Drive `EventPeakSampler` with a chirp: the output must step to each new peak
+value exactly when the input turns around.
+"""
+test component EventPeakSamplerChirp
+  src = BlockComponents.Sources.Sine(amplitude = 5, frequency = 0.5, offset = 1)
+  sampler = EventPeakSampler()
+relations
+  connect(src.y, sampler.u)
+end
+
+analysis EventPeakSamplerTransient
+  extends TransientAnalysis(stop = 10.0)
+  model = EventPeakSamplerChirp()
+end
