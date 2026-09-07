@@ -2,7 +2,9 @@
 # Run the Ship6DOF validation analyses and summarise them the way a
 # manoeuvring report would: roll period and damping, speed-trial balance,
 # IMO turning-circle metrics, rudder-return yaw-rate decay, zig-zag
-# overshoots and the autopilot transit. Writes PNG figures into assets/.
+# overshoots, the crash stop, the wing-sail polar and sailing ship, the pod
+# turning circle, the crane operation and the autopilot transit. Writes PNG
+# figures into assets/.
 #
 # Usage:  ~/dyad-fleet/heavy -m 6G ../julia-dyad.sh scripts/validate_6dof.jl
 
@@ -81,6 +83,39 @@ ts = collect(0:0.5:300); u = sample(sol, m.ship.Surge, ts); istop = findfirst(<=
 p = plot(ts, u, xlabel = "t [s]", ylabel = "[m/s], [rpm/10]", label = "surge speed", title = "Crash stop", lw = 2)
 plot!(p, ts, sample(sol, m.prop.rpm, ts) ./ 10, label = "shaft rpm / 10", lw = 2)
 savefig(p, joinpath(ASSETS, "ship6dof_crash_stop.png"))
+
+println("== Wing sail sweep, 10 m/s beam wind")
+res = S6.WingSailSweepTransient(); sol = res.sol; m = symbolic_container(res)
+ts = collect(0:0.5:185); ang = sample(sol, m.sail.Sail_position, ts); fx = sample(sol, m.mount.frame_b.f[1], ts) ./ 1e3; fy = sample(sol, m.mount.frame_b.f[2], ts) ./ 1e3
+ib = argmax(fx)
+@printf("  retcode %s, peak forward thrust %.1f kN at sail angle %.0f deg (attack angle %.1f deg), lateral force there %.1f kN\n", sol.retcode, fx[ib], ang[ib], rad2deg(sample(sol, m.sail.AttackAngle, [ts[ib]])[1]), fy[ib])
+p = plot(ang, fx, xlabel = "sail angle [deg]", ylabel = "force on mount [kN]", label = "forward", title = "Wing sail polar, 10 m/s beam wind from port", lw = 2)
+plot!(p, ang, fy, label = "lateral (+ port)", lw = 2)
+savefig(p, joinpath(ASSETS, "ship6dof_wingsail_sweep.png"))
+
+println("== Four wing sails, 15 m/s wind from the port beam")
+res = S6.FourWingSailsTransient(); sol = res.sol; m = symbolic_container(res)
+fx = sum(sol(600; idxs = getproperty(m, Symbol("sail$i")).force.force_x) for i in 1:4)
+@printf("  retcode %s, speed %.2f m/s at 100 rpm (6.05 m/s without sails), sail thrust %.0f kN, attack angle %.1f deg, heel %.2f deg\n", sol.retcode, sol(600; idxs = m.ship.Surge), fx / 1e3, rad2deg(sol(600; idxs = m.sail1.AttackAngle)), rad2deg(sol(600; idxs = m.ship.Heel)))
+res = S6.FourWingSailsAHTransient(); sol = res.sol; m = symbolic_container(res)
+ts = collect(0:1:900)
+@printf("  with anti-heeling (pump enabled at 300 s): heel %.2f deg at 290 s, %.2f deg at 900 s; tank levels %.0f%% / %.0f%%\n", rad2deg(sol(290; idxs = m.ship.Heel)), rad2deg(sol(900; idxs = m.ship.Heel)), sol(900; idxs = m.tank_port.fill_level), sol(900; idxs = m.tank_starboard.fill_level))
+p = plot(ts, rad2deg.(sample(sol, m.ship.Heel, ts)), xlabel = "t [s]", ylabel = "[deg], [m³/h / 100]", label = "heel", title = "Four wing sails with anti-heeling from 300 s", lw = 2)
+plot!(p, ts, sample(sol, m.antiheeling.pump_flow, ts) ./ 100, label = "pump flow / 100", lw = 2)
+savefig(p, joinpath(ASSETS, "ship6dof_sails_antiheeling.png"))
+
+println("== Pod turning circle (35 deg azimuth)")
+res = S6.PodTurningCircleTransient(); sol = res.sol; m = symbolic_container(res)
+U = hypot(sol(600; idxs = m.ship.Surge), sol(600; idxs = m.ship.Sway)); r = sol(600; idxs = m.ship.YawRate)
+@printf("  retcode %s, steady radius %.0f m (%.2f L), speed %.2f m/s, pod thrust %.0f kN, cavitation ratio %.2f\n", sol.retcode, abs(U / r), abs(U / r) / 100, U, sol(600; idxs = m.pod.Thrust) / 1e3, sol(600; idxs = m.pod.prop.Cavitation_Warning))
+
+println("== Crane operation, 50 t load")
+res = S6.CraneOperationTransient(); sol = res.sol; m = symbolic_container(res)
+ts = collect(0:0.5:400); heel = rad2deg.(sample(sol, m.ship.Heel, ts)); tension = sample(sol, m.crane.CableTension, ts) ./ 1e3
+@printf("  retcode %s, heel from %.2f to %.2f deg after slewing to port, cable tension %.0f-%.0f kN\n", sol.retcode, heel[1], heel[end], minimum(tension[tension .> 0]), maximum(tension))
+p = plot(ts, heel, xlabel = "t [s]", ylabel = "[deg], [m]", label = "heel", title = "Crane: luff 20-40 s, slew 45-100 s, pay out 100-300 s", lw = 2)
+plot!(p, ts, sample(sol, m.load.r_0[3], ts), label = "load height", lw = 2)
+savefig(p, joinpath(ASSETS, "ship6dof_crane.png"))
 
 println("== Autopilot transit, 10 m/s wind from NE")
 res = S6.FullShip6DOFTransient(); sol = res.sol; m = symbolic_container(res)

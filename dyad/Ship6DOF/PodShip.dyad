@@ -1,0 +1,49 @@
+"""
+Turning circle of the standard hull driven by an azimuthing pod instead of
+propeller and rudder. The `POD4Q` bearing sits on the centreline at the aft
+perpendicular, 5 m above the keel, with the hub 2 m aft and 3 m below it. The
+ship approaches at `U0` with `rpm` on the shaft; at `t_turn` the pod is
+ordered to `pod_deg` (positive counter-clockwise seen from above, which
+pushes the stern to port and turns the bow to starboard). The pod's own
+advance speed follows its azimuth through the multibody geometry, so the
+thrust vectoring, the torque reaction and the drop of advance speed in the
+turn all come from the joints.
+"""
+test component PodTurningCircle
+  parameter U0::Velocity = 6.69
+  parameter rpm::Real = 100
+  parameter pod_deg::Real = 35
+  parameter t_turn::Time = 20
+  parameter J_shaft::Real = 4000
+  world = MultibodyComponents.World(n = [0, 0, -1], g = 9.80665, render = false, nominal_length = 100)
+  ship = ShipBody(ini_Vel = [U0, 0, 0])
+  hydro = HydrodynamicXYY()
+  zrp = HydrodynamicZRP()
+  pod_mount = MultibodyComponents.FixedTranslation(r = [0, 0, 5], render = false)
+  pod = POD4Q(PropModel = "B4_55_1", Ae_Ao = 0.55, P_D = 1.0, Diameter = 4)
+  shaft = RotationalComponents.Components.Inertia(J = J_shaft)
+  governor = RotationalComponents.Sources.VelocitySource()
+  ground = RotationalComponents.Components.Fixed()
+relations
+  initial shaft.phi = 0
+  connect(ship.frame_a, hydro.frame_a, zrp.frame_a, pod_mount.frame_a)
+  connect(pod_mount.frame_b, pod.frame_a)
+  connect(ship.Draft, hydro.MeanDraft)
+  connect(ship.Draft, zrp.MeanDraft)
+  connect(ship.Displacement, hydro.Displacement)
+  connect(ship.Displacement, zrp.Displacement)
+  hydro.Current_x = 0
+  hydro.Current_y = 0
+  pod.Current_x = 0
+  pod.Current_y = 0
+  connect(governor.support, ground.spline)
+  connect(governor.spline, shaft.spline_a)
+  connect(shaft.spline_b, pod.flange)
+  governor.w_ref = rpm * π / 30
+  pod.POD_Order = ifelse(time > t_turn, pod_deg, 0)
+end
+
+analysis PodTurningCircleTransient
+  extends TransientAnalysis(stop = 600.0)
+  model = PodTurningCircle()
+end

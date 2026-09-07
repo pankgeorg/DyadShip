@@ -2,10 +2,14 @@
 Ship rudder on a 3D frame with tabulated wing-section coefficients.
 
 Port of `ShipSIM.Components.Propulsion.Rudder`. `frame_a` is the rudder stock
-on the hull; the hydrodynamic forces act at `CenterOfForces` below it. The
-rudder order is limited to `±MaxRudderAngle` and rate-limited to
-`MaxRudderAngularSpeed` by `BlockComponents` blocks, matching the upstream
-steering-gear model. Positive rudder turns the ship to port (positive yaw).
+on the hull. A `MultibodyComponents.Revolute` about the stock axis carries
+the blade, driven by a `RotationalComponents.Sources.Position` whose
+reference is the rudder order limited to `±MaxRudderAngle` and rate-limited
+to `MaxRudderAngularSpeed` by `BlockComponents` blocks (the upstream
+steering-gear model); the joint angle is the rudder angle used in the force
+calculation. The hydrodynamic forces act at `CenterOfForces` from the stock
+on the rotated blade, resolved in the blade frame. Positive rudder turns the
+ship to port (positive yaw).
 
 The local water velocity comes from the frame itself (an internal
 `ApparentSpeedXY` at the centre of forces subtracts the current, so the yaw
@@ -56,7 +60,12 @@ component Rudder
 
   angle_limiter = BlockComponents.Nonlinear.Limiter(y_max = MaxRudderAngle)
   rate_limiter = BlockComponents.Nonlinear.SlewRateLimiter(rising = MaxRudderAngularSpeed, td = 0.05)
+  servo = MultibodyComponents.Revolute(n = [0, 0, 1], render = false)
+  drive = RotationalComponents.Sources.Position(ref_type = RotationalComponents.Sources.ReferenceType.Exact())
+  "Centre of forces on the rotated blade"
   stock_to_cof = MultibodyComponents.FixedTranslation(r = CenterOfForces, render = false)
+  "Centre of forces in the hull frame, where the inflow is measured"
+  cof_hull = MultibodyComponents.FixedTranslation(r = CenterOfForces, render = false)
   apparent = ApparentSpeedXY()
   force = MultibodyComponents.WorldForce(resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB(), render = false)
   torque = MultibodyComponents.WorldTorque(resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB())
@@ -122,8 +131,10 @@ component Rudder
   "Inflow angle at the rudder"
   variable Beta_R::Angle
   variable Gamma_R::Real
-  "Rudder deflection [rad]"
+  "Rudder deflection [rad], the servo joint angle"
   variable delta::Angle
+  "Force on the blade resolved in the rotated blade frame"
+  variable F_blade::Force[2]
   "Angle of attack magnitude fed to the tables [deg]"
   variable alpha_deg::Real
   variable Cl::Real
@@ -140,11 +151,16 @@ component Rudder
 relations
   connect(Rudder_Order, angle_limiter.u)
   connect(angle_limiter.y, rate_limiter.u)
-  Rudder_position = rate_limiter.y
-  delta = Rudder_position * π / 180
+  drive.phi_ref = rate_limiter.y * π / 180
+  connect(drive.spline, servo.axis)
+  connect(drive.support, servo.support)
+  delta = servo.phi
+  Rudder_position = delta * 180 / π
 
-  connect(frame_a, stock_to_cof.frame_a)
-  connect(stock_to_cof.frame_b, apparent.frame_a, force.frame_b, torque.frame_b)
+  connect(frame_a, servo.frame_a, cof_hull.frame_a)
+  connect(servo.frame_b, stock_to_cof.frame_a)
+  connect(stock_to_cof.frame_b, force.frame_b, torque.frame_b)
+  connect(cof_hull.frame_b, apparent.frame_a)
   apparent.WorldSpeed_x = Current_x
   apparent.WorldSpeed_y = Current_y
 
@@ -178,8 +194,9 @@ relations
   e_d = [Wx, Wy] / WaterSpeed
   Force_X = Drag * e_d[1] - Lift * sgn * e_d[2]
   Force_Y = (Drag * e_d[2] + Lift * sgn * e_d[1]) * (1 + a_h)
-  force.force_x = Force_X
-  force.force_y = Force_Y
+  F_blade = [cos(delta) * Force_X + sin(delta) * Force_Y, -sin(delta) * Force_X + cos(delta) * Force_Y]
+  force.force_x = F_blade[1]
+  force.force_y = F_blade[2]
   force.force_z = 0
   torque.torque_x = 0
   torque.torque_y = 0

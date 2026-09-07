@@ -1,0 +1,129 @@
+"""
+Rigid wing sail on a 3D frame with a servo-driven mast revolute.
+
+Port of `ShipSIM.Components.AlternativePropulsion.WingSail`. `frame_a` is the
+mast foot on the ship; a `MultibodyComponents.Revolute` about the local z
+axis rotates the sail, driven by a `RotationalComponents.Sources.Position`
+whose reference is the rate-limited `Sail_Order` (`MaxSailAngularSpeed`).
+Positive sail angles rotate the sail counter-clockwise seen from above.
+`frame_b` sits at the top of the sail (for stacking or visualisation).
+
+The apparent wind is measured by an `ApparentSpeedXY` at the quarter-chord
+point at mid-span of the *rotated* sail, so the attack angle is the angle
+between the apparent wind and the chord. Lift, drag and moment coefficients
+come from the 2D tables `Cl/Cd/Cm(|α|, Re)` (NACA 0015 by default, the same
+CSV assets the rudder uses); drag acts along the apparent wind, lift
+perpendicular to it with the sign of the attack angle, both resolved in the
+sail frame and applied at the quarter-chord point, so the sail's heeling and
+yawing moments on the hull follow from the lever arms.
+"""
+component WingSail
+  "Mast foot on the ship"
+  frame_a = Frame3D()
+  "Top of the sail"
+  frame_b = Frame3D()
+  "Wind velocity, world x"
+  Wind_x = RealInput()
+  "Wind velocity, world y"
+  Wind_y = RealInput()
+  "Sail angle order [deg], positive counter-clockwise seen from above"
+  Sail_Order = RealInput()
+  "Actual sail angle [deg]"
+  Sail_position = RealOutput()
+  "Signed attack angle between apparent wind and chord [rad]"
+  AttackAngle = RealOutput()
+  "Apparent wind speed at the sail [m/s]"
+  ApparentWind = RealOutput()
+  Lift = RealOutput()
+  Drag = RealOutput()
+  Moment = RealOutput()
+
+  rate_limiter = BlockComponents.Nonlinear.SlewRateLimiter(rising = MaxSailAngularSpeed, td = 0.05)
+  servo = MultibodyComponents.Revolute(n = [0, 0, 1], render = false)
+  drive = RotationalComponents.Sources.Position(ref_type = RotationalComponents.Sources.ReferenceType.Exact())
+  forces_pos = MultibodyComponents.FixedTranslation(r = [AxisPos - 0.25 * C, 0, s / 2], render = false)
+  top_pos = MultibodyComponents.FixedTranslation(r = [-(AxisPos - 0.25 * C), 0, s / 2], render = false)
+  apparent = ApparentSpeedXY()
+  force = MultibodyComponents.WorldForce(resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB(), render = false)
+  torque = MultibodyComponents.WorldTorque(resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB())
+  Cl_table = BlockComponents.Tables.InterpolatedTable(axis1 = Cl_data["angle_deg"], axis2 = Cl_data["Re"], data = Cl_data["Cl"], interpolation_dim1 = BlockComponents.Tables.InterpolationDimension.LinearInterpolationDimension(), interpolation_dim2 = BlockComponents.Tables.InterpolationDimension.LinearInterpolationDimension())
+  Cd_table = BlockComponents.Tables.InterpolatedTable(axis1 = Cd_data["angle_deg"], axis2 = Cd_data["Re"], data = Cd_data["Cd"], interpolation_dim1 = BlockComponents.Tables.InterpolationDimension.LinearInterpolationDimension(), interpolation_dim2 = BlockComponents.Tables.InterpolationDimension.LinearInterpolationDimension())
+  Cm_table = BlockComponents.Tables.InterpolatedTable(axis1 = Cm_data["angle_deg"], axis2 = Cm_data["Re"], data = Cm_data["Cm"], interpolation_dim1 = BlockComponents.Tables.InterpolationDimension.LinearInterpolationDimension(), interpolation_dim2 = BlockComponents.Tables.InterpolationDimension.LinearInterpolationDimension())
+
+  structural parameter Cl_file::String = "dyad://DyadShip/naca0015_cl.csv"
+  structural parameter Cd_file::String = "dyad://DyadShip/naca0015_cd.csv"
+  structural parameter Cm_file::String = "dyad://DyadShip/naca0015_cm.csv"
+  structural parameter Cl_data::DyadData.DyadInterpolationTable2D = DyadData.DyadInterpolationTable2D(Cl_file, axis1_name = "angle_deg", axis2_name = "Re", data_name = "Cl")
+  structural parameter Cd_data::DyadData.DyadInterpolationTable2D = DyadData.DyadInterpolationTable2D(Cd_file, axis1_name = "angle_deg", axis2_name = "Re", data_name = "Cd")
+  structural parameter Cm_data::DyadData.DyadInterpolationTable2D = DyadData.DyadInterpolationTable2D(Cm_file, axis1_name = "angle_deg", axis2_name = "Re", data_name = "Cm")
+  parameter Re_min::Real = 1e4
+  parameter Re_max::Real = 1e7
+  parameter Re_cm_min::Real = 3.6e5
+  parameter Re_cm_max::Real = 6.8e5
+
+  "Chord"
+  parameter C::Length = 7
+  "Span"
+  parameter s::Length = 20
+  "Distance from the leading edge to the mast axis, positive aft"
+  parameter AxisPos::Length = 0.35 * C
+  "Sail rotation speed limit [deg/s]"
+  parameter MaxSailAngularSpeed::Real = 1
+  parameter AirDensity::Density = 1.29
+  parameter AirKViscosity::KinematicViscosity = 1.48e-5
+  "Sail area"
+  parameter Surf::Area = C * s
+  "Angle scale of the smooth sign used for the lift direction [rad]"
+  parameter alpha_eps::Angle = 1e-3
+
+  variable Re::Real
+  variable Cl::Real
+  variable Cd::Real
+  variable Cm::Real
+  "Dynamic pressure times sail area"
+  variable qS::Force
+  "Unit vector along the apparent wind, sail frame"
+  variable e_d::Real[2]
+  variable sgn::Real
+  variable alpha_deg::Real
+relations
+  connect(Sail_Order, rate_limiter.u)
+  Sail_position = rate_limiter.y
+  drive.phi_ref = Sail_position * π / 180
+  connect(drive.spline, servo.axis)
+  connect(drive.support, servo.support)
+
+  connect(frame_a, servo.frame_a)
+  connect(servo.frame_b, forces_pos.frame_a)
+  connect(forces_pos.frame_b, top_pos.frame_a, apparent.frame_a, force.frame_b, torque.frame_b)
+  connect(top_pos.frame_b, frame_b)
+  apparent.WorldSpeed_x = Wind_x
+  apparent.WorldSpeed_y = Wind_y
+
+  AttackAngle = apparent.AttackAngleSigned
+  ApparentWind = apparent.ApparentSpeed
+  sgn = AttackAngle / sqrt(AttackAngle^2 + alpha_eps^2)
+  alpha_deg = clamp(abs(AttackAngle) * 180 / π, 0, 180)
+  Re = ApparentWind * C / AirKViscosity
+  Cl_table.u1 = alpha_deg
+  Cl_table.u2 = clamp(Re, Re_min, Re_max)
+  Cd_table.u1 = alpha_deg
+  Cd_table.u2 = clamp(Re, Re_min, Re_max)
+  Cm_table.u1 = alpha_deg
+  Cm_table.u2 = clamp(Re, Re_cm_min, Re_cm_max)
+  Cl = Cl_table.y
+  Cd = Cd_table.y
+  Cm = Cm_table.y
+
+  qS = 0.5 * AirDensity * Surf * ApparentWind^2
+  Drag = Cd * qS
+  Lift = Cl * qS
+  Moment = Cm * qS * C
+  e_d = -[apparent.SpeedLocal_x, apparent.SpeedLocal_y] / ApparentWind
+  force.force_x = Drag * e_d[1] - Lift * sgn * e_d[2]
+  force.force_y = Drag * e_d[2] + Lift * sgn * e_d[1]
+  force.force_z = 0
+  torque.torque_x = 0
+  torque.torque_y = 0
+  torque.torque_z = -Moment * sgn
+end

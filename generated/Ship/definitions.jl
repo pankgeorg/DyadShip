@@ -202,9 +202,6 @@ component.
 end
 
 
-include("AntiHeelingDemo_definition.jl")
-include("AntiHeelingTransient_definition.jl")
-include("AntiHeeling_definition.jl")
 include("FullShipDisturbed_definition.jl")
 include("FullShipFlettnerFavorableRender_definition.jl")
 include("FullShipFlettnerOnlineRender_definition.jl")

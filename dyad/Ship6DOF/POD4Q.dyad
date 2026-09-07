@@ -1,0 +1,71 @@
+"""
+Azimuthing pod with a four-quadrant Wageningen propeller.
+
+Port of `ShipSIM.Components.Propulsion.POD4Q`. `frame_a` is the pod bearing
+on the hull. A `MultibodyComponents.Revolute` about the local z axis steers
+the pod, driven by a `RotationalComponents.Sources.Position` whose reference
+is the rate-limited `POD_Order` (`MaxPODAngularSpeed`); positive angles turn
+the pod counter-clockwise seen from above, so positive thrust then has a
+component to port and a bow-to-starboard yaw moment when the pod is aft of
+the centre of gravity. The propeller hub sits at `CenterOfPropeller` from
+the bearing on the rotated pod strut and carries an internal `Propeller4Q`,
+which reads its own advance speed along the pod axis (including the effect
+of the azimuth and of the hull's yaw rate), so pod thrust, torque reaction
+and slipstream all follow from the multibody geometry. The shaft `flange`
+passes straight through to the propeller.
+"""
+component POD4Q
+  "Pod bearing on the hull"
+  frame_a = Frame3D()
+  "Shaft connector"
+  flange = Spline()
+  "Azimuth order [deg], positive counter-clockwise seen from above"
+  POD_Order = RealInput()
+  Current_x = RealInput()
+  Current_y = RealInput()
+  "Actual azimuth angle [deg]"
+  POD_position = RealOutput()
+  "Net propeller thrust along the pod axis [N]"
+  Thrust = RealOutput()
+  "Shaft speed [rpm]"
+  rpm = RealOutput()
+  ShaftPower = RealOutput()
+
+  rate_limiter = BlockComponents.Nonlinear.SlewRateLimiter(rising = MaxPODAngularSpeed, td = 0.05)
+  servo = MultibodyComponents.Revolute(n = [0, 0, 1], render = false)
+  drive = RotationalComponents.Sources.Position(ref_type = RotationalComponents.Sources.ReferenceType.Exact())
+  strut = MultibodyComponents.FixedTranslation(r = CenterOfPropeller, render = false)
+  prop = Propeller4Q(PropModel = PropModel, Diameter = Diameter, Ae_Ao = Ae_Ao, P_D = P_D, WakeFraction = WakeFraction, ThrustDeduction = ThrustDeduction, SeaDensity = SeaDensity, h_prop = h_prop)
+
+  "Wageningen B-series four-quadrant propeller data set"
+  structural parameter PropModel::String = "B4_70_1"
+  "Propeller hub from the pod bearing, resolved in the pod frame"
+  parameter CenterOfPropeller::Length[3] = [-2, 0, -3]
+  "Maximum azimuth rate [deg/s]"
+  parameter MaxPODAngularSpeed::Real = 2.5
+  parameter Diameter::Length = 4
+  "Expanded blade area ratio; match PropModel"
+  parameter Ae_Ao::Real = 0.7
+  "Pitch ratio; match PropModel"
+  parameter P_D::Real = 1
+  "Depth of the propeller hub below the waterline, for the cavitation check"
+  parameter h_prop::Length = 4
+  parameter WakeFraction::Real = 0.1
+  parameter ThrustDeduction::Real = 0.2
+  parameter SeaDensity::Density = 1025
+relations
+  connect(POD_Order, rate_limiter.u)
+  POD_position = rate_limiter.y
+  drive.phi_ref = POD_position * π / 180
+  connect(drive.spline, servo.axis)
+  connect(drive.support, servo.support)
+  connect(frame_a, servo.frame_a)
+  connect(servo.frame_b, strut.frame_a)
+  connect(strut.frame_b, prop.frame_a)
+  connect(flange, prop.flange)
+  prop.Current_x = Current_x
+  prop.Current_y = Current_y
+  Thrust = prop.Thrust
+  rpm = prop.rpm
+  ShaftPower = prop.ShaftPower
+end

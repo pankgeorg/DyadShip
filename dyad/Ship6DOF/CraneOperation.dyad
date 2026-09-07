@@ -1,0 +1,40 @@
+"""
+Deck crane lifting a load on the moored-free ship, after
+`ShipSIM.Examples.Operations.CraneOperation`. The crane base is 50 m from
+the aft perpendicular, 7 m to port, 15 m above the keel; a `load_mass`
+body hangs from the hook on a `cable_length0` cable. The sequence luffs
+the boom from horizontal to 45° from vertical (20–40 s), slews the pedestal
+90° to port (45–100 s) and then pays the cable out (100–300 s). The load
+swings as a pendulum on the cable and its weight shifts with the crane
+motion, so the ship heels (`ship.Heel`) and trims in response; the cable
+tension shows the dynamic overloads of the swing.
+"""
+test component CraneOperation
+  parameter load_mass::Mass = 50000
+  parameter cable_length0::Length = 2
+  world = MultibodyComponents.World(n = [0, 0, -1], g = 9.80665, render = false, nominal_length = 100)
+  ship = ShipBody(ini_Vel = [0, 0, 0])
+  hydro = HydrodynamicXYY()
+  zrp = HydrodynamicZRP()
+  crane_pos = MultibodyComponents.FixedTranslation(r = [50, 7, 15], render = false)
+  crane = Crane(PedestalHeight = 2, BoomLength = 6, Cable_k = 2e6, Cable_d = 1e5, CableRotureStrength = 5e6)
+  load = MultibodyComponents.Body(m = load_mass, render = false, r_0(initial = [56, 7, 13 - cable_length0 - load_mass * 9.80665 / 2e6]), v_0(initial = [0, 0, 0]))
+relations
+  connect(ship.frame_a, hydro.frame_a, zrp.frame_a, crane_pos.frame_a)
+  connect(crane_pos.frame_b, crane.frame_a)
+  connect(crane.frame_b, load.frame_a)
+  connect(ship.Draft, hydro.MeanDraft)
+  connect(ship.Draft, zrp.MeanDraft)
+  connect(ship.Displacement, hydro.Displacement)
+  connect(ship.Displacement, zrp.Displacement)
+  hydro.Current_x = 0
+  hydro.Current_y = 0
+  crane.BoomSetAngle = ifelse(time < 20, 90, ifelse(time < 40, 90 - 45 * (time - 20) / 20, 45))
+  crane.PedestalSetAngle = ifelse(time < 45, 0, ifelse(time < 100, 90 * (time - 45) / 55, 90))
+  crane.CableLength = ifelse(time < 100, cable_length0, ifelse(time < 300, cable_length0 + 8 * (time - 100) / 200, cable_length0 + 8))
+end
+
+analysis CraneOperationTransient
+  extends TransientAnalysis(stop = 400.0)
+  model = CraneOperation()
+end

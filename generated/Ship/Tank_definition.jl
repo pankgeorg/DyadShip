@@ -27,6 +27,10 @@ Differences from upstream:
   same role).
 - `der_m_esc` (derivative of moment input) is calculated but not used downstream, just as
   in the original. We drop it.
+- The fill direction is reversed relative to upstream: a positive heeling moment
+  (starboard down) fills the tank on the positive-`CoG_trans` (port) side, which is the
+  side `AntiHeeling` moves ballast to when it produces its righting moment. Upstream
+  drains that tank, contradicting its own moment.
 
 ## Parameters:
 
@@ -151,7 +155,7 @@ Differences from upstream:
   push!(__eqs, Q ~ Q_input)
   push!(__eqs, indi_pos ~ ifelse(CoG_trans < 0, -1, 1))
   push!(__eqs, indi_moment ~ ifelse(M_input > 0, 1, -1))
-  push!(__eqs, ModelingToolkit.D_nounits(inter_volume) ~ -indi_pos * indi_moment * Q / 3600)
+  push!(__eqs, ModelingToolkit.D_nounits(inter_volume) ~ indi_pos * indi_moment * Q / 3600)
   push!(__eqs, volume ~ clamp(inter_volume, 0.05 * V, 0.85 * V))
   push!(__eqs, fill_level ~ volume / V * 100)
   push!(__eqs, tank_pressure ~ volume / V * H * rho * 9.81 / 100)

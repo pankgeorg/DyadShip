@@ -8,11 +8,11 @@ using DyadInterface
 using DyadInterface: ODEAlg, DEVerbosity, OptimizationLevel
 using ModelingToolkit: SymbolicT, toggle_namespacing
 using DyadInterface: AbstractTransientAnalysisSpec, TransientAnalysisSpec
-@kwdef mutable struct CraneTransientSpec <: AbstractTransientAnalysisSpec
-  name::Symbol = :CraneTransient
+@kwdef mutable struct FourWingSailsAHTransientSpec <: AbstractTransientAnalysisSpec
+  name::Symbol = :FourWingSailsAHTransient
   var"alg"::ODEAlg.Type = ODEAlg.Auto()
   var"start"::Float64 = 0
-  var"stop"::Float64 = 5.0
+  var"stop"::Float64 = 900.0
   var"abstol"::Float64 = 0.000001
   var"reltol"::Float64 = 0.000001
   var"saveat"::Float64 = 0
@@ -24,12 +24,15 @@ using DyadInterface: AbstractTransientAnalysisSpec, TransientAnalysisSpec
   var"respecialize"::Bool = false
   var"verbose"::DEVerbosity.Type = DEVerbosity.Standard()
   var"log_file"::String = ""
-  # Stationary 2D crane: a 1000 kg load hangs from a horizontal boom and falls into the
-  # spring cable until equilibrium. The crane base is fixed; boom angle is held at 0° (horizontal).
-  var"model"::Union{Nothing, System} = DyadShip.Machinery.CraneStaticLoad(; name=:CraneStaticLoad)
+  # `FourWingSails` with the anti-heeling system, after
+  # `ShipSIM.Examples.Sailing.FourWingSailsAH`. The system is held off for the
+  # first `antiheeling.startup_delay` seconds, so the run first shows the sail
+  # heel and then the pump transferring ballast until the heel is inside the
+  # band; the two `Tank` models track the levels.
+  var"model"::Union{Nothing, System} = DyadShip.Ship6DOF.FourWingSailsAH(; name=:FourWingSailsAH)
 end
 
-function DyadInterface.run_analysis(spec::CraneTransientSpec)
+function DyadInterface.run_analysis(spec::FourWingSailsAHTransientSpec)
   overrides = Dict{SymbolicT, SymbolicT}()
   no_namespace_model = toggle_namespacing(spec.model, false)
   
@@ -39,5 +42,5 @@ function DyadInterface.run_analysis(spec::CraneTransientSpec)
   run_analysis(base_spec)
 end
 
-CraneTransient(;kwargs...) = run_analysis(CraneTransientSpec(;kwargs...))
-export CraneTransient, CraneTransientSpec
+FourWingSailsAHTransient(;kwargs...) = run_analysis(FourWingSailsAHTransientSpec(;kwargs...))
+export FourWingSailsAHTransient, FourWingSailsAHTransientSpec

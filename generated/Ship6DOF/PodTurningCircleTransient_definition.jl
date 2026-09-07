@@ -8,11 +8,11 @@ using DyadInterface
 using DyadInterface: ODEAlg, DEVerbosity, OptimizationLevel
 using ModelingToolkit: SymbolicT, toggle_namespacing
 using DyadInterface: AbstractTransientAnalysisSpec, TransientAnalysisSpec
-@kwdef mutable struct WingSailTransientSpec <: AbstractTransientAnalysisSpec
-  name::Symbol = :WingSailTransient
+@kwdef mutable struct PodTurningCircleTransientSpec <: AbstractTransientAnalysisSpec
+  name::Symbol = :PodTurningCircleTransient
   var"alg"::ODEAlg.Type = ODEAlg.Auto()
   var"start"::Float64 = 0
-  var"stop"::Float64 = 10.0
+  var"stop"::Float64 = 600.0
   var"abstol"::Float64 = 0.000001
   var"reltol"::Float64 = 0.000001
   var"saveat"::Float64 = 0
@@ -24,13 +24,19 @@ using DyadInterface: AbstractTransientAnalysisSpec, TransientAnalysisSpec
   var"respecialize"::Bool = false
   var"verbose"::DEVerbosity.Type = DEVerbosity.Standard()
   var"log_file"::String = ""
-  # WingSail under a constant beam wind. The sail commands a 25° angle. Forces should
-  # develop on the sail's body-frame axes; the analysis anchors the mounting frame so the
-  # sail forces have a node to discharge into.
-  var"model"::Union{Nothing, System} = DyadShip.Propulsion.WingSailBeamWind(; name=:WingSailBeamWind)
+  # Turning circle of the standard hull driven by an azimuthing pod instead of
+  # propeller and rudder. The `POD4Q` bearing sits on the centreline at the aft
+  # perpendicular, 5 m above the keel, with the hub 2 m aft and 3 m below it. The
+  # ship approaches at `U0` with `rpm` on the shaft; at `t_turn` the pod is
+  # ordered to `pod_deg` (positive counter-clockwise seen from above, which
+  # pushes the stern to port and turns the bow to starboard). The pod's own
+  # advance speed follows its azimuth through the multibody geometry, so the
+  # thrust vectoring, the torque reaction and the drop of advance speed in the
+  # turn all come from the joints.
+  var"model"::Union{Nothing, System} = DyadShip.Ship6DOF.PodTurningCircle(; name=:PodTurningCircle)
 end
 
-function DyadInterface.run_analysis(spec::WingSailTransientSpec)
+function DyadInterface.run_analysis(spec::PodTurningCircleTransientSpec)
   overrides = Dict{SymbolicT, SymbolicT}()
   no_namespace_model = toggle_namespacing(spec.model, false)
   
@@ -40,5 +46,5 @@ function DyadInterface.run_analysis(spec::WingSailTransientSpec)
   run_analysis(base_spec)
 end
 
-WingSailTransient(;kwargs...) = run_analysis(WingSailTransientSpec(;kwargs...))
-export WingSailTransient, WingSailTransientSpec
+PodTurningCircleTransient(;kwargs...) = run_analysis(PodTurningCircleTransientSpec(;kwargs...))
+export PodTurningCircleTransient, PodTurningCircleTransientSpec

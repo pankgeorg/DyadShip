@@ -12,10 +12,14 @@ import Moshi as __Ext__Moshi
 Ship rudder on a 3D frame with tabulated wing-section coefficients.
 
 Port of `ShipSIM.Components.Propulsion.Rudder`. `frame_a` is the rudder stock
-on the hull; the hydrodynamic forces act at `CenterOfForces` below it. The
-rudder order is limited to `±MaxRudderAngle` and rate-limited to
-`MaxRudderAngularSpeed` by `BlockComponents` blocks, matching the upstream
-steering-gear model. Positive rudder turns the ship to port (positive yaw).
+on the hull. A `MultibodyComponents.Revolute` about the stock axis carries
+the blade, driven by a `RotationalComponents.Sources.Position` whose
+reference is the rudder order limited to `±MaxRudderAngle` and rate-limited
+to `MaxRudderAngularSpeed` by `BlockComponents` blocks (the upstream
+steering-gear model); the joint angle is the rudder angle used in the force
+calculation. The hydrodynamic forces act at `CenterOfForces` from the stock
+on the rotated blade, resolved in the blade frame. Positive rudder turns the
+ship to port (positive yaw).
 
 The local water velocity comes from the frame itself (an internal
 `ApparentSpeedXY` at the centre of forces subtracts the current, so the yaw
@@ -98,7 +102,8 @@ connectors that can be connected together ([`Frame3D`](@ref))
 | `Re`         |                          | --  |
 | `Beta_R`         | Inflow angle at the rudder                         | rad  |
 | `Gamma_R`         |                          | --  |
-| `delta`         | Rudder deflection [rad]                         | rad  |
+| `delta`         | Rudder deflection [rad], the servo joint angle                         | rad  |
+| `F_blade`         | Force on the blade resolved in the rotated blade frame                         | N  |
 | `alpha_deg`         | Angle of attack magnitude fed to the tables [deg]                         | --  |
 | `Cl`         |                          | --  |
 | `Cd`         |                          | --  |
@@ -233,7 +238,8 @@ connectors that can be connected together ([`Frame3D`](@ref))
   append!(__vars, @variables (Re(t)::Real))
   append!(__vars, @variables (Beta_R(t)::Real), [description = "Inflow angle at the rudder"])
   append!(__vars, @variables (Gamma_R(t)::Real))
-  append!(__vars, @variables (delta(t)::Real), [description = "Rudder deflection [rad]"])
+  append!(__vars, @variables (delta(t)::Real), [description = "Rudder deflection [rad], the servo joint angle"])
+  append!(__vars, @variables (F_blade(t)[1:2]::Real), [description = "Force on the blade resolved in the rotated blade frame"])
   append!(__vars, @variables (alpha_deg(t)::Real), [description = "Angle of attack magnitude fed to the tables [deg]"])
   append!(__vars, @variables (Cl(t)::Real))
   append!(__vars, @variables (Cd(t)::Real))
@@ -265,6 +271,9 @@ connectors that can be connected together ([`Frame3D`](@ref))
   __ovr_delta = pop!(__overrides, "delta", nothing); isnothing(__ovr_delta) || push!(__eqs, delta ~ __ovr_delta)
   __ovr_delta__initial = pop!(__overrides, "delta__initial", nothing); isnothing(__ovr_delta__initial) || (__initial_conditions[delta] = __ovr_delta__initial)
   __ovr_delta__guess = pop!(__overrides, "delta__guess", nothing)
+  __ovr_F_blade = pop!(__overrides, "F_blade", nothing); isnothing(__ovr_F_blade) || push!(__eqs, F_blade ~ __ovr_F_blade)
+  __ovr_F_blade__initial = pop!(__overrides, "F_blade__initial", nothing); isnothing(__ovr_F_blade__initial) || (__initial_conditions[F_blade] = __ovr_F_blade__initial)
+  __ovr_F_blade__guess = pop!(__overrides, "F_blade__guess", nothing)
   __ovr_alpha_deg = pop!(__overrides, "alpha_deg", nothing); isnothing(__ovr_alpha_deg) || push!(__eqs, alpha_deg ~ __ovr_alpha_deg)
   __ovr_alpha_deg__initial = pop!(__overrides, "alpha_deg__initial", nothing); isnothing(__ovr_alpha_deg__initial) || (__initial_conditions[alpha_deg] = __ovr_alpha_deg__initial)
   __ovr_alpha_deg__guess = pop!(__overrides, "alpha_deg__guess", nothing)
@@ -301,9 +310,18 @@ connectors that can be connected together ([`Frame3D`](@ref))
   # Subcomponent rate_limiter of type BlockComponents.Nonlinear.SlewRateLimiter
   rate_limiter_overrides = __pop_subcomponent_overrides!(__overrides, "rate_limiter")
   push!(__systems, @named rate_limiter = BlockComponents.Nonlinear.SlewRateLimiter(; rising=MaxRudderAngularSpeed, td=0.05, rate_limiter_overrides...))
+  # Subcomponent servo of type MultibodyComponents.Revolute
+  servo_overrides = __pop_subcomponent_overrides!(__overrides, "servo")
+  push!(__systems, @named servo = MultibodyComponents.Revolute(; n=[Float64(0), Float64(0), Float64(1)], render=false, servo_overrides...))
+  # Subcomponent drive of type RotationalComponents.Sources.Position
+  drive_overrides = __pop_subcomponent_overrides!(__overrides, "drive")
+  push!(__systems, @named drive = RotationalComponents.Sources.Position(; ref_type=RotationalComponents.Sources.ReferenceType.Exact(), drive_overrides...))
   # Subcomponent stock_to_cof of type MultibodyComponents.FixedTranslation
   stock_to_cof_overrides = __pop_subcomponent_overrides!(__overrides, "stock_to_cof")
   push!(__systems, @named stock_to_cof = MultibodyComponents.FixedTranslation(; r=CenterOfForces, render=false, stock_to_cof_overrides...))
+  # Subcomponent cof_hull of type MultibodyComponents.FixedTranslation
+  cof_hull_overrides = __pop_subcomponent_overrides!(__overrides, "cof_hull")
+  push!(__systems, @named cof_hull = MultibodyComponents.FixedTranslation(; r=CenterOfForces, render=false, cof_hull_overrides...))
   # Subcomponent apparent of type DyadShip.Ship6DOF.ApparentSpeedXY
   apparent_overrides = __pop_subcomponent_overrides!(__overrides, "apparent")
   push!(__systems, @named apparent = DyadShip.Ship6DOF.ApparentSpeedXY(; apparent_overrides...))
@@ -334,6 +352,7 @@ connectors that can be connected together ([`Frame3D`](@ref))
   isnothing(__ovr_Beta_R__guess) || (__guesses[Beta_R] = __ovr_Beta_R__guess)
   isnothing(__ovr_Gamma_R__guess) || (__guesses[Gamma_R] = __ovr_Gamma_R__guess)
   isnothing(__ovr_delta__guess) || (__guesses[delta] = __ovr_delta__guess)
+  isnothing(__ovr_F_blade__guess) || (__guesses[F_blade] = __ovr_F_blade__guess)
   isnothing(__ovr_alpha_deg__guess) || (__guesses[alpha_deg] = __ovr_alpha_deg__guess)
   isnothing(__ovr_Cl__guess) || (__guesses[Cl] = __ovr_Cl__guess)
   isnothing(__ovr_Cd__guess) || (__guesses[Cd] = __ovr_Cd__guess)
@@ -349,8 +368,9 @@ connectors that can be connected together ([`Frame3D`](@ref))
   __assertions = []
 
   ### Equations
-  push!(__eqs, Rudder_position ~ rate_limiter.y)
-  push!(__eqs, delta ~ Rudder_position * π / 180)
+  push!(__eqs, drive.phi_ref ~ rate_limiter.y * π / 180)
+  push!(__eqs, delta ~ servo.phi)
+  push!(__eqs, Rudder_position ~ delta * 180 / π)
   push!(__eqs, apparent.WorldSpeed_x ~ Current_x)
   push!(__eqs, apparent.WorldSpeed_y ~ Current_y)
   push!(__eqs, Wx ~ ifelse(Propeller_flow_diameter >= s, -Propeller_speed, -(Propeller_speed * Propeller_flow_diameter + apparent.SpeedLocal_x * (1 - Wake_Fraction) * (s - Propeller_flow_diameter)) / s))
@@ -379,16 +399,21 @@ connectors that can be connected together ([`Frame3D`](@ref))
   push!(__eqs, e_d ~ [Wx, Wy] / WaterSpeed)
   push!(__eqs, Force_X ~ Drag * e_d[1] - Lift * sgn * e_d[2])
   push!(__eqs, Force_Y ~ (Drag * e_d[2] + Lift * sgn * e_d[1]) * (1 + a_h))
-  push!(__eqs, force.force_x ~ Force_X)
-  push!(__eqs, force.force_y ~ Force_Y)
+  push!(__eqs, F_blade ~ [cos(delta) * Force_X + sin(delta) * Force_Y, -sin(delta) * Force_X + cos(delta) * Force_Y])
+  push!(__eqs, force.force_x ~ F_blade[1])
+  push!(__eqs, force.force_y ~ F_blade[2])
   push!(__eqs, force.force_z ~ 0)
   push!(__eqs, torque.torque_x ~ 0)
   push!(__eqs, torque.torque_y ~ 0)
   push!(__eqs, torque.torque_z ~ Moment * sgn)
   push!(__eqs, connect(Rudder_Order, angle_limiter.u))
   push!(__eqs, connect(angle_limiter.y, rate_limiter.u))
-  push!(__eqs, connect(frame_a, stock_to_cof.frame_a))
-  push!(__eqs, connect(stock_to_cof.frame_b, apparent.frame_a, force.frame_b, torque.frame_b))
+  push!(__eqs, connect(drive.spline, servo.axis))
+  push!(__eqs, connect(drive.support, servo.support))
+  push!(__eqs, connect(frame_a, servo.frame_a, cof_hull.frame_a))
+  push!(__eqs, connect(servo.frame_b, stock_to_cof.frame_a))
+  push!(__eqs, connect(stock_to_cof.frame_b, force.frame_b, torque.frame_b))
+  push!(__eqs, connect(cof_hull.frame_b, apparent.frame_a))
 
   # Return completely constructed System
   return System(__eqs, t, __vars, __params; systems=__systems, initial_conditions=__initial_conditions, guesses=__guesses, name, initialization_eqs=__initialization_eqs, bindings=__bindings, assertions=__assertions)

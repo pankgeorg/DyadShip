@@ -121,16 +121,17 @@ helpers at the root:
   — small, foundational, no domain-specific dependencies.
 - **`Ship6DOF/`**: the primary, 3D-multibody stack: `ShipBody`, `HydrodynamicXYY`,
   `HydrodynamicZRP`, `ApparentSpeedXY`, `Propeller1Q`, `Propeller4Q`, `Rudder`,
-  `ShipWind`, `WaypointAutopilot`, the `StandardShip` partial assembly and the
-  validation analyses (speed trial, turning circle, rudder return, zig-zag, roll
-  decay, crash stop, autopilot transit, manual ship). Julia helpers (Wageningen
+  `ShipWind`, `WingSail`, `POD4Q`, `AntiHeeling`, `Crane`, `Cable`,
+  `WaypointAutopilot`, the `StandardShip` partial assembly and the validation
+  analyses (speed trial, turning circle, rudder return, zig-zag, roll decay,
+  crash stop, sail sweep, four wing sails, pod turning circle, crane operation,
+  autopilot transit, manual ship). Julia helpers (Wageningen
   polynomials, 4Q Fourier sets, draft polynomials) in `Ship6DOF/definitions.jl`.
-- **`Ship/`** (planar): `HullMMG`, `ShipWind`, `AntiHeeling`, `Tank`, `HeadingAutoPilot`,
+- **`Ship/`** (planar): `HullMMG`, `ShipWind`, `Tank`, `HeadingAutoPilot`,
   `ManualShip`, the `FullShip*` assemblies (autopilot, disturbed, render, Flettner).
-- **`Propulsion/`** (planar): `Propeller1Q`, `Propeller4Q`, `POD4Q`, `Rudder`, `WingSail`,
+- **`Propulsion/`** (planar): `Propeller1Q`, `Propeller4Q`, `Rudder`,
   `FlettnerRotor`, `FlettnerRotorOnline`, `SimpleDieselEngine`.
-- **`Machinery/`**: deck/auxiliary equipment — `Crane`, `Cable`, `OnOffConsumer`,
-  `PeakSampler`.
+- **`Machinery/`**: `OnOffConsumer`, `PeakSampler` (the crane and cable moved to `Ship6DOF`).
 - **`Thermal/`**: heat transfer + solar + moist air — `PlateTransient`,
   `CylinderTransient`, `SimpleAirExchanger`, `ConvRadSunWall`, `TemperatureDataset`,
   `DewTemperature`, `SolarIrradiation`, `IrradiationOnPlane`, `SunScreen`. Also
@@ -185,6 +186,8 @@ can collide with new code.
 - **Reading kinematics inside a force component works without sensors:** `MultibodyComponents.resolve2(frame_a.R, der(frame_a.r_0))` and `MultibodyComponents.angular_velocity2(frame_a.R)`. MTK also accepts `der()` of those algebraic velocities for added-mass terms (`-Δ mx der(u)`); the resulting acceleration loop is handled by structural simplification (turning circle: ~800 steps for 900 s).
 - **Array parameters with structural row counts** (`structural parameter n::Integer = 7; parameter T::Real[n, 2] = [[…], …]`) can be passed to a Julia helper (`draft_poly(T, x)`); `structural parameter PropModel::String` selects a Julia `Dict` entry (`wageningen_4q_ct(PropModel, beta)`).
 - **`BlockComponents.Tables.InterpolatedTable` with `DyadData.DyadInterpolationTable2D`** wants the Modelica `CombiTable2D` CSV layout (header row = axis-2 values, first column = axis-1 values) **with every cell parseable as Float64** — an integer-valued axis column makes the ND interpolator fail with `no method matching validate_size_u` (mixed `Vector{Int64}` / `Vector{Float64}` axes). Clamp the inputs to the tabulated range yourself; there is no extrapolation option.
+- **Driving a 3D `Revolute` with `RotationalComponents.Sources.Position`:** connect `drive.spline → joint.axis` and `drive.support → joint.support`, and use `ref_type = ReferenceType.Exact()` with a differentiable reference (e.g. a `SlewRateLimiter` output). `Filtered(f_crit = …)` on a revolute is structurally unbalanced (`ExtraVariablesSystemException … drive₊wˍt`). This is the servo pattern of `WingSail`, `POD4Q`, `Rudder` and `Crane`.
+- **Tension-only cable:** `extends MultibodyComponents.PartialLineForce` and set the scalar `f` (positive = tension); instantiate with `fixed_rotation_at_frame_b = true` so a `Body` with no orientation state can hang from it (see `Ship6DOF.Cable`, `CraneOperation`).
 - **Two same-named conditional subcomponents are not supported** (`prop = Propeller1Q() if !flag` / `prop = Propeller4Q() if flag`, the pattern MultibodyComponents' `Spring` uses internally): the compiler emits only the last declaration, and the other branch fails at build time with `prop not defined`. Write a separate assembly (`CrashStop` vs `StandardShip`) instead.
 - **Hysteresis without events:** a fast relay state `der(s) = (target - s)/T` whose `target` is an `ifelse` on the sign of `s` itself (see `ZigZagController`).
 - **Autopilots:** an `ifelse`-frozen integrator with a `clamp` on the output chatters at the saturation boundary (320k solver steps for 2400 s); `BlockComponents.Continuous.LimPID` with back-calculation anti-windup (`u_s` = wrapped course error, `u_m` = 0) takes 5k steps.

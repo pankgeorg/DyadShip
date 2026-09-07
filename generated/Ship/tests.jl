@@ -16,8 +16,6 @@ end
 
 
 @testset "`DyadShip.Ship`" begin
-include("AntiHeelingDemo_test.jl")
-include("AntiHeeling_test.jl")
 include("FullShipDisturbed_test.jl")
 include("FullShipFlettnerFavorableRender_test.jl")
 include("FullShipFlettnerOnlineRender_test.jl")

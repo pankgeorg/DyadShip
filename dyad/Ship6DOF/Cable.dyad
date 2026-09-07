@@ -1,0 +1,40 @@
+"""
+Tension-only elastic cable between two 3D frames, with a latching break.
+
+Port of `ShipSIM.SubComponents.Cable` on `MultibodyComponents.PartialLineForce`:
+the cable pulls its two frames together along the line joining them with
+`f = k (s - SetLength) + d der(s)` when it is longer than its unstretched
+length `SetLength` (an input, so a winch can pay it out), and carries no
+force when slack. It transmits no torque; set `fixed_rotation_at_frame_b =
+true` when a body without its own orientation states hangs from `frame_b`.
+
+The upstream break event (`when k (s - SetLength) > RotureStrength`) is
+realised as a latching relay state `intact` that decays to zero once the
+elastic tension exceeds `RotureStrength` and never recovers; the force is
+multiplied by it, so a broken cable goes slack within `T_break` seconds.
+"""
+component Cable
+  extends MultibodyComponents.PartialLineForce
+  "Unstretched length [m]"
+  SetLength = RealInput()
+  "Cable tension [N]"
+  Tension = RealOutput()
+  "Cable stiffness"
+  parameter k::TranslationalSpringConstant = 1e5
+  "Cable damping"
+  parameter d::TranslationalDampingConstant = 0
+  "Break tension; the cable parts when the elastic tension exceeds it"
+  parameter RotureStrength::Force = 1e12
+  "Time scale of the break relay"
+  parameter T_break::Time = 0.2
+  "1 while the cable is intact, 0 after it has parted"
+  variable intact::Real
+  "Elastic tension before the break check"
+  variable f_elastic::Force
+relations
+  initial intact = 1
+  f_elastic = ifelse(s > SetLength, k * (s - SetLength), 0)
+  der(intact) = (ifelse(intact > 0.5, ifelse(f_elastic > RotureStrength, 0, 1), 0) - intact) / T_break
+  f = intact * ifelse(s > SetLength, k * (s - SetLength) + d * der(s), 0)
+  Tension = f
+end

@@ -14,9 +14,10 @@ is the map.
 | Degrees of freedom | surge, sway, heave, roll, pitch, yaw | surge, sway, yaw |
 | Hydrostatics | draft-polynomial displacement, CoB, BM (upstream `ShipModelTh`) | none |
 | Hull forces | `HydrodynamicXYY` (MMG + added mass), `HydrodynamicZRP` | `HullMMG` (MMG, cross terms only) |
-| Propellers | `Propeller1Q` (full Wageningen B polynomial), `Propeller4Q` (14 four-quadrant Fourier sets) | quadratic-in-J fits |
-| Rudder | NACA 0012/0015 `Cl/Cd/Cm(α, Re)` tables, Söding slipstream and hull factors | quadratic fits |
-| Validated by | roll decay, speed trial, turning circle, rudder return, zig-zag, crash stop, autopilot transit (`scripts/validate_6dof.jl`) | autopilot transit, Flettner-rotor renders |
+| Propellers | `Propeller1Q` (full Wageningen B polynomial), `Propeller4Q` (14 four-quadrant Fourier sets, Burrill cavitation check), `POD4Q` (servo revolute + `Propeller4Q`) | quadratic-in-J fits |
+| Rudder | servo revolute, NACA 0012/0015 `Cl/Cd/Cm(α, Re)` tables, Söding slipstream and hull factors | quadratic fits |
+| Sails, deck gear | `WingSail` (servo revolute, tables), `AntiHeeling` (hysteresis relay, ramp, roll torque), `Crane` + `Cable` (two servo revolutes, tension-only cable with latching break) | — |
+| Validated by | roll decay, speed trial, turning circle, rudder return, zig-zag, crash stop, sail polar, four-sail ship with anti-heeling, pod turning circle, crane operation, autopilot transit (`scripts/validate_6dof.jl`) | autopilot transit, Flettner-rotor renders |
 
 The planar stack is kept because the Flettner-rotor work (CFD table, live
 WaterLily co-simulation, the three rendered transits) is built on it. Its
@@ -47,14 +48,14 @@ starboard down, positive trim is bow down. Wind and current directions are
 | `Ship.ShipWind` | `Ship6DOF.ShipWind`, planar `Ship.ShipWind` | Fujiwara regression |
 | `Propulsion.Propeller1Q` | `Ship6DOF.Propeller1Q`, planar `Propulsion.Propeller1Q` | 3D: exact Oosterveld & van Oossanen polynomial |
 | `Propulsion.Propeller4Q` | `Ship6DOF.Propeller4Q`, planar `Propulsion.Propeller4Q` | 3D: all 14 Fourier data sets; planar: mirrored 1Q |
-| `Propulsion.POD4Q` | planar `Propulsion.POD4Q` | first-order azimuth servo |
+| `Propulsion.POD4Q` | `Ship6DOF.POD4Q` | servo revolute, strut, internal `Propeller4Q` |
 | `Propulsion.Rudder` | `Ship6DOF.Rudder`, planar `Propulsion.Rudder` | 3D: 2D tables from `assets/naca*.csv` |
-| `AlternativePropulsion.WingSail` | planar `Propulsion.WingSail` | quadratic fits |
+| `AlternativePropulsion.WingSail` | `Ship6DOF.WingSail` | servo revolute, NACA tables, forces at the rotated quarter chord |
 | (new) | planar `Propulsion.FlettnerRotor`, `FlettnerRotorOnline` | WaterLily-derived Magnus coefficients |
 | `AutoPilot.SimpleAutoPilot` | `Ship.HeadingAutoPilot` (PI + throttle ramp), `Ship6DOF.WaypointAutopilot` (`LimPID`) | waypoint cycling dropped (no events) |
-| `AntiHeelingSystem.AntiHeeling`, `Tank` | `Ship.AntiHeeling`, `Ship.Tank` | smooth activation replaces hysteresis |
+| `AntiHeelingSystem.AntiHeeling`, `Tank` | `Ship6DOF.AntiHeeling`, `Ship.Tank` | hysteresis and ramp reproduced with a relay state and a slew-rate limiter |
 | `Machines.SimpleDieselEngine` | `Propulsion.SimpleDieselEngine` | tables inlined as `ifelse` |
-| `Machines.Crane`, `SubComponents.Cable` | `Machinery.Crane`, `Machinery.Cable` | 2D side view; closed-loop crane still fragile |
+| `Machines.Crane`, `SubComponents.Cable` | `Ship6DOF.Crane`, `Ship6DOF.Cable` | 3D; cable break as a latching relay instead of an event |
 | `Electrical.OnOffConsumer` | `Machinery.OnOffConsumer` | driven by a work signal instead of a random schedule |
 | `DataProcessing.PeakSampler` | `Machinery.PeakSampler` | continuous peak-hold |
 | `Others.Solar.*`, `Others.HeatTransfer.*`, `MoistAir.DewTemperature` | `Thermal.*` | see docstrings |
@@ -89,6 +90,11 @@ belongs in a Julia post-processor), `TriggerConsumer` / `StartGenerator`
   signs flipped and divided by 100.
 - `Propeller4Q` data set `B4_70_14` is assigned twice upstream (the second
   block zeroes rows 8–31); the port keeps the non-zero rows.
+- `Tank` drains the tank on the side the anti-heeling system moves ballast to;
+  the port fills it, consistent with the righting moment `AntiHeeling` applies.
+- `FourWingSails` upstream leaves the rudder fixed, so the ship weathercocks
+  into the wind and the sails stall; the port steers with `WaypointAutopilot`
+  and sheets the sails to 50°.
 
 ## Known limitations
 
@@ -100,6 +106,9 @@ belongs in a Julia post-processor), `TriggerConsumer` / `StartGenerator`
   for a stiffer hull.
 - No wave excitation, no shallow-water effects, no propeller transverse
   thrust in the crash stop.
-- Dyad has no discrete events: the zig-zag relay and the anti-heeling
-  controller are continuous approximations of hysteresis.
+- Dyad has no discrete events: the zig-zag relay, the anti-heeling
+  controller and the cable break are continuous relay approximations of
+  hysteresis and latching.
+- Pods, sails and the crane have no aerodynamic/hydrodynamic interaction
+  between units (no sail-sail interference, no pod-hull interaction).
 - Small-angle hydrostatics (about ±20° heel/trim), as upstream.

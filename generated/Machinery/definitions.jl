@@ -202,9 +202,5 @@ component.
 end
 
 
-include("Cable_definition.jl")
-include("CraneStaticLoad_definition.jl")
-include("CraneTransient_definition.jl")
-include("Crane_definition.jl")
 include("OnOffConsumer_definition.jl")
 include("PeakSampler_definition.jl")

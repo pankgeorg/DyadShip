@@ -21,6 +21,12 @@ astern manoeuvres. The four quadrants are selected by the signs of `V_a` and
 `n` through `atan2`; the Fourier series is periodic, so no branch logic is
 needed. Interface, hull coupling, slipstream outputs and the Harvald wake /
 thrust-deduction estimates are the same as `Propeller1Q`.
+
+The upstream Burrill cavitation check is included: `Thrust_Load` is the
+thrust loading on the projected blade area, `Cavitation_Number` the local
+cavitation number at 0.7 R for a hub `h_prop` below the surface, and
+`Cavitation_Warning` the ratio of the loading to the merchant-ship Burrill
+limit (above 1 means cavitation).
 """
 component Propeller4Q
   "Shaft connector"
@@ -42,6 +48,12 @@ component Propeller4Q
   Beta = RealOutput()
   ShaftPower = RealOutput()
   ThrustPower = RealOutput()
+  "Thrust loading coefficient on the projected blade area"
+  Thrust_Load = RealOutput()
+  "Cavitation number at 0.7 R"
+  Cavitation_Number = RealOutput()
+  "Thrust loading over the Burrill merchant-ship limit; > 1 means cavitation"
+  Cavitation_Warning = RealOutput()
 
   apparent = ApparentSpeedXY()
   force = MultibodyComponents.WorldForce(resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB(), render = false)
@@ -50,8 +62,14 @@ component Propeller4Q
   "Wageningen B-series four-quadrant propeller data set"
   structural parameter PropModel::String = "B4_70_1"
   parameter Diameter::Length = 4
-  "Expanded blade area ratio, used for the inertia estimate; match PropModel"
+  "Expanded blade area ratio, used for the inertia and cavitation estimates; match PropModel"
   parameter Ae_Ao::Real = 0.7
+  "Pitch ratio, used for the cavitation estimate; match PropModel"
+  parameter P_D::Real = 1
+  "Depth of the propeller hub below the waterline, for the cavitation check"
+  parameter h_prop::Length = 4
+  "Atmospheric pressure minus water vapour pressure [Pa]"
+  parameter p_atm_minus_pv::Real = 1.01325e5 - 2289.945
   parameter Density_Prop::Density = 7600
   "Propeller moment of inertia [kg m²]"
   parameter Inertia::Real = 0.0002744 * Ae_Ao * (Ae_Ao + 3) * Density_Prop * Diameter^5
@@ -83,6 +101,8 @@ component Propeller4Q
   variable r_x::Length
   variable V_x::Velocity
   variable Delta_r::Length
+  "Burrill cavitation limit for merchant ships"
+  variable CavitationLimit::Real
 relations
   connect(frame_a, apparent.frame_a, force.frame_b, torque.frame_b)
   apparent.WorldSpeed_x = Current_x
@@ -120,4 +140,9 @@ relations
   Delta_r = 0.15 * Rudder_distance * ((V_inf * r_inf^2 - Va * r_x^2) / (V_inf * r_inf^2 + Va * r_x^2))
   Propeller_flow_diameter = 2 * (r_x + Delta_r)
   Propeller_speed = (V_x - Va) * (r_x^2 / (r_x + Delta_r)^2) + Va
+
+  Thrust_Load = abs(T) / (0.5 * SeaDensity * Vr^2 * ((π * Diameter^2 * (1.067 - 0.229 * P_D)) / (4 * Ae_Ao)))
+  Cavitation_Number = (p_atm_minus_pv + SeaDensity * 9.80665 * h_prop) / (0.5 * SeaDensity * Vr^2)
+  CavitationLimit = ifelse(Cavitation_Number < 0.124, 0.075, ifelse(Cavitation_Number > 1.5, 0.338, -0.086514 * Cavitation_Number^4 + 0.33891 * Cavitation_Number^3 - 0.51222 * Cavitation_Number^2 + 0.5111 * Cavitation_Number + 0.018006))
+  Cavitation_Warning = Thrust_Load / CavitationLimit
 end

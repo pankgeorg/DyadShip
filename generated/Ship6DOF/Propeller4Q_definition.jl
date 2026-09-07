@@ -7,7 +7,7 @@
 import Moshi as __Ext__Moshi
 
 @doc Markdown.doc"""
-   Propeller4Q(; name, PropModel, Diameter, Ae_Ao, Density_Prop, Inertia, Add_Inertia, Lpp, B, Cb, Fa, Rudder_distance, SeaDensity, WakeFraction, ThrustDeduction)
+   Propeller4Q(; name, PropModel, Diameter, Ae_Ao, P_D, h_prop, p_atm_minus_pv, Density_Prop, Inertia, Add_Inertia, Lpp, B, Cb, Fa, Rudder_distance, SeaDensity, WakeFraction, ThrustDeduction)
 
 Wageningen B-series four-quadrant propeller on a 3D frame.
 
@@ -32,13 +32,22 @@ astern manoeuvres. The four quadrants are selected by the signs of `V_a` and
 needed. Interface, hull coupling, slipstream outputs and the Harvald wake /
 thrust-deduction estimates are the same as `Propeller1Q`.
 
+The upstream Burrill cavitation check is included: `Thrust_Load` is the
+thrust loading on the projected blade area, `Cavitation_Number` the local
+cavitation number at 0.7 R for a hub `h_prop` below the surface, and
+`Cavitation_Warning` the ratio of the loading to the merchant-ship Burrill
+limit (above 1 means cavitation).
+
 ## Parameters:
 
 | Name         | Description                         | Units  |   Default value |
 | ------------ | ----------------------------------- | ------ | --------------- |
 | `PropModel`         | Wageningen B-series four-quadrant propeller data set                         | --  |   "B4_70_1" |
 | `Diameter`         |                          | m  |   4 |
-| `Ae_Ao`         | Expanded blade area ratio, used for the inertia estimate; match PropModel                         | --  |   0.7 |
+| `Ae_Ao`         | Expanded blade area ratio, used for the inertia and cavitation estimates; match PropModel                         | --  |   0.7 |
+| `P_D`         | Pitch ratio, used for the cavitation estimate; match PropModel                         | --  |   1 |
+| `h_prop`         | Depth of the propeller hub below the waterline, for the cavitation check                         | m  |   4 |
+| `p_atm_minus_pv`         | Atmospheric pressure minus water vapour pressure [Pa]                         | --  |   1.01325e5 - 2289.945 |
 | `Density_Prop`         |                          | kg/m3  |   7600 |
 | `Inertia`         | Propeller moment of inertia [kg m²]                         | --  |   0.0002744 *...iameter ^ 5 |
 | `Add_Inertia`         | Entrained-water moment of inertia [kg m²]                         | --  |   0.3 * Inertia |
@@ -67,6 +76,9 @@ connectors that can be connected together ([`Frame3D`](@ref))
  * `Beta` - This connector represents a real signal as an output from a component ([`RealOutput`](@ref))
  * `ShaftPower` - This connector represents a real signal as an output from a component ([`RealOutput`](@ref))
  * `ThrustPower` - This connector represents a real signal as an output from a component ([`RealOutput`](@ref))
+ * `Thrust_Load` - This connector represents a real signal as an output from a component ([`RealOutput`](@ref))
+ * `Cavitation_Number` - This connector represents a real signal as an output from a component ([`RealOutput`](@ref))
+ * `Cavitation_Warning` - This connector represents a real signal as an output from a component ([`RealOutput`](@ref))
 
 ## Variables
 
@@ -86,8 +98,9 @@ connectors that can be connected together ([`Frame3D`](@ref))
 | `r_x`         |                          | m  |
 | `V_x`         |                          | m/s  |
 | `Delta_r`         |                          | m  |
+| `CavitationLimit`         | Burrill cavitation limit for merchant ships                         | --  |
 """
-@component function Propeller4Q(; name = nothing, PropModel="B4_70_1", Diameter=Float64(4), Ae_Ao=0.7, Density_Prop=Float64(7600), Lpp=Float64(100), B=Float64(20), Cb=0.693, Fa=Float64(-2), SeaDensity=Float64(1025), Rudder_distance=Diameter * 1.2, Inertia=0.0002744 * Ae_Ao * (Ae_Ao + 3) * Density_Prop * Diameter ^ 5, WakeFraction=0.1 * B / Lpp + 0.149 + (((0.05 * B) / Lpp) + 0.449) / ((585 - 5027 * B / Lpp + 11700 * ((B / Lpp) ^ 2)) * (0.98 - Cb) ^ 3 + 1) + 0.025 * Fa / (100 * (Cb - 0.7) ^ 2 + 1) - 0.18 + (0.00756 / ((Diameter / Lpp) + 0.002)), ThrustDeduction=(0.625 * B / Lpp + 0.08) + (0.165 - 0.25 * B / Lpp) / ((525 - 8060 * B / Lpp + 20300 * (B / Lpp) ^ 2) * (0.98 - Cb) ^ 3 + 1) - 0.01 * Fa + 2 * (Diameter / Lpp - 0.04), Add_Inertia=0.3 * Inertia, kwargs...)
+@component function Propeller4Q(; name = nothing, PropModel="B4_70_1", Diameter=Float64(4), Ae_Ao=0.7, P_D=Float64(1), h_prop=Float64(4), p_atm_minus_pv=101325.0 - 2289.945, Density_Prop=Float64(7600), Lpp=Float64(100), B=Float64(20), Cb=0.693, Fa=Float64(-2), SeaDensity=Float64(1025), Rudder_distance=Diameter * 1.2, Inertia=0.0002744 * Ae_Ao * (Ae_Ao + 3) * Density_Prop * Diameter ^ 5, WakeFraction=0.1 * B / Lpp + 0.149 + (((0.05 * B) / Lpp) + 0.449) / ((585 - 5027 * B / Lpp + 11700 * ((B / Lpp) ^ 2)) * (0.98 - Cb) ^ 3 + 1) + 0.025 * Fa / (100 * (Cb - 0.7) ^ 2 + 1) - 0.18 + (0.00756 / ((Diameter / Lpp) + 0.002)), ThrustDeduction=(0.625 * B / Lpp + 0.08) + (0.165 - 0.25 * B / Lpp) / ((525 - 8060 * B / Lpp + 20300 * (B / Lpp) ^ 2) * (0.98 - Cb) ^ 3 + 1) - 0.01 * Fa + 2 * (Diameter / Lpp - 0.04), Add_Inertia=0.3 * Inertia, kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -122,8 +135,17 @@ connectors that can be connected together ([`Frame3D`](@ref))
   append!(__params, @parameters (Diameter::Real))
   __initial_conditions[Diameter] = __local__Diameter
   __local__Ae_Ao = Ae_Ao
-  append!(__params, @parameters (Ae_Ao::Real), [description = "Expanded blade area ratio, used for the inertia estimate; match PropModel"])
+  append!(__params, @parameters (Ae_Ao::Real), [description = "Expanded blade area ratio, used for the inertia and cavitation estimates; match PropModel"])
   __initial_conditions[Ae_Ao] = __local__Ae_Ao
+  __local__P_D = P_D
+  append!(__params, @parameters (P_D::Real), [description = "Pitch ratio, used for the cavitation estimate; match PropModel"])
+  __initial_conditions[P_D] = __local__P_D
+  __local__h_prop = h_prop
+  append!(__params, @parameters (h_prop::Real), [description = "Depth of the propeller hub below the waterline, for the cavitation check"])
+  __initial_conditions[h_prop] = __local__h_prop
+  __local__p_atm_minus_pv = p_atm_minus_pv
+  append!(__params, @parameters (p_atm_minus_pv::Real), [description = "Atmospheric pressure minus water vapour pressure [Pa]"])
+  __initial_conditions[p_atm_minus_pv] = __local__p_atm_minus_pv
   __local__Density_Prop = Density_Prop
   append!(__params, @parameters (Density_Prop::Real), [bounds = (0, Inf)])
   __initial_conditions[Density_Prop] = __local__Density_Prop
@@ -172,6 +194,9 @@ connectors that can be connected together ([`Frame3D`](@ref))
   append!(__vars, @variables (Beta(t)::Real), [output = true])
   append!(__vars, @variables (ShaftPower(t)::Real), [output = true])
   append!(__vars, @variables (ThrustPower(t)::Real), [output = true])
+  append!(__vars, @variables (Thrust_Load(t)::Real), [output = true])
+  append!(__vars, @variables (Cavitation_Number(t)::Real), [output = true])
+  append!(__vars, @variables (Cavitation_Warning(t)::Real), [output = true])
 
   ### Variables (declarations)
   append!(__vars, @variables (w(t)::Real))
@@ -188,6 +213,7 @@ connectors that can be connected together ([`Frame3D`](@ref))
   append!(__vars, @variables (r_x(t)::Real))
   append!(__vars, @variables (V_x(t)::Real))
   append!(__vars, @variables (Delta_r(t)::Real))
+  append!(__vars, @variables (CavitationLimit(t)::Real), [description = "Burrill cavitation limit for merchant ships"])
 
   ### Variables (assignments)
   __ovr_w = pop!(__overrides, "w", nothing); isnothing(__ovr_w) || push!(__eqs, w ~ __ovr_w)
@@ -232,6 +258,9 @@ connectors that can be connected together ([`Frame3D`](@ref))
   __ovr_Delta_r = pop!(__overrides, "Delta_r", nothing); isnothing(__ovr_Delta_r) || push!(__eqs, Delta_r ~ __ovr_Delta_r)
   __ovr_Delta_r__initial = pop!(__overrides, "Delta_r__initial", nothing); isnothing(__ovr_Delta_r__initial) || (__initial_conditions[Delta_r] = __ovr_Delta_r__initial)
   __ovr_Delta_r__guess = pop!(__overrides, "Delta_r__guess", nothing)
+  __ovr_CavitationLimit = pop!(__overrides, "CavitationLimit", nothing); isnothing(__ovr_CavitationLimit) || push!(__eqs, CavitationLimit ~ __ovr_CavitationLimit)
+  __ovr_CavitationLimit__initial = pop!(__overrides, "CavitationLimit__initial", nothing); isnothing(__ovr_CavitationLimit__initial) || (__initial_conditions[CavitationLimit] = __ovr_CavitationLimit__initial)
+  __ovr_CavitationLimit__guess = pop!(__overrides, "CavitationLimit__guess", nothing)
 
   ### Constants
   __constants = Any[]
@@ -267,6 +296,7 @@ connectors that can be connected together ([`Frame3D`](@ref))
   isnothing(__ovr_r_x__guess) || (__guesses[r_x] = __ovr_r_x__guess)
   isnothing(__ovr_V_x__guess) || (__guesses[V_x] = __ovr_V_x__guess)
   isnothing(__ovr_Delta_r__guess) || (__guesses[Delta_r] = __ovr_Delta_r__guess)
+  isnothing(__ovr_CavitationLimit__guess) || (__guesses[CavitationLimit] = __ovr_CavitationLimit__guess)
 
   ### Initialization Equations
 
@@ -306,6 +336,10 @@ connectors that can be connected together ([`Frame3D`](@ref))
   push!(__eqs, Delta_r ~ 0.15 * Rudder_distance * ((V_inf * r_inf ^ 2 - Va * r_x ^ 2) / (V_inf * r_inf ^ 2 + Va * r_x ^ 2)))
   push!(__eqs, Propeller_flow_diameter ~ 2 * (r_x + Delta_r))
   push!(__eqs, Propeller_speed ~ (V_x - Va) * (r_x ^ 2 / (r_x + Delta_r) ^ 2) + Va)
+  push!(__eqs, Thrust_Load ~ abs(T) / (0.5 * SeaDensity * Vr ^ 2 * ((π * Diameter ^ 2 * (1.067 - 0.229 * P_D)) / (4 * Ae_Ao))))
+  push!(__eqs, Cavitation_Number ~ (p_atm_minus_pv + SeaDensity * 9.80665 * h_prop) / (0.5 * SeaDensity * Vr ^ 2))
+  push!(__eqs, CavitationLimit ~ ifelse(Cavitation_Number < 0.124, 0.075, ifelse(Cavitation_Number > 1.5, 0.338, -0.086514 * Cavitation_Number ^ 4 + 0.33891 * Cavitation_Number ^ 3 - 0.51222 * Cavitation_Number ^ 2 + 0.5111 * Cavitation_Number + 0.018006)))
+  push!(__eqs, Cavitation_Warning ~ Thrust_Load / CavitationLimit)
   push!(__eqs, connect(frame_a, apparent.frame_a, force.frame_b, torque.frame_b))
 
   # Return completely constructed System

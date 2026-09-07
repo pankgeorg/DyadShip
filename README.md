@@ -23,6 +23,10 @@ The primary stack mirrors ShipSIM's architecture on `Frame3D` connectors:
 | `Propeller1Q` / `Propeller4Q` | Wageningen B-series open-water characteristics: the full Oosterveld & van Oossanen polynomial, or the 14 four-quadrant Fourier data sets for astern and crash-stop work. Both feed the rudder with Brix's slipstream model. |
 | `Rudder` | Steering-gear angle and rate limits, NACA 0012/0015 `Cl/Cd/Cm(α, Re)` tables (`assets/naca*.csv`), flow straightening, Söding slipstream and hull-interaction factors. |
 | `ShipWind` | Fujiwara superstructure wind loads at the centre of the lateral area. |
+| `WingSail` | Rigid wing sail on a servo-driven mast revolute, NACA tables, forces at the quarter chord of the rotated sail. |
+| `POD4Q` | Azimuthing pod: servo revolute, strut and an internal `Propeller4Q` that reads its own advance speed. |
+| `AntiHeeling` | Hysteresis pump controller, ramped flow, righting moment applied as a roll torque. |
+| `Crane` / `Cable` | Slewing and luffing revolutes on position servos, boom, tension-only cable with a latching break; loads react into the hull. |
 | `ApparentSpeedXY` | Frame-based apparent wind / current sensor. |
 | `WaypointAutopilot` | `LimPID` heading autopilot with throttle ramp. |
 | `StandardShip` | The ShipSIM sample hull (100 m, 5681 t) with propeller, rudder and hydrodynamics wired up; the manoeuvring analyses extend it. |
@@ -42,6 +46,11 @@ figures in `assets/ship6dof_*.png`. Results for the sample hull (rudder rate
 | `ZigZagTransient` (20/20) | overshoot angles 32°, 31°, 27° |
 | `CrashStopTransient` | 110 rpm ahead to 80 rpm astern: stopped after 287 s, head reach 9.9 L |
 | `FullShip6DOFTransient` | 10 km waypoint transit in a 10 m/s wind from the north-east: arrives at 1768 s holding a 3.8° rudder offset and 0.2° heel |
+| `WingSailSweepTransient` | one sail in a 10 m/s beam wind: peak forward thrust 12 kN at a 15° attack angle |
+| `FourWingSailsTransient` | four sails, 15 m/s from the port beam, autopilot holding course: 7.17 m/s at 100 rpm against 6.05 m/s without sails, 29 kN sail thrust, 1.2° heel |
+| `FourWingSailsAHTransient` | same with the anti-heeling system enabled at 300 s: heel back to zero by 750 s, tank levels 65 % port / 25 % starboard |
+| `PodTurningCircleTransient` | 35° pod azimuth: steady radius 1.0 L at 2.1 m/s, no cavitation |
+| `CraneOperationTransient` | 50 t load luffed, slewed 90° to port and lowered: ship heels to 2.1°, cable tension 490 kN |
 
 ![Turning circle](assets/ship6dof_turning_circle.png)
 
@@ -56,9 +65,10 @@ parameters for interactive (WASM) use.
 ## Planar stack and Flettner rotor
 
 `dyad/Ship` and `dyad/Propulsion` hold the earlier `PlanarMechanics`
-(surge/sway/yaw) port: `HullMMG`, `Rudder`, `Propeller1Q/4Q`, `POD4Q`,
-`WingSail`, `ShipWind`, `HeadingAutoPilot`, `ManualShip`, the `FullShip*`
-transits and the Flettner-rotor propulsor. Two sign errors in it were fixed
+(surge/sway/yaw) port: `HullMMG`, `Rudder`, `Propeller1Q/4Q`, `ShipWind`,
+`HeadingAutoPilot`, `ManualShip`, the `FullShip*` transits and the
+Flettner-rotor propulsor. The planar wing sail, pod, crane, cable and
+anti-heeling components were replaced by the 3D versions. Two sign errors in it were fixed
 in this pass (rudder inflow angle, wind lateral force and moment); its
 analyses still use a hull mass well below the sample ship's displacement, so
 prefer `Ship6DOF` for manoeuvring studies.
@@ -126,7 +136,7 @@ heading_deg = rad2deg.(res.sol[m.ship.Yaw])
 - `dyad/Ship6DOF/` — 6-DOF ship stack, analyses, `definitions.jl` (Wageningen
   polynomials, four-quadrant Fourier sets, draft polynomials).
 - `dyad/Ship/`, `dyad/Propulsion/` — planar stack, Flettner rotor, transits.
-- `dyad/Machinery/` — crane, cable, on-off consumer, peak sampler.
+- `dyad/Machinery/` — on-off consumer, peak sampler.
 - `dyad/Thermal/` — solar irradiation, sun screen, plate and cylinder
   transients, temperature dataset, dew point, air exchanger.
 - `dyad/Environment.dyad`, `VariableEnvironment.dyad`, `ApparentSpeedXY.dyad` —

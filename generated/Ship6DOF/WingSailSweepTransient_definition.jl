@@ -8,11 +8,11 @@ using DyadInterface
 using DyadInterface: ODEAlg, DEVerbosity, OptimizationLevel
 using ModelingToolkit: SymbolicT, toggle_namespacing
 using DyadInterface: AbstractTransientAnalysisSpec, TransientAnalysisSpec
-@kwdef mutable struct AntiHeelingTransientSpec <: AbstractTransientAnalysisSpec
-  name::Symbol = :AntiHeelingTransient
+@kwdef mutable struct WingSailSweepTransientSpec <: AbstractTransientAnalysisSpec
+  name::Symbol = :WingSailSweepTransient
   var"alg"::ODEAlg.Type = ODEAlg.Auto()
   var"start"::Float64 = 0
-  var"stop"::Float64 = 60.0
+  var"stop"::Float64 = 185.0
   var"abstol"::Float64 = 0.000001
   var"reltol"::Float64 = 0.000001
   var"saveat"::Float64 = 0
@@ -24,17 +24,14 @@ using DyadInterface: AbstractTransientAnalysisSpec, TransientAnalysisSpec
   var"respecialize"::Bool = false
   var"verbose"::DEVerbosity.Type = DEVerbosity.Standard()
   var"log_file"::String = ""
-  # Anti-heeling system response to a step heel input. After the startup delay (5 s),
-  # a sustained 0.2° heel input pushes the AntiHeeling system to ramp the pump and the
-  # internal `M_tks` integrator toward the saturation `M_max`. The connected `Tank`
-  # fills/drains accordingly.
-  # 
-  # This analysis exercises both `AntiHeeling` and `Tank` together, with the AH system
-  # seeing the ship heel and driving the pump that fills the Tank.
-  var"model"::Union{Nothing, System} = DyadShip.Ship.AntiHeelingDemo(; name=:AntiHeelingDemo)
+  # Wing sail on a fixed mount in a 10 m/s beam wind from port, swept through
+  # sail angles from -90° to +90° at the servo's 1 °/s rate limit. `sail.Lift`,
+  # `sail.Drag` and the resulting forward force on the mount trace the sail's
+  # polar; the forward force peaks where the attack angle sits just below stall.
+  var"model"::Union{Nothing, System} = DyadShip.Ship6DOF.WingSailSweep(; name=:WingSailSweep)
 end
 
-function DyadInterface.run_analysis(spec::AntiHeelingTransientSpec)
+function DyadInterface.run_analysis(spec::WingSailSweepTransientSpec)
   overrides = Dict{SymbolicT, SymbolicT}()
   no_namespace_model = toggle_namespacing(spec.model, false)
   
@@ -44,5 +41,5 @@ function DyadInterface.run_analysis(spec::AntiHeelingTransientSpec)
   run_analysis(base_spec)
 end
 
-AntiHeelingTransient(;kwargs...) = run_analysis(AntiHeelingTransientSpec(;kwargs...))
-export AntiHeelingTransient, AntiHeelingTransientSpec
+WingSailSweepTransient(;kwargs...) = run_analysis(WingSailSweepTransientSpec(;kwargs...))
+export WingSailSweepTransient, WingSailSweepTransientSpec

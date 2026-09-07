@@ -16,9 +16,6 @@ end
 
 
 @testset "`DyadShip.Machinery`" begin
-include("Cable_test.jl")
-include("CraneStaticLoad_test.jl")
-include("Crane_test.jl")
 include("OnOffConsumer_test.jl")
 include("PeakSampler_test.jl")
 end

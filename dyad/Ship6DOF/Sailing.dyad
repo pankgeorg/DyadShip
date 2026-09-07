@@ -1,0 +1,114 @@
+"""
+Wing sail on a fixed mount in a 10 m/s beam wind from port, swept through
+sail angles from -90° to +90° at the servo's 1 °/s rate limit. `sail.Lift`,
+`sail.Drag` and the resulting forward force on the mount trace the sail's
+polar; the forward force peaks where the attack angle sits just below stall.
+"""
+test component WingSailSweep
+  world = MultibodyComponents.World(n = [0, 0, -1], render = false, nominal_length = 20)
+  mount = MultibodyComponents.Fixed(render = false)
+  sail = WingSail()
+  "Force on the mount along x, i.e. the sail's forward thrust"
+  variable thrust::Force
+relations
+  connect(mount.frame_b, sail.frame_a)
+  sail.Wind_x = 0
+  sail.Wind_y = -10
+  sail.Sail_Order = -90 + time
+  thrust = -mount.frame_b.f[1]
+end
+
+analysis WingSailSweepTransient
+  extends TransientAnalysis(stop = 185.0)
+  model = WingSailSweep()
+end
+
+"""
+Four wing sails on the standard ship in a 15 m/s wind, after
+`ShipSIM.Examples.Sailing.FourWingSails`. The sails stand on the centreline
+at 20, 40, 60 and 80 m from the aft perpendicular, 18 m above the keel, all
+sheeted to `sail_angle`. The ship holds 100 rpm and a `WaypointAutopilot`
+keeps it heading east against the sail and wind yaw moments (upstream leaves
+the rudder fixed and the ship weathercocks into the wind). The sails add
+forward thrust on top of the propeller (compare `ship.Surge` with the 6.05 m/s
+of `SpeedTrial`), a lateral force and a heeling moment (`ship.Heel`); the
+superstructure wind load acts through `ShipWind`.
+"""
+test component FourWingSails
+  extends StandardShip(U0 = 7)
+  parameter rpm::Real = 100
+  "Sail angle order [deg]"
+  parameter sail_angle::Real = 50
+  parameter wind_speed::Velocity = 15
+  "Direction the wind comes from [deg], 0 = north (+y, the port beam at heading 0)"
+  parameter wind_direction::Real = 0
+  env = DyadShip.Environment(WindSpeed = wind_speed, WindDirection = wind_direction)
+  wind = ShipWind()
+  pilot = WaypointAutopilot(Throttle_full_dist = 2000, Throttle_off_dist = 1000)
+  sail_pos1 = MultibodyComponents.FixedTranslation(r = [20, 0, 18], render = false)
+  sail_pos2 = MultibodyComponents.FixedTranslation(r = [40, 0, 18], render = false)
+  sail_pos3 = MultibodyComponents.FixedTranslation(r = [60, 0, 18], render = false)
+  sail_pos4 = MultibodyComponents.FixedTranslation(r = [80, 0, 18], render = false)
+  sail1 = WingSail()
+  sail2 = WingSail()
+  sail3 = WingSail()
+  sail4 = WingSail()
+relations
+  connect(ship.frame_a, wind.frame_a, sail_pos1.frame_a, sail_pos2.frame_a, sail_pos3.frame_a, sail_pos4.frame_a)
+  connect(sail_pos1.frame_b, sail1.frame_a)
+  connect(sail_pos2.frame_b, sail2.frame_a)
+  connect(sail_pos3.frame_b, sail3.frame_a)
+  connect(sail_pos4.frame_b, sail4.frame_a)
+  wind.Wind_x = env.WindVector[1]
+  wind.Wind_y = env.WindVector[2]
+  sail1.Wind_x = env.WindVector[1]
+  sail1.Wind_y = env.WindVector[2]
+  sail2.Wind_x = env.WindVector[1]
+  sail2.Wind_y = env.WindVector[2]
+  sail3.Wind_x = env.WindVector[1]
+  sail3.Wind_y = env.WindVector[2]
+  sail4.Wind_x = env.WindVector[1]
+  sail4.Wind_y = env.WindVector[2]
+  sail1.Sail_Order = sail_angle
+  sail2.Sail_Order = sail_angle
+  sail3.Sail_Order = sail_angle
+  sail4.Sail_Order = sail_angle
+  pilot.pos_x = ship.pos_x
+  pilot.pos_y = ship.pos_y
+  pilot.psi = ship.Yaw
+  pilot.target_x = 1e5
+  pilot.target_y = 0
+  rudder_order = pilot.rudder
+  shaft_rpm = rpm
+end
+
+analysis FourWingSailsTransient
+  extends TransientAnalysis(stop = 600.0)
+  model = FourWingSails()
+end
+
+"""
+`FourWingSails` with the anti-heeling system, after
+`ShipSIM.Examples.Sailing.FourWingSailsAH`. The system is held off for the
+first `antiheeling.startup_delay` seconds, so the run first shows the sail
+heel and then the pump transferring ballast until the heel is inside the
+band; the two `Tank` models track the levels.
+"""
+test component FourWingSailsAH
+  extends FourWingSails()
+  antiheeling = AntiHeeling(B = 20, b = 4, V_tk = 100, startup_delay = 300)
+  tank_port = DyadShip.Ship.Tank(CoG_trans = 8, V = 100)
+  tank_starboard = DyadShip.Ship.Tank(CoG_trans = -8, V = 100)
+relations
+  connect(ship.frame_a, antiheeling.frame_a)
+  antiheeling.ship_heel = ship.Heel * 180 / π
+  tank_port.M_input = antiheeling.heel_out
+  tank_port.Q_input = antiheeling.pump_flow
+  tank_starboard.M_input = antiheeling.heel_out
+  tank_starboard.Q_input = antiheeling.pump_flow
+end
+
+analysis FourWingSailsAHTransient
+  extends TransientAnalysis(stop = 900.0)
+  model = FourWingSailsAH()
+end

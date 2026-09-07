@@ -1,0 +1,80 @@
+"""
+Deck crane: slewing pedestal, luffing boom and a cable to the hook, in 3D.
+
+Port of `ShipSIM.Components.Machines.Crane` on `MultibodyComponents`.
+`frame_a` is the crane base on the deck. A `FixedTranslation` raises the
+slewing bearing by `PedestalHeight`; a `Revolute` about the local z axis
+(slewing, `PedestalSetAngle` from the ship's x axis) and a `Revolute` about
+the local y axis (luffing, `BoomSetAngle` from vertical, positive towards
++x) are each driven by a `RotationalComponents.Sources.Position` on a
+rate-limited order (`PedestalSpeed`, `BoomSpeed`). The boom is a
+`FixedTranslation` of `BoomLength` along the luffed z axis, and a `Cable`
+with unstretched length `CableLength` connects the boom tip to `frame_b`,
+the hook. Hang a `MultibodyComponents.Body` from `frame_b`: the cable fixes
+the hook orientation, so the body needs no orientation states of its own.
+
+Every reaction (load weight, pendulum swing, slewing inertia) flows back
+into `frame_a`, so a crane on a `ShipBody` heels and trims the ship.
+"""
+component Crane
+  "Crane base on the deck"
+  frame_a = Frame3D()
+  "Hook"
+  frame_b = Frame3D()
+  "Boom angle order from vertical [deg], positive towards +x"
+  BoomSetAngle = RealInput()
+  "Pedestal slew order from the x axis [deg], positive counter-clockwise seen from above"
+  PedestalSetAngle = RealInput()
+  "Unstretched cable length order [m]"
+  CableLength = RealInput()
+  "Actual boom angle [deg]"
+  BoomAngle = RealOutput()
+  "Actual pedestal angle [deg]"
+  PedestalAngle = RealOutput()
+  "Cable tension [N]"
+  CableTension = RealOutput()
+
+  pedestal = MultibodyComponents.FixedTranslation(r = [0, 0, PedestalHeight], render = render)
+  slew = MultibodyComponents.Revolute(n = [0, 0, 1], render = false)
+  slew_drive = RotationalComponents.Sources.Position(ref_type = RotationalComponents.Sources.ReferenceType.Exact())
+  slew_rate = BlockComponents.Nonlinear.SlewRateLimiter(rising = PedestalSpeed, td = 0.05)
+  luff = MultibodyComponents.Revolute(n = [0, 1, 0], render = false)
+  luff_drive = RotationalComponents.Sources.Position(ref_type = RotationalComponents.Sources.ReferenceType.Exact())
+  luff_rate = BlockComponents.Nonlinear.SlewRateLimiter(rising = BoomSpeed, td = 0.05)
+  boom = MultibodyComponents.FixedTranslation(r = [0, 0, BoomLength], render = render)
+  cable = Cable(k = Cable_k, d = Cable_d, RotureStrength = CableRotureStrength, fixed_rotation_at_frame_b = true)
+
+  parameter PedestalHeight::Length = 2
+  parameter BoomLength::Length = 6
+  "Pedestal slew rate limit [deg/s]"
+  parameter PedestalSpeed::Real = 2
+  "Boom luffing rate limit [deg/s]"
+  parameter BoomSpeed::Real = 4
+  "Cable stiffness"
+  parameter Cable_k::TranslationalSpringConstant = 2e5
+  "Cable damping"
+  parameter Cable_d::TranslationalDampingConstant = 2e3
+  "Cable break tension"
+  parameter CableRotureStrength::Force = 5e5
+  parameter render::Boolean = false
+relations
+  connect(PedestalSetAngle, slew_rate.u)
+  connect(BoomSetAngle, luff_rate.u)
+  PedestalAngle = slew_rate.y
+  BoomAngle = luff_rate.y
+  slew_drive.phi_ref = PedestalAngle * π / 180
+  luff_drive.phi_ref = BoomAngle * π / 180
+  connect(slew_drive.spline, slew.axis)
+  connect(slew_drive.support, slew.support)
+  connect(luff_drive.spline, luff.axis)
+  connect(luff_drive.support, luff.support)
+
+  connect(frame_a, pedestal.frame_a)
+  connect(pedestal.frame_b, slew.frame_a)
+  connect(slew.frame_b, luff.frame_a)
+  connect(luff.frame_b, boom.frame_a)
+  connect(boom.frame_b, cable.frame_a)
+  connect(cable.frame_b, frame_b)
+  connect(CableLength, cable.SetLength)
+  CableTension = cable.Tension
+end

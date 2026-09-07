@@ -9,8 +9,5 @@ if isfile(joinpath((@__DIR__) |> Base.dirname |> Base.dirname, "dyad", "Machiner
 end
 
 
-include("Cable_experiment.jl")
-include("CraneStaticLoad_experiment.jl")
-include("Crane_experiment.jl")
 include("OnOffConsumer_experiment.jl")
 include("PeakSampler_experiment.jl")

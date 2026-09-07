@@ -9,8 +9,6 @@ if isfile(joinpath((@__DIR__) |> Base.dirname |> Base.dirname, "dyad", "Ship", "
 end
 
 
-include("AntiHeelingDemo_experiment.jl")
-include("AntiHeeling_experiment.jl")
 include("FullShipDisturbed_experiment.jl")
 include("FullShipFlettnerFavorableRender_experiment.jl")
 include("FullShipFlettnerOnlineRender_experiment.jl")

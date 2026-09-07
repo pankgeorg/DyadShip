@@ -1,0 +1,86 @@
+"""
+Anti-heeling system applying its righting moment to a 3D hull frame.
+
+Port of `ShipSIM.Components.AntiHeelingSystem.AntiHeeling`. The controller
+is the upstream hysteresis: the pump starts when `|heel|` exceeds
+`max_angle` and stops again only when the heel has returned below
+`off_angle`, realised as a latching relay state (Dyad has no events). The
+pump flow then ramps to `Q` over `ramp_time` seconds, the upstream
+triggered trapezoid, through a `BlockComponents` slew-rate limiter. The
+pump is held off before `startup_delay`.
+
+The transferred moment `M_tks` integrates the pump flow times the liquid
+density and the tank separation `B - b`, saturating at the moment the
+overflow volume `0.4 V_tk` can produce, and is applied as a roll moment
+`-M_adr g` on `frame_a` by a `WorldTorque` in the ship frame, so a
+`ShipBody` rights itself against a steady heeling load. `heel_out` and
+`pump_flow` feed `DyadShip.Ship.Tank` models for the tank levels.
+"""
+component AntiHeeling
+  frame_a = Frame3D()
+  "Ship heel [deg], positive starboard down"
+  ship_heel = RealInput()
+  "Pump flow [m³/h]"
+  pump_flow = RealOutput()
+  "Righting moment from the system [t m]"
+  M_adr = RealOutput()
+  "Heel passed on to the tank models [deg]"
+  heel_out = RealOutput()
+  "1 while the pump is commanded on"
+  pump_on = RealOutput()
+
+  ramp = BlockComponents.Nonlinear.SlewRateLimiter(rising = Q / ramp_time, td = 0.05)
+  torque = MultibodyComponents.WorldTorque(resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB())
+
+  "Ship design beam"
+  parameter B::Length = 24.3
+  "Anti-heeling tank beam"
+  parameter b::Length = 6.35
+  "Volume of each tank [m³]"
+  parameter V_tk::Real = 211.47
+  "Liquid density [t/m³]"
+  parameter rho::Real = 1.025
+  "Pump capacity [m³/h]"
+  parameter Q::Real = 200
+  "Heel at which the pump starts [deg]"
+  parameter max_angle::Real = 0.1
+  "Heel below which the pump stops [deg]"
+  parameter off_angle::Real = 0.001
+  "Ramp-up time of the pump flow [s]"
+  parameter ramp_time::Time = 10
+  "Pump is held off before this time [s]"
+  parameter startup_delay::Time = 500
+  "Time scale of the on/off relay"
+  parameter T_relay::Time = 0.5
+  parameter g::Acceleration = 9.80665
+
+  "Relay state, 1 = pump commanded on"
+  variable on::Real
+  "Moment produced by the tanks [t m]"
+  variable M_tks::Real
+  "Maximum overflow volume [m³]"
+  variable v_max::Real
+  "Maximum moment the tanks can produce [t m]"
+  variable M_max::Real
+  "Smooth sign of the heel"
+  variable sgn::Real
+relations
+  connect(frame_a, torque.frame_b)
+  initial on = 0
+  initial M_tks = 0
+  heel_out = ship_heel
+  der(on) = (ifelse(time < startup_delay, 0, ifelse(on > 0.5, ifelse(abs(ship_heel) < off_angle, 0, 1), ifelse(abs(ship_heel) > max_angle, 1, 0))) - on) / T_relay
+  pump_on = on
+  ramp.u = Q * clamp(on, 0, 1)
+  pump_flow = ramp.y
+
+  v_max = V_tk * 0.40
+  M_max = rho * v_max * (B - b)
+  sgn = ship_heel / sqrt(ship_heel^2 + 1e-6)
+  der(M_tks) = sgn * pump_flow / 3600 * rho * (B - b)
+  M_adr = clamp(M_tks, -M_max, M_max)
+
+  torque.torque_x = -M_adr * g * 1000
+  torque.torque_y = 0
+  torque.torque_z = 0
+end
