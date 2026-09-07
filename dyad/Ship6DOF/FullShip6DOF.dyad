@@ -1,0 +1,39 @@
+"""
+Closed-loop 6-DOF transit under wind: the `StandardShip` stack steered by
+`WaypointAutopilot` towards a waypoint, with `ShipWind` superstructure loads
+from a constant wind (`DyadShip.Environment`).
+
+The autopilot's throttle output scales the ordered shaft speed between
+`rpm_full` far from arrival and zero at the waypoint, and its rudder output
+is the rudder order. The wind produces both a steady lateral drift the
+autopilot must counter with a rudder offset and a small steady heel.
+"""
+test component FullShip6DOF
+  extends StandardShip(U0 = 5)
+  parameter target_x::Length = 10000
+  parameter target_y::Length = 1000
+  "Shaft speed at full throttle [rpm]"
+  parameter rpm_full::Real = 100
+  parameter wind_speed::Velocity = 10
+  "Direction the wind comes from [deg], 0 = north (+y), 90 = east (+x)"
+  parameter wind_direction::Real = 45
+  pilot = WaypointAutopilot()
+  env = DyadShip.Environment(WindSpeed = wind_speed, WindDirection = wind_direction)
+  wind = ShipWind()
+relations
+  connect(ship.frame_a, wind.frame_a)
+  wind.Wind_x = env.WindVector[1]
+  wind.Wind_y = env.WindVector[2]
+  pilot.pos_x = ship.pos_x
+  pilot.pos_y = ship.pos_y
+  pilot.psi = ship.Yaw
+  pilot.target_x = target_x
+  pilot.target_y = target_y
+  rudder_order = pilot.rudder
+  shaft_rpm = rpm_full * pilot.throttle
+end
+
+analysis FullShip6DOFTransient
+  extends TransientAnalysis(stop = 2400.0)
+  model = FullShip6DOF()
+end

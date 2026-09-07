@@ -1,0 +1,171 @@
+"""
+Six-degree-of-freedom ship hull: rigid body plus nonlinear hydrostatics.
+
+Port of `ShipSIM.Components.Ship.ShipModelTh` onto the 3D `MultibodyComponents`
+library. `frame_a` is the ship reference frame with its origin at the
+intersection of the aft perpendicular, the centreline and the keel; x points
+forward, y to port and z up. The world frame has z up, so the assembly must use
+`MultibodyComponents.World(n = [0, 0, -1])`, and the undisturbed free surface
+is the plane z = 0.
+
+Mass and inertia live in an internal `MultibodyComponents.Body` with the centre
+of gravity at `CoG` and the inertia tensor about the centre of gravity.
+Orientation is carried as yaw-pitch-roll Euler angles (`sequence = [3, 2, 1]`),
+so heading is unbounded and the model is singular only at ±90° pitch.
+
+Hydrostatics follow the upstream small-angle formulation. Mean draft, heel and
+trim are read off the frame geometry (depth of the keel at the aft and forward
+perpendiculars and at the starboard bilge). Displacement, centre of buoyancy
+and metacentric radii are draft-polynomial regressions: every `*_Table` row is
+`[coefficient, exponent]` and the quantity is `Σ coefficient · Draft^exponent`.
+The centre of buoyancy shifts by `BM · sin(angle)` under heel and trim, and the
+buoyancy force `Displacement(Draft) · g` acts vertically through it. Weight is
+applied at `CoG` by the internal body, so the righting moment
+`Δ · g · GM · sin(φ)` emerges from the two application points.
+
+Outputs are what the hydrodynamic components consume: `Draft`, `Displacement`
+(the buoyant mass, equal to `mass` only at the equilibrium draft), the
+`Heel` / `Trim` / `Yaw` angles, and the body-frame linear and angular
+velocities of `frame_a`. Connect `HydrodynamicXYY`, `HydrodynamicZRP`,
+propulsors and wind loads to `frame_a`.
+
+Sign conventions: positive heel is starboard down, positive trim is bow down,
+positive yaw is bow to port (counter-clockwise seen from above).
+
+Limitations, as upstream: heel and trim must stay within small-angle theory
+(about ±20°), the draft must stay positive, and no wave excitation is modelled.
+"""
+component ShipBody
+  "Ship reference frame: origin at aft perpendicular / centreline / keel, x forward, y port, z up"
+  frame_a = Frame3D()
+  body = MultibodyComponents.Body(m = mass, r_cm = CoG, I_11 = I_xx, I_22 = I_yy, I_33 = I_zz, orientation_state = MultibodyComponents.OrientationState.Euler(), sequence = [3, 2, 1], statePriority = 100, linearStatePriority = 100, render = render, radius = B / 4, r_0(initial = ini_Pos), v_0(initial = ini_Vel), phi(initial = [ini_Yaw, ini_Trim, ini_Heel]))
+  buoy_force = MultibodyComponents.WorldForce(resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB(), render = false)
+  buoy_torque = MultibodyComponents.WorldTorque(resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB())
+
+  "Length between perpendiculars"
+  parameter Lpp::Length = 100
+  "Moulded beam"
+  parameter B::Length = 20
+  "Block coefficient"
+  parameter Cb::Real = 0.693
+  structural parameter n_Disp::Integer = 2
+  "Displacement vs mean draft [kg]; rows are [coefficient, exponent]"
+  parameter Disp_Table::Real[n_Disp, 2] = [[1.2514e6, 1], [4.1292e4, 2]]
+  structural parameter n_LCB::Integer = 7
+  "Longitudinal centre of buoyancy from the aft perpendicular vs mean draft [m]"
+  parameter LCB_Table::Real[n_LCB, 2] = [[49.049, 0], [1.7677, 1], [-1.2278, 2], [0.45593, 3], [-0.086574, 4], [0.0077545, 5], [-0.00026145, 6]]
+  structural parameter n_TCB::Integer = 1
+  "Transverse centre of buoyancy vs mean draft [m]"
+  parameter TCB_Table::Real[n_TCB, 2] = [[0, 0]]
+  structural parameter n_VCB::Integer = 2
+  "Vertical centre of buoyancy above keel vs mean draft [m]"
+  parameter VCB_Table::Real[n_VCB, 2] = [[0.50905, 1], [0.0032271, 2]]
+  structural parameter n_BMt::Integer = 1
+  "Transverse metacentric radius vs mean draft [m]"
+  parameter BMt_Table::Real[n_BMt, 2] = [[26.3608, -0.878016]]
+  structural parameter n_BMl::Integer = 1
+  "Longitudinal metacentric radius vs mean draft [m]"
+  parameter BMl_Table::Real[n_BMl, 2] = [[493.467, -0.747807]]
+  "Ship mass (design displacement)"
+  parameter mass::Mass = 5681200
+  "Centre of gravity in the ship reference frame [x fwd of AP, y to port, z above keel]"
+  parameter CoG::Length[3] = [50.364, 0, 7]
+  "Roll moment of inertia about the centre of gravity"
+  parameter I_xx::Inertia = mass * (0.3557 * B)^2
+  "Pitch moment of inertia about the centre of gravity"
+  parameter I_yy::Inertia = mass * (0.2746 * Lpp)^2
+  "Yaw moment of inertia about the centre of gravity"
+  parameter I_zz::Inertia = mass * (0.2739 * Lpp)^2
+  "Gravitational acceleration; must match the World"
+  parameter g::Acceleration = 9.80665
+  "Initial world position of frame_a; z = -draft puts the keel at the design draft"
+  parameter ini_Pos::Length[3] = [0, 0, -4]
+  "Initial world velocity of frame_a"
+  parameter ini_Vel::Velocity[3] = [0, 0, 0]
+  "Initial heading (yaw about world z)"
+  parameter ini_Yaw::Angle = 0
+  "Initial trim (pitch), positive bow down"
+  parameter ini_Trim::Angle = 0
+  "Initial heel (roll), positive starboard down"
+  parameter ini_Heel::Angle = 0
+  "Render the body sphere in 3D animations"
+  parameter render::Boolean = false
+
+  "Mean draft [m]"
+  Draft = RealOutput()
+  "Buoyant mass at the current draft [kg]"
+  Displacement = RealOutput()
+  "Heel angle [rad], positive starboard down"
+  Heel = RealOutput()
+  "Trim angle [rad], positive bow down"
+  Trim = RealOutput()
+  "Heading [rad], positive bow to port; unbounded"
+  Yaw = RealOutput()
+  "Body-frame velocity of frame_a: surge"
+  Surge = RealOutput()
+  "Body-frame velocity of frame_a: sway, positive to port"
+  Sway = RealOutput()
+  "Body-frame velocity of frame_a: heave, positive up"
+  Heave = RealOutput()
+  RollRate = RealOutput()
+  PitchRate = RealOutput()
+  YawRate = RealOutput()
+  "World position of frame_a"
+  pos_x = RealOutput()
+  pos_y = RealOutput()
+  pos_z = RealOutput()
+
+  "Keel point at the starboard bilge, world frame"
+  variable P_s::Real[3]
+  "Keel point at the forward perpendicular, world frame"
+  variable P_f::Real[3]
+  "Centre of buoyancy in the ship reference frame"
+  variable CoB::Length[3]
+  variable BMt::Length
+  variable BMl::Length
+  "Buoyancy force resolved in the ship frame"
+  variable F_buoy::Force[3]
+  "Buoyancy torque about frame_a, resolved in the ship frame"
+  variable tau_buoy::Torque[3]
+  "Velocity of frame_a resolved in the ship frame"
+  variable v_body::Velocity[3]
+  "Angular velocity resolved in the ship frame"
+  variable w_body::AngularVelocity[3]
+relations
+  connect(frame_a, body.frame_a, buoy_force.frame_b, buoy_torque.frame_b)
+
+  P_s = frame_a.r_0 + MultibodyComponents.resolve1(frame_a.R, [0, -B, 0])
+  P_f = frame_a.r_0 + MultibodyComponents.resolve1(frame_a.R, [Lpp, 0, 0])
+  Heel = atan((frame_a.r_0[3] - P_s[3]) / B)
+  Trim = atan((P_f[3] - frame_a.r_0[3]) / Lpp)
+  Draft = -(P_f[3] + frame_a.r_0[3]) / 2
+
+  Displacement = draft_poly(Disp_Table, Draft)
+  BMt = draft_poly(BMt_Table, Draft)
+  BMl = draft_poly(BMl_Table, Draft)
+  CoB[1] = draft_poly(LCB_Table, Draft) - BMl * sin(Trim)
+  CoB[2] = draft_poly(TCB_Table, Draft) - BMt * sin(Heel)
+  CoB[3] = draft_poly(VCB_Table, Draft) + BMl * (1 - cos(Trim)) + BMt * (1 - cos(Heel))
+
+  F_buoy = MultibodyComponents.resolve2(frame_a.R, [0, 0, Displacement * g])
+  tau_buoy = MultibodyComponents.cross(CoB, F_buoy)
+  buoy_force.force_x = F_buoy[1]
+  buoy_force.force_y = F_buoy[2]
+  buoy_force.force_z = F_buoy[3]
+  buoy_torque.torque_x = tau_buoy[1]
+  buoy_torque.torque_y = tau_buoy[2]
+  buoy_torque.torque_z = tau_buoy[3]
+
+  v_body = MultibodyComponents.resolve2(frame_a.R, body.v_0)
+  w_body = body.w_a
+  Surge = v_body[1]
+  Sway = v_body[2]
+  Heave = v_body[3]
+  RollRate = w_body[1]
+  PitchRate = w_body[2]
+  YawRate = w_body[3]
+  Yaw = body.phi[1]
+  pos_x = frame_a.r_0[1]
+  pos_y = frame_a.r_0[2]
+  pos_z = frame_a.r_0[3]
+end

@@ -1,0 +1,93 @@
+#!/usr/bin/env julia
+# Run the Ship6DOF validation analyses and summarise them the way a
+# manoeuvring report would: roll period and damping, speed-trial balance,
+# IMO turning-circle metrics, rudder-return yaw-rate decay, zig-zag
+# overshoots and the autopilot transit. Writes PNG figures into assets/.
+#
+# Usage:  ~/dyad-fleet/heavy -m 6G ../julia-dyad.sh scripts/validate_6dof.jl
+
+using Pkg
+Pkg.activate(joinpath(@__DIR__, ".."))
+using DyadShip, Printf, Statistics
+using DyadInterface: symbolic_container
+using Plots
+gr()
+
+const ASSETS = abspath(joinpath(@__DIR__, "..", "assets"))
+const S6 = DyadShip.Ship6DOF
+mkpath(ASSETS)
+
+sample(sol, sym, ts) = [sol(t; idxs = sym) for t in ts]
+
+println("== Roll decay")
+res = S6.RollDecayTransient(); sol = res.sol; m = symbolic_container(res)
+ts = collect(0:0.05:120); heel = rad2deg.(sample(sol, m.ship.Heel, ts))
+zc = [ts[i] for i in 2:length(ts) if heel[i-1] > 0 && heel[i] <= 0]
+period = mean(diff(zc)); peaks = [maximum(abs.(heel[(ts .>= zc[i]) .& (ts .< zc[i+1])])) for i in 1:length(zc)-1]
+decrement = mean(log.(peaks[1:end-1] ./ peaks[2:end])); zeta = decrement / sqrt(4pi^2 + decrement^2)
+@printf("  retcode %s, roll period %.2f s (linear estimate 2π k_xx/sqrt(g GM) = %.2f s), damping ratio %.3f\n", sol.retcode, period, 2pi * 0.3557 * 20 / sqrt(9.80665 * 2.89), zeta)
+p = plot(ts, heel, xlabel = "t [s]", ylabel = "heel [deg]", label = "heel", title = "Roll decay from 10 deg", lw = 2)
+plot!(p, ts, rad2deg.(sample(sol, m.ship.Trim, ts)) .* 100, label = "trim x100")
+savefig(p, joinpath(ASSETS, "ship6dof_roll_decay.png"))
+
+println("== Speed trial")
+res = S6.SpeedTrialTransient(); sol = res.sol; m = symbolic_container(res)
+u_end = sol(600; idxs = m.ship.Surge)
+@printf("  retcode %s, 100 rpm: %.2f m/s (%.1f kn), thrust %.0f kN, resistance %.0f kN, shaft power %.0f kW, J = %.3f\n", sol.retcode, u_end, u_end / 0.5144, sol(600; idxs = m.prop.Thrust) / 1e3, -sol(600; idxs = m.hydro.Resistance) / 1e3, sol(600; idxs = m.prop.ShaftPower) / 1e3, sol(600; idxs = m.prop.J))
+
+println("== Turning circle (35 deg to port)")
+res = S6.TurningCircleTransient(); sol = res.sol; m = symbolic_container(res)
+ts = collect(0:0.5:900); x = sample(sol, m.ship.pos_x, ts); y = sample(sol, m.ship.pos_y, ts); psi = sample(sol, m.ship.Yaw, ts)
+i0 = findfirst(>=(20.0), ts); x0 = x[i0]; y0 = y[i0]
+i90 = findfirst(>=(pi / 2), psi); i180 = findfirst(>=(pi), psi)
+advance = x[i90] - x0; transfer = y[i90] - y0; tactical = y[i180] - y0
+U = hypot(sol(900; idxs = m.ship.Surge), sol(900; idxs = m.ship.Sway)); r = sol(900; idxs = m.ship.YawRate)
+drift = rad2deg(atan(-sol(900; idxs = m.ship.Sway), sol(900; idxs = m.ship.Surge)))
+@printf("  retcode %s, advance %.0f m (%.2f L), transfer %.0f m (%.2f L), tactical diameter %.0f m (%.2f L)\n", sol.retcode, advance, advance / 100, transfer, transfer / 100, tactical, tactical / 100)
+@printf("  steady turn: speed %.2f m/s (%.0f%% of approach), yaw rate %.2f deg/s, radius %.0f m, drift %.1f deg, heel %.2f deg\n", U, 100U / 6.69, rad2deg(r), U / r, drift, rad2deg(sol(900; idxs = m.ship.Heel)))
+p = plot(x .- x0, y .- y0, aspect_ratio = 1, xlabel = "advance [m]", ylabel = "transfer [m]", label = "track", title = "Turning circle, 35 deg rudder", lw = 2)
+hline!(p, [tactical], ls = :dash, label = @sprintf("tactical diameter %.2f L", tactical / 100))
+savefig(p, joinpath(ASSETS, "ship6dof_turning_circle.png"))
+
+println("== Rudder return (20 deg pulse, 50-150 s)")
+res = S6.RudderReturnTransient(); sol = res.sol; m = symbolic_container(res)
+ts = collect(0:0.5:600); r6 = rad2deg.(sample(sol, m.ship.YawRate, ts))
+r_off = sol(150; idxs = m.ship.YawRate); t_half = ts[findfirst(i -> ts[i] > 150 && abs(sample(sol, m.ship.YawRate, [ts[i]])[1]) < 0.5abs(r_off), 1:length(ts))]
+@printf("  retcode %s, yaw rate at rudder centring %.2f deg/s, halved after %.0f s, %.3f deg/s at 600 s\n", sol.retcode, rad2deg(r_off), t_half - 150, r6[end])
+p = plot(ts, r6, xlabel = "t [s]", ylabel = "yaw rate [deg/s]", label = "Ship6DOF", title = "Rudder 20 deg from 50 s, centred at 150 s", lw = 2)
+res2 = DyadShip.Ship.RudderReturn2DTransient(); sol2 = res2.sol; m2 = symbolic_container(res2)
+plot!(p, ts, rad2deg.(sample(sol2, m2.hull.r, ts)), label = "planar HullMMG", lw = 2)
+savefig(p, joinpath(ASSETS, "ship6dof_rudder_return.png"))
+
+println("== Zig-zag 20/20")
+res = S6.ZigZagTransient(); sol = res.sol; m = symbolic_container(res)
+ts = collect(0:0.25:600); psi = rad2deg.(sample(sol, m.ship.Yaw, ts)); rud = sample(sol, m.rudder.Rudder_position, ts)
+s = sample(sol, m.controller.s, ts)
+rev = [ts[i] for i in 2:length(ts) if sign(s[i]) != sign(s[i-1])]
+overshoots = Float64[]
+for k in 1:min(length(rev) - 1, 4)
+    seg = (ts .>= rev[k]) .& (ts .< rev[k+1])
+    push!(overshoots, maximum(abs.(psi[seg])) - 20)
+end
+@printf("  retcode %s, rudder reversals at %s s, overshoot angles %s deg\n", sol.retcode, join(round.(rev[1:min(end, 4)], digits = 0), ", "), join(round.(overshoots, digits = 1), ", "))
+p = plot(ts, psi, xlabel = "t [s]", ylabel = "[deg]", label = "heading", title = "20/20 zig-zag", lw = 2)
+plot!(p, ts, rud, label = "rudder", lw = 2)
+savefig(p, joinpath(ASSETS, "ship6dof_zigzag.png"))
+
+println("== Crash stop (four-quadrant propeller, 110 rpm ahead to 80 rpm astern)")
+res = S6.CrashStopTransient(); sol = res.sol; m = symbolic_container(res)
+ts = collect(0:0.5:300); u = sample(sol, m.ship.Surge, ts); istop = findfirst(<=(0), u)
+@printf("  retcode %s, %s\n", sol.retcode, istop === nothing ? "not stopped within 300 s" : @sprintf("stopped after %.0f s, head reach %.0f m (%.2f L)", ts[istop], sol(ts[istop]; idxs = m.ship.pos_x), sol(ts[istop]; idxs = m.ship.pos_x) / 100))
+p = plot(ts, u, xlabel = "t [s]", ylabel = "[m/s], [rpm/10]", label = "surge speed", title = "Crash stop", lw = 2)
+plot!(p, ts, sample(sol, m.prop.rpm, ts) ./ 10, label = "shaft rpm / 10", lw = 2)
+savefig(p, joinpath(ASSETS, "ship6dof_crash_stop.png"))
+
+println("== Autopilot transit, 10 m/s wind from NE")
+res = S6.FullShip6DOFTransient(); sol = res.sol; m = symbolic_container(res)
+ts = collect(0:2:2400); d = sample(sol, m.pilot.distance_to_target, ts)
+ia = findfirst(<=(100), d)
+@printf("  retcode %s, %s, steady rudder offset %.1f deg, steady heel %.2f deg\n", sol.retcode, ia === nothing ? "not within 100 m" : @sprintf("within 100 m of the waypoint at %.0f s", ts[ia]), sol(900; idxs = m.rudder.Rudder_position), rad2deg(sol(900; idxs = m.ship.Heel)))
+p = plot(sample(sol, m.ship.pos_x, ts), sample(sol, m.ship.pos_y, ts), aspect_ratio = 1, xlabel = "x [m]", ylabel = "y [m]", label = "track", title = "Waypoint transit, wind 10 m/s from NE", lw = 2)
+scatter!(p, [10000], [1000], label = "waypoint", ms = 6)
+savefig(p, joinpath(ASSETS, "ship6dof_transit.png"))
+println("figures written to ", ASSETS)

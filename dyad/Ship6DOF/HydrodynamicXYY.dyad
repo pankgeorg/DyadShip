@@ -1,0 +1,176 @@
+"""
+Surge / sway / yaw hull hydrodynamics (MMG standard model) acting on a 3D frame.
+
+Port of `ShipSIM.Components.Ship.HidrodynamicXYY`. Connect `frame_a` to the
+`ShipBody` reference frame and feed `MeanDraft` / `Displacement` from its
+outputs. The component reads the frame velocity and angular velocity, moves
+them to the centre of hydrodynamic forces `[Lpp/2, 0, MeanDraft/2]` (midship,
+half draft), subtracts the current, and applies
+
+```math
+X = -R(u) + \\tfrac12 \\rho L d U^2 (X_{vv} v'^2 + X_{vvvv} v'^4 + X_{rr} r'^2 + X_{vr} v' r')
+```
+```math
+Y = \\tfrac12 \\rho L d U^2 (Y_v v' + Y_{vvv} v'^3 + Y_r r' + Y_{rrr} r'^3 + Y_{vrr} v' r'^2 + Y_{vvr} v'^2 r')
+```
+```math
+N = \\tfrac12 \\rho L^2 d U^2 (N_v v' + N_{vvv} v'^3 + N_r r' + N_{rrr} r'^3 + N_{vrr} v' r'^2 + N_{vvr} v'^2 r')
+```
+
+with `v' = v/U`, `r' = r L/U`, `U = sqrt(u² + v²)` (floored at `U_floor`), and
+the resistance curve `R(u) = R3 |u|³ + R2 u² + R1 |u|` opposing surge. Added
+mass acts at `[Lpp/2 + Xg, 0, MeanDraft/2]`:
+
+```math
+X_A = -\\Delta (m_x \\dot u - m_y v r), \\quad Y_A = -\\Delta (m_y \\dot v + m_x u r), \\quad N_A = -\\Delta J_z \\dot r
+```
+
+Because the forces act below the waterline and the added-mass point is at the
+centre of gravity's longitudinal position, the lever arms produce the physical
+roll and pitch coupling of a turn (outward heel) automatically.
+
+Hydrodynamic derivatives default to the empirical estimates cited upstream
+(Clarke 1982, Smitt 1970, Khattab 1984, Lee & Shin 1998, Kijima 1990,
+Yoshimura & Masumoto 2011), valid for medium/large single-screw ships moving
+ahead. Two upstream expressions were corrected: the surge added-mass fraction
+`mx` now uses Brix's `1 / (π sqrt(Lpp³/∇) - 14)` (upstream divides by the
+water density inside the square root, which makes `mx` negative), and the
+`Xg` offset is applied to the added-mass point only, as upstream intends.
+`X_rr`, `X_vr` and the surge-only resistance curve are known upstream
+limitations and are kept as is. With the default estimates the derived
+`CourseStability` index is slightly negative: the bare hull is linearly
+course-unstable and relies on the rudder's fin effect to settle on a straight
+course, which shows up as a slow yaw-rate decay after the rudder is centred.
+"""
+component HydrodynamicXYY
+  frame_a = Frame3D()
+  "Instantaneous mean draft from ShipBody"
+  MeanDraft = RealInput()
+  "Instantaneous displacement mass from ShipBody"
+  Displacement = RealInput()
+  "Sea current velocity, world x"
+  Current_x = RealInput()
+  "Sea current velocity, world y"
+  Current_y = RealInput()
+  "Total surge resistance force (negative when moving ahead)"
+  Resistance = RealOutput()
+  "Power absorbed by the resistance curve"
+  ResistancePower = RealOutput()
+  "Speed through the water at the centre of forces"
+  U_out = RealOutput()
+
+  force = MultibodyComponents.WorldForce(resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB(), render = false)
+  torque = MultibodyComponents.WorldTorque(resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB())
+
+  "Length between perpendiculars"
+  parameter Lpp::Length = 100
+  "Moulded beam"
+  parameter B::Length = 20
+  "Design mean draft used in the coefficient estimates"
+  parameter Draft::Length = 4
+  "Block coefficient"
+  parameter Cb::Real = 0.693
+  "Longitudinal centre of gravity from midship, positive forward"
+  parameter Xg::Length = 0.364
+  parameter SeaDensity::Density = 1025
+  "Speed floor for the non-dimensionalisation"
+  parameter U_floor::Velocity = 0.1
+
+  "Surge added-mass fraction of displacement (Brix 1993)"
+  parameter mx::Real = 1 / (π * sqrt(Lpp^2 / (B * Draft * Cb)) - 14)
+  "Sway added-mass fraction of displacement (Zhou et al. 1983)"
+  parameter my::Real = 0.882 - 0.54 * Cb * (1 - 1.6 * Draft / B) - 0.156 * (1 - 0.673 * Cb) * Lpp / B + 0.826 * (Draft / B) * (Lpp / B) * (1 - 0.678 * Draft / B) - 0.638 * Cb * (Draft / B) * (Lpp / B) * (1 - 0.669 * Draft / B)
+  "Yaw added inertia per unit displacement [m²] (Zhou et al. 1983)"
+  parameter Jz::Real = (Lpp / 100 * (33 - 76.85 * Cb * (1 - 0.784 * Cb) + 3.43 * (Lpp / B) * (1 - 0.63 * Cb)))^2
+
+  "Resistance curve, cubic coefficient [N s³/m³]"
+  parameter R3::Real = 914.37
+  "Resistance curve, quadratic coefficient [N s²/m²]"
+  parameter R2::Real = -5286.3
+  "Resistance curve, linear coefficient [N s/m]"
+  parameter R1::Real = 19657.0
+
+  parameter X_vv::Real = 1.15 * Cb * B / Lpp - 0.18
+  parameter X_vvvv::Real = -6.68 * Cb * B / Lpp + 1.1
+  parameter X_rr::Real = (-0.0027 + 0.0076 * Cb * Draft / B) * (Lpp / Draft)
+  parameter X_vr::Real = -0.117 * my / 100 * (0.5 + Cb) * (Lpp / Draft)
+  parameter Y_v::Real = (-π * (Draft / Lpp)^2 * (1 + 0.4 * Cb * B / Draft)) * (Lpp / Draft)
+  parameter Y_vvv::Real = (-0.6469 * (1 - Cb) * (Draft / B) + 0.0027) * (Lpp / Draft)
+  parameter Y_r::Real = (-π * (Draft / Lpp)^2 * (-0.32)) * (Lpp / Draft)
+  parameter Y_rrr::Real = (-0.0233 * Cb * Draft / B + 0.0063) * (Lpp / Draft)
+  parameter Y_vrr::Real = -(5.95 * (1 - Cb) * Draft / B)
+  parameter Y_vvr::Real = 1.5 * Draft * Cb / B - 0.65
+  parameter N_v::Real = (-π * (Draft / Lpp)^2 * (0.5 + 2.4 * Draft / Lpp)) * (Lpp / Draft)
+  parameter N_vvv::Real = (0.0348 - 0.5283 * (1 - Cb) * Draft / B) * (Lpp / Draft)
+  parameter N_r::Real = -π * (Draft / Lpp)^2 * ((1.3192 - 0.68228 * Cb - 0.00019 * (Lpp / Draft)^2) / π) * (Lpp / Draft)
+  parameter N_rrr::Real = 0.25 * Cb * B / Lpp - 0.056
+  parameter N_vrr::Real = (0.5 * Draft * Cb / B) - 0.05
+  parameter N_vvr::Real = -(57.5 * (Cb * B / Lpp)^2 - 18.4 * (Cb * B / Lpp) + 1.6)
+  "Linear course-stability index N_r Y_v - N_v (Y_r - m'), with m' = 2 Cb B / Lpp the non-dimensional mass. Negative means the bare hull is linearly course-unstable; the rudder's fin effect and the cubic terms may still hold a straight course."
+  parameter CourseStability::Real = N_r * Y_v - N_v * (Y_r - 2 * Cb * B / Lpp)
+
+  "Centre of hydrodynamic forces in the ship frame"
+  variable r_cof::Length[3]
+  "Added-mass application point in the ship frame"
+  variable r_am::Length[3]
+  "Velocity of frame_a through the water, ship frame"
+  variable v_frame::Velocity[3]
+  "Angular velocity, ship frame"
+  variable w::AngularVelocity[3]
+  "Velocity through the water at the centre of forces, ship frame"
+  variable v_cof::Velocity[3]
+  variable u::Velocity
+  variable v::Velocity
+  variable r::AngularVelocity
+  variable U::Velocity
+  variable v_nd::Real
+  variable r_nd::Real
+  variable NonDimXY::Real
+  variable NonDimN::Real
+  variable X_H::Force
+  variable Y_H::Force
+  variable N_H::Torque
+  variable X_A::Force
+  variable Y_A::Force
+  variable N_A::Torque
+  variable F_H::Force[3]
+  variable F_A::Force[3]
+  variable tau::Torque[3]
+relations
+  connect(frame_a, force.frame_b, torque.frame_b)
+
+  r_cof = [Lpp / 2, 0, MeanDraft / 2]
+  r_am = [Lpp / 2 + Xg, 0, MeanDraft / 2]
+  v_frame = MultibodyComponents.resolve2(frame_a.R, der(frame_a.r_0) - [Current_x, Current_y, 0])
+  w = MultibodyComponents.angular_velocity2(frame_a.R)
+  v_cof = v_frame + MultibodyComponents.cross(w, r_cof)
+  u = v_cof[1]
+  v = v_cof[2]
+  r = w[3]
+  U = sqrt(u^2 + v^2 + U_floor^2)
+  U_out = U
+  v_nd = v / U
+  r_nd = r * Lpp / U
+  NonDimXY = 0.5 * SeaDensity * U^2 * Lpp * Draft
+  NonDimN = NonDimXY * Lpp
+
+  Resistance = -(R3 * u * u * abs(u) + R2 * u * abs(u) + R1 * u)
+  ResistancePower = Resistance * u
+  X_H = Resistance + NonDimXY * (X_vv * v_nd^2 + X_vvvv * v_nd^4 + X_rr * r_nd^2 + X_vr * v_nd * r_nd)
+  Y_H = NonDimXY * (Y_v * v_nd + Y_vvv * v_nd^3 + Y_r * r_nd + Y_rrr * r_nd^3 + Y_vrr * v_nd * r_nd^2 + Y_vvr * v_nd^2 * r_nd)
+  N_H = NonDimN * (N_v * v_nd + N_vvv * v_nd^3 + N_r * r_nd + N_rrr * r_nd^3 + N_vrr * v_nd * r_nd^2 + N_vvr * v_nd^2 * r_nd)
+
+  X_A = -Displacement * (mx * der(u) - my * v * r)
+  Y_A = -Displacement * (my * der(v) + mx * u * r)
+  N_A = -Displacement * Jz * der(r)
+
+  F_H = [X_H, Y_H, 0]
+  F_A = [X_A, Y_A, 0]
+  tau = MultibodyComponents.cross(r_cof, F_H) + MultibodyComponents.cross(r_am, F_A) + [0, 0, N_H + N_A]
+  force.force_x = F_H[1] + F_A[1]
+  force.force_y = F_H[2] + F_A[2]
+  force.force_z = 0
+  torque.torque_x = tau[1]
+  torque.torque_y = tau[2]
+  torque.torque_z = tau[3]
+end

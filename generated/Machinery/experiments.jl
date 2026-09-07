@@ -12,7 +12,5 @@ end
 include("Cable_experiment.jl")
 include("CraneStaticLoad_experiment.jl")
 include("Crane_experiment.jl")
-include("OnOffConsumerDuty_experiment.jl")
 include("OnOffConsumer_experiment.jl")
-include("PeakSamplerSine_experiment.jl")
 include("PeakSampler_experiment.jl")

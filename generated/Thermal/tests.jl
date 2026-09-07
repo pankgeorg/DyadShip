@@ -27,6 +27,5 @@ include("SimpleAirExchanger_test.jl")
 include("SolarIrradiation_test.jl")
 include("SolarSweep_test.jl")
 include("SunScreen_test.jl")
-include("TemperatureDatasetWithCapacitor_test.jl")
 include("TemperatureDataset_test.jl")
 end

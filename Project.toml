@@ -19,6 +19,7 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 DyadData = "cab12561-e36c-4498-ae70-c9a5e79fef2a"
 DyadInterface = "99806f68-afab-45ca-9d8c-ceff6bc61f54"
 ElectricalComponents = "3fc4c519-469d-4ff5-98c9-d4d06b1514a2"
+HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 Markdown = "d6f4376e-aef5-505a-96c1-9c027394607a"
 ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 Moshi = "2e0e35c7-a2e4-4343-998d-7ef72827ed2d"
@@ -31,18 +32,19 @@ ThermalComponents = "084a29d9-4f48-4925-95b4-b7d4c79725f4"
 TranslationalComponents = "42acc370-819b-4877-bdd6-eb3294461f5d"
 
 [compat]
-BlockComponents = "=4.2.0"
+BlockComponents = "=4.5.1"
 DyadData = "2.0.1"
-DyadInterface = "7.1"
+DyadInterface = "7.2"
 ElectricalComponents = "=2.2.1"
+HypertextLiteral = "1.0.0"
 Markdown = "1"
-MultibodyComponents = "=0.2.0"
-RotationalComponents = "=2.5.1"
+MultibodyComponents = "=0.2.4"
+RotationalComponents = "=2.5.4"
 ThermalComponents = "=2.0.5"
-TranslationalComponents = "=2.4.2"
+TranslationalComponents = "=2.5.0"
 
 [dyad]
-kernel = "3.2.1"
+kernel = "3.3.0"
 
 [extras]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"

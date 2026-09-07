@@ -1,0 +1,174 @@
+"""
+Standard 6-DOF single-screw ship assembly used by the manoeuvring analyses.
+
+Composition (world z up, free surface at z = 0):
+- `ship`: `ShipBody` (mass, inertia, hydrostatics) with the upstream 100 m,
+  5681 t sample hull, starting at heading 0 with speed `U0` along world x.
+- `hydro`: `HydrodynamicXYY` MMG surge/sway/yaw forces and added mass.
+- `zrp`: `HydrodynamicZRP` heave/roll/pitch damping.
+- `prop`: `Propeller1Q` mounted 1 m forward of the aft perpendicular, 2 m
+  above the keel, driven through a shaft inertia by a `VelocitySource` that
+  tracks `shaft_rpm` (an ideal governor). `CrashStop` repeats this assembly
+  with the four-quadrant `Propeller4Q`.
+- `rudder`: `Rudder` with its stock 2 m aft of the aft perpendicular, 4.5 m
+  above the keel, fed by the propeller slipstream.
+
+Extending components set the two command variables `rudder_order` [deg,
+positive to port] and `shaft_rpm` [rpm]. No wind or current.
+"""
+partial component StandardShip
+  "Initial speed along world x"
+  parameter U0::Velocity = 6.69
+  "Shaft inertia including the propeller and entrained water"
+  parameter J_shaft::Real = 4000
+  world = MultibodyComponents.World(n = [0, 0, -1], g = 9.80665, render = false, nominal_length = 100)
+  ship = ShipBody(ini_Vel = [U0, 0, 0])
+  hydro = HydrodynamicXYY()
+  zrp = HydrodynamicZRP()
+  prop_mount = MultibodyComponents.FixedTranslation(r = [1, 0, 2], render = false)
+  prop = Propeller1Q(Diameter = 4, P_D = 1.0, Ae_Ao = 0.55, Z = 4)
+  shaft = RotationalComponents.Components.Inertia(J = J_shaft)
+  governor = RotationalComponents.Sources.VelocitySource()
+  ground = RotationalComponents.Components.Fixed()
+  rudder_mount = MultibodyComponents.FixedTranslation(r = [-2, 0, 4.5], render = false)
+  rudder = Rudder()
+  "Rudder angle order [deg], positive to port"
+  variable rudder_order::Real
+  "Shaft speed order [rpm]"
+  variable shaft_rpm::Real
+relations
+  initial shaft.phi = 0
+  connect(ship.frame_a, hydro.frame_a, zrp.frame_a, prop_mount.frame_a, rudder_mount.frame_a)
+  connect(prop_mount.frame_b, prop.frame_a)
+  connect(rudder_mount.frame_b, rudder.frame_a)
+  connect(ship.Draft, hydro.MeanDraft)
+  connect(ship.Draft, zrp.MeanDraft)
+  connect(ship.Displacement, hydro.Displacement)
+  connect(ship.Displacement, zrp.Displacement)
+  hydro.Current_x = 0
+  hydro.Current_y = 0
+  prop.Current_x = 0
+  prop.Current_y = 0
+  rudder.Current_x = 0
+  rudder.Current_y = 0
+  connect(prop.Propeller_speed, rudder.Propeller_speed)
+  connect(prop.Propeller_flow_diameter, rudder.Propeller_flow_diameter)
+  connect(prop.Wake_Fraction, rudder.Wake_Fraction)
+  connect(governor.support, ground.spline)
+  connect(governor.spline, shaft.spline_a)
+  connect(shaft.spline_b, prop.flange)
+  governor.w_ref = shaft_rpm * π / 30
+  rudder.Rudder_Order = rudder_order
+end
+
+"""
+Straight-line speed trial: constant shaft speed, rudder amidships. The ship
+starts at `U0` and settles to the speed where propeller thrust balances the
+resistance curve; `ship.Surge`, `prop.Thrust` and `prop.ShaftPower` at the end
+of the run are the trial results. The heave and pitch transients from the
+initial draft show the hydrostatic restoring at work.
+"""
+test component SpeedTrial
+  extends StandardShip(U0 = 5)
+  parameter rpm::Real = 100
+relations
+  rudder_order = 0
+  shaft_rpm = rpm
+end
+
+analysis SpeedTrialTransient
+  extends TransientAnalysis(stop = 600.0)
+  model = SpeedTrial()
+end
+
+"""
+IMO turning circle: approach at constant shaft speed, then the rudder goes
+hard over to `rudder_deg` (positive to port) at `t_rudder`. Advance,
+transfer and tactical diameter are read from the world track
+(`ship.pos_x`, `ship.pos_y`); the steady-turn yaw rate, speed loss, drift
+angle and outward heel are `ship.YawRate`, `ship.Surge`, `ship.Sway` and
+`ship.Heel` late in the run.
+"""
+test component TurningCircle
+  extends StandardShip(U0 = 6.69)
+  parameter rpm::Real = 100
+  parameter rudder_deg::Real = 35
+  parameter t_rudder::Time = 20
+relations
+  rudder_order = ifelse(time > t_rudder, rudder_deg, 0)
+  shaft_rpm = rpm
+end
+
+analysis TurningCircleTransient
+  extends TransientAnalysis(stop = 900.0)
+  model = TurningCircle()
+end
+
+"""
+Rudder pulse-and-return: the rudder is put over to `rudder_deg` at `t_on`
+and centred again at `t_off`. A course-stable hull must return to a straight
+course: `ship.YawRate` decays to zero and `ship.Sway` returns to zero after
+`t_off`. This is the regression check for the yaw-rate persistence bug seen
+in the planar stack, where the rudder's drift-angle lift had the wrong sign.
+"""
+test component RudderReturn
+  extends StandardShip(U0 = 6.69)
+  parameter rpm::Real = 100
+  parameter rudder_deg::Real = 20
+  parameter t_on::Time = 50
+  parameter t_off::Time = 150
+relations
+  rudder_order = ifelse(time > t_on, ifelse(time < t_off, rudder_deg, 0), 0)
+  shaft_rpm = rpm
+end
+
+analysis RudderReturnTransient
+  extends TransientAnalysis(stop = 600.0)
+  model = RudderReturn()
+end
+
+"""
+Zig-zag manoeuvre relay: commands `+rudder_deg` until the heading exceeds
+`+psi_switch_deg`, then `-rudder_deg` until the heading drops below
+`-psi_switch_deg`, and so on. The hysteresis is realised as a fast
+continuous relay state `s ∈ [-1, 1]` whose target depends on its own sign,
+since Dyad has no discrete events; `T_relay` sets the switching time scale
+(the rudder's own rate limit dominates the response).
+"""
+component ZigZagController
+  "Heading [rad], positive to port"
+  psi = RealInput()
+  "Rudder order [deg]"
+  rudder = RealOutput()
+  parameter rudder_deg::Real = 20
+  parameter psi_switch_deg::Real = 20
+  parameter T_relay::Time = 0.5
+  variable s::Real
+  variable psi_deg::Real
+  variable target::Real
+relations
+  initial s = 1
+  psi_deg = psi * 180 / π
+  target = ifelse(s > 0, ifelse(psi_deg >= psi_switch_deg, -1, 1), ifelse(psi_deg <= -psi_switch_deg, 1, -1))
+  der(s) = (target - s) / T_relay
+  rudder = rudder_deg * clamp(s, -1, 1)
+end
+
+"""
+IMO 20/20 zig-zag test at constant shaft speed. The overshoot angles are
+the amounts by which `ship.Yaw` exceeds ±20° after each rudder reversal.
+"""
+test component ZigZag
+  extends StandardShip(U0 = 6.69)
+  parameter rpm::Real = 100
+  controller = ZigZagController(rudder_deg = 20, psi_switch_deg = 20)
+relations
+  connect(ship.Yaw, controller.psi)
+  rudder_order = controller.rudder
+  shaft_rpm = rpm
+end
+
+analysis ZigZagTransient
+  extends TransientAnalysis(stop = 600.0)
+  model = ZigZag()
+end

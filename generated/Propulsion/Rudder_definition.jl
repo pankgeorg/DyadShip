@@ -7,7 +7,7 @@
 import Moshi as __Ext__Moshi
 
 @doc Markdown.doc"""
-   Rudder(; name, Lpp, B, Cb, T, C, s, MaxRudderAngle, Rudder_Tau, a_h, SeaKViscosity, SeaDensity, Cl0, Cl1, Cl2, Cd0, Cd1, Cd2, Cm0, Cm1, Cm2, Surf)
+   Rudder(; name, Lpp, B, Cb, T, C, s, MaxRudderAngle, Rudder_Tau, a_h, Gamma_R_Pos, Gamma_R_Neg, SeaKViscosity, SeaDensity, Cl0, Cl1, Cl2, Cd0, Cd1, Cd2, Cm0, Cm1, Cm2, Surf)
 
 Simplified ship-rudder force model with PlanarMechanics 2D coupling.
 
@@ -27,6 +27,13 @@ This Dyad port:
   (so the caller decides how to assemble the slipstream). The propeller-slipstream
   blending over the rudder span is preserved verbatim.
 - Cl, Cd, Cm vs angle-of-attack are quadratic-in-α fits with parameters.
+- The signed effective angle of attack is `α = δ - γ_R β_R` with `β_R = atan2(-v, u)` the
+  local inflow angle and `γ_R` the flow-straightening coefficient of the current side
+  (Lee & Shin 1998), as in the 3D `Ship6DOF.Rudder`. A drift angle reduces the effective
+  rudder angle in a turn, and a centred rudder in a drifting hull produces the restoring
+  fin force. (The earlier port added the inflow angle with the opposite sign, which turned
+  the rudder into a destabilising fin and left the hull in a steady turn after the rudder
+  was centred.)
 
 Note: the `Force_X`, `Force_Y`, `Moment` real outputs remain available for non-multibody
 diagnostics; they hold the *same* values written to `frame_a`. Don't double-apply.
@@ -44,6 +51,8 @@ diagnostics; they hold the *same* values written to `frame_a`. Don't double-appl
 | `MaxRudderAngle`         |                          | --  |   35 |
 | `Rudder_Tau`         |                          | --  |   0.4 |
 | `a_h`         |                          | --  |   1.0 |
+| `Gamma_R_Pos`         | Flow straightening coefficient, flow from port (Lee & Shin 1998)                         | --  |   2.7236 * Cb...Lpp + 0.021 |
+| `Gamma_R_Neg`         | Flow straightening coefficient, flow from starboard (Lee & Shin 1998)                         | --  |   -1.20501 * ...pp + 0.7391 |
 | `SeaKViscosity`         |                          | m2/s  |   1.004e-6 |
 | `SeaDensity`         |                          | kg/m3  |   1025 |
 | `Cl0`         |                          | --  |   0.0 |
@@ -79,8 +88,10 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 | Name         | Description                         | Units  | 
 | ------------ | ----------------------------------- | ------ |
 | `rudder_angle_state`         |                          | --  |
-| `Alpha`         |                          | rad  |
-| `Beta`         |                          | rad  |
+| `delta`         | Rudder deflection [rad], positive to port                         | rad  |
+| `Beta_R`         | Inflow angle at the rudder                         | rad  |
+| `Gamma_R`         |                          | --  |
+| `Alpha_eff`         | Signed effective angle of attack                         | rad  |
 | `Water_Speed_X`         |                          | m/s  |
 | `Water_Speed_Y`         |                          | m/s  |
 | `WaterSpeed`         |                          | m/s  |
@@ -89,7 +100,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 | `Cd`         |                          | --  |
 | `Cm`         |                          | --  |
 """
-@component function Rudder(; name = nothing, Lpp=Float64(100), B=Float64(20), Cb=0.693, T=Float64(4), C=Float64(2), s=3.5, MaxRudderAngle=Float64(35), Rudder_Tau=0.4, a_h=Float64(1.0), SeaKViscosity=0.000001004, SeaDensity=Float64(1025), Cl0=Float64(0.0), Cl1=5.7, Cl2=-0.0, Cd0=0.012, Cd1=Float64(0.0), Cd2=1.5, Cm0=Float64(0.0), Cm1=-0.8, Cm2=Float64(0.0), Surf=C * s, kwargs...)
+@component function Rudder(; name = nothing, Lpp=Float64(100), B=Float64(20), Cb=0.693, T=Float64(4), C=Float64(2), s=3.5, MaxRudderAngle=Float64(35), Rudder_Tau=0.4, a_h=Float64(1.0), SeaKViscosity=0.000001004, SeaDensity=Float64(1025), Cl0=Float64(0.0), Cl1=5.7, Cl2=-0.0, Cd0=0.012, Cd1=Float64(0.0), Cd2=1.5, Cm0=Float64(0.0), Cm1=-0.8, Cm2=Float64(0.0), Gamma_R_Pos=2.7236 * Cb * B / Lpp + 0.021, Gamma_R_Neg=-1.20501 * Cb * B / Lpp + 0.7391, Surf=C * s, kwargs...)
   isnothing(name) && throw(ArgumentError("""
     The `name` keyword must be provided. Please consider using the `@named` macro,
     like so:
@@ -147,6 +158,12 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   __local__a_h = a_h
   append!(__params, @parameters (a_h::Real))
   __initial_conditions[a_h] = __local__a_h
+  __local__Gamma_R_Pos = Gamma_R_Pos
+  append!(__params, @parameters (Gamma_R_Pos::Real), [description = "Flow straightening coefficient, flow from port (Lee & Shin 1998)"])
+  __initial_conditions[Gamma_R_Pos] = __local__Gamma_R_Pos
+  __local__Gamma_R_Neg = Gamma_R_Neg
+  append!(__params, @parameters (Gamma_R_Neg::Real), [description = "Flow straightening coefficient, flow from starboard (Lee & Shin 1998)"])
+  __initial_conditions[Gamma_R_Neg] = __local__Gamma_R_Neg
   __local__SeaKViscosity = SeaKViscosity
   append!(__params, @parameters (SeaKViscosity::Real), [bounds = (0, Inf)])
   __initial_conditions[SeaKViscosity] = __local__SeaKViscosity
@@ -202,8 +219,10 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 
   ### Variables (declarations)
   append!(__vars, @variables (rudder_angle_state(t)::Real))
-  append!(__vars, @variables (Alpha(t)::Real))
-  append!(__vars, @variables (Beta(t)::Real))
+  append!(__vars, @variables (delta(t)::Real), [description = "Rudder deflection [rad], positive to port"])
+  append!(__vars, @variables (Beta_R(t)::Real), [description = "Inflow angle at the rudder"])
+  append!(__vars, @variables (Gamma_R(t)::Real))
+  append!(__vars, @variables (Alpha_eff(t)::Real), [description = "Signed effective angle of attack"])
   append!(__vars, @variables (Water_Speed_X(t)::Real))
   append!(__vars, @variables (Water_Speed_Y(t)::Real))
   append!(__vars, @variables (WaterSpeed(t)::Real))
@@ -216,12 +235,18 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   __ovr_rudder_angle_state = pop!(__overrides, "rudder_angle_state", nothing); isnothing(__ovr_rudder_angle_state) || push!(__eqs, rudder_angle_state ~ __ovr_rudder_angle_state)
   __ovr_rudder_angle_state__initial = pop!(__overrides, "rudder_angle_state__initial", nothing); isnothing(__ovr_rudder_angle_state__initial) || (__initial_conditions[rudder_angle_state] = __ovr_rudder_angle_state__initial)
   __ovr_rudder_angle_state__guess = pop!(__overrides, "rudder_angle_state__guess", nothing)
-  __ovr_Alpha = pop!(__overrides, "Alpha", nothing); isnothing(__ovr_Alpha) || push!(__eqs, Alpha ~ __ovr_Alpha)
-  __ovr_Alpha__initial = pop!(__overrides, "Alpha__initial", nothing); isnothing(__ovr_Alpha__initial) || (__initial_conditions[Alpha] = __ovr_Alpha__initial)
-  __ovr_Alpha__guess = pop!(__overrides, "Alpha__guess", nothing)
-  __ovr_Beta = pop!(__overrides, "Beta", nothing); isnothing(__ovr_Beta) || push!(__eqs, Beta ~ __ovr_Beta)
-  __ovr_Beta__initial = pop!(__overrides, "Beta__initial", nothing); isnothing(__ovr_Beta__initial) || (__initial_conditions[Beta] = __ovr_Beta__initial)
-  __ovr_Beta__guess = pop!(__overrides, "Beta__guess", nothing)
+  __ovr_delta = pop!(__overrides, "delta", nothing); isnothing(__ovr_delta) || push!(__eqs, delta ~ __ovr_delta)
+  __ovr_delta__initial = pop!(__overrides, "delta__initial", nothing); isnothing(__ovr_delta__initial) || (__initial_conditions[delta] = __ovr_delta__initial)
+  __ovr_delta__guess = pop!(__overrides, "delta__guess", nothing)
+  __ovr_Beta_R = pop!(__overrides, "Beta_R", nothing); isnothing(__ovr_Beta_R) || push!(__eqs, Beta_R ~ __ovr_Beta_R)
+  __ovr_Beta_R__initial = pop!(__overrides, "Beta_R__initial", nothing); isnothing(__ovr_Beta_R__initial) || (__initial_conditions[Beta_R] = __ovr_Beta_R__initial)
+  __ovr_Beta_R__guess = pop!(__overrides, "Beta_R__guess", nothing)
+  __ovr_Gamma_R = pop!(__overrides, "Gamma_R", nothing); isnothing(__ovr_Gamma_R) || push!(__eqs, Gamma_R ~ __ovr_Gamma_R)
+  __ovr_Gamma_R__initial = pop!(__overrides, "Gamma_R__initial", nothing); isnothing(__ovr_Gamma_R__initial) || (__initial_conditions[Gamma_R] = __ovr_Gamma_R__initial)
+  __ovr_Gamma_R__guess = pop!(__overrides, "Gamma_R__guess", nothing)
+  __ovr_Alpha_eff = pop!(__overrides, "Alpha_eff", nothing); isnothing(__ovr_Alpha_eff) || push!(__eqs, Alpha_eff ~ __ovr_Alpha_eff)
+  __ovr_Alpha_eff__initial = pop!(__overrides, "Alpha_eff__initial", nothing); isnothing(__ovr_Alpha_eff__initial) || (__initial_conditions[Alpha_eff] = __ovr_Alpha_eff__initial)
+  __ovr_Alpha_eff__guess = pop!(__overrides, "Alpha_eff__guess", nothing)
   __ovr_Water_Speed_X = pop!(__overrides, "Water_Speed_X", nothing); isnothing(__ovr_Water_Speed_X) || push!(__eqs, Water_Speed_X ~ __ovr_Water_Speed_X)
   __ovr_Water_Speed_X__initial = pop!(__overrides, "Water_Speed_X__initial", nothing); isnothing(__ovr_Water_Speed_X__initial) || (__initial_conditions[Water_Speed_X] = __ovr_Water_Speed_X__initial)
   __ovr_Water_Speed_X__guess = pop!(__overrides, "Water_Speed_X__guess", nothing)
@@ -255,8 +280,10 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
 
   ### Guesses
   isnothing(__ovr_rudder_angle_state__guess) || (__guesses[rudder_angle_state] = __ovr_rudder_angle_state__guess)
-  isnothing(__ovr_Alpha__guess) || (__guesses[Alpha] = __ovr_Alpha__guess)
-  isnothing(__ovr_Beta__guess) || (__guesses[Beta] = __ovr_Beta__guess)
+  isnothing(__ovr_delta__guess) || (__guesses[delta] = __ovr_delta__guess)
+  isnothing(__ovr_Beta_R__guess) || (__guesses[Beta_R] = __ovr_Beta_R__guess)
+  isnothing(__ovr_Gamma_R__guess) || (__guesses[Gamma_R] = __ovr_Gamma_R__guess)
+  isnothing(__ovr_Alpha_eff__guess) || (__guesses[Alpha_eff] = __ovr_Alpha_eff__guess)
   isnothing(__ovr_Water_Speed_X__guess) || (__guesses[Water_Speed_X] = __ovr_Water_Speed_X__guess)
   isnothing(__ovr_Water_Speed_Y__guess) || (__guesses[Water_Speed_Y] = __ovr_Water_Speed_Y__guess)
   isnothing(__ovr_WaterSpeed__guess) || (__guesses[WaterSpeed] = __ovr_WaterSpeed__guess)
@@ -274,15 +301,17 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   ### Equations
   push!(__eqs, Rudder_Tau * ModelingToolkit.D_nounits(rudder_angle_state) ~ clamp(Rudder_Order, -MaxRudderAngle, MaxRudderAngle) - rudder_angle_state)
   push!(__eqs, Rudder_position ~ rudder_angle_state)
-  push!(__eqs, Alpha ~ -Rudder_position * π / 180)
+  push!(__eqs, delta ~ Rudder_position * π / 180)
   push!(__eqs, Water_Speed_X ~ ifelse(Propeller_flow_diameter >= s, -Propeller_speed, -(Propeller_speed * Propeller_flow_diameter + WaterSpeedX_in * (1 - Wake_Fraction) * (s - Propeller_flow_diameter)) / s))
   push!(__eqs, Water_Speed_Y ~ -WaterSpeedY_in)
   push!(__eqs, WaterSpeed ~ sqrt(Water_Speed_X ^ 2 + Water_Speed_Y ^ 2 + 1e-9))
   push!(__eqs, Re ~ WaterSpeed * C / SeaKViscosity)
-  push!(__eqs, Beta ~ atan(Water_Speed_Y, -Water_Speed_X) - Alpha)
-  push!(__eqs, Cl ~ Cl0 + Cl1 * Beta + Cl2 * Beta ^ 2)
-  push!(__eqs, Cd ~ Cd0 + Cd1 * Beta + Cd2 * Beta ^ 2)
-  push!(__eqs, Cm ~ Cm0 + Cm1 * Beta + Cm2 * Beta ^ 2)
+  push!(__eqs, Beta_R ~ atan(Water_Speed_Y, -Water_Speed_X))
+  push!(__eqs, Gamma_R ~ ifelse(Beta_R > 0, Gamma_R_Neg, Gamma_R_Pos))
+  push!(__eqs, Alpha_eff ~ delta - Gamma_R * Beta_R)
+  push!(__eqs, Cl ~ Cl0 + Cl1 * Alpha_eff + Cl2 * Alpha_eff ^ 2)
+  push!(__eqs, Cd ~ Cd0 + Cd1 * Alpha_eff + Cd2 * Alpha_eff ^ 2)
+  push!(__eqs, Cm ~ Cm0 + Cm1 * Alpha_eff + Cm2 * Alpha_eff ^ 2)
   push!(__eqs, Lift ~ 0.5 * SeaDensity * Surf * WaterSpeed ^ 2 * Cl * (1 + a_h))
   push!(__eqs, Drag ~ 0.5 * SeaDensity * Surf * WaterSpeed ^ 2 * Cd)
   push!(__eqs, Moment ~ 0.5 * SeaDensity * Surf * C * WaterSpeed ^ 2 * Cm)

@@ -17,6 +17,13 @@ This Dyad port:
   (so the caller decides how to assemble the slipstream). The propeller-slipstream
   blending over the rudder span is preserved verbatim.
 - Cl, Cd, Cm vs angle-of-attack are quadratic-in-α fits with parameters.
+- The signed effective angle of attack is `α = δ - γ_R β_R` with `β_R = atan2(-v, u)` the
+  local inflow angle and `γ_R` the flow-straightening coefficient of the current side
+  (Lee & Shin 1998), as in the 3D `Ship6DOF.Rudder`. A drift angle reduces the effective
+  rudder angle in a turn, and a centred rudder in a drifting hull produces the restoring
+  fin force. (The earlier port added the inflow angle with the opposite sign, which turned
+  the rudder into a destabilising fin and left the hull in a steady turn after the rudder
+  was centred.)
 
 Note: the `Force_X`, `Force_Y`, `Moment` real outputs remain available for non-multibody
 diagnostics; they hold the *same* values written to `frame_a`. Don't double-apply.
@@ -33,6 +40,10 @@ component Rudder
   parameter Rudder_Tau::Real = 0.4
 
   parameter a_h::Real = 1.0
+  "Flow straightening coefficient, flow from port (Lee & Shin 1998)"
+  parameter Gamma_R_Pos::Real = 2.7236 * Cb * B / Lpp + 0.021
+  "Flow straightening coefficient, flow from starboard (Lee & Shin 1998)"
+  parameter Gamma_R_Neg::Real = -1.20501 * Cb * B / Lpp + 0.7391
 
   parameter SeaKViscosity::KinematicViscosity = 1.004e-6
   parameter SeaDensity::Density = 1025
@@ -65,8 +76,13 @@ component Rudder
   Force_Y = RealOutput()
 
   variable rudder_angle_state::Real
-  variable Alpha::Angle
-  variable Beta::Angle
+  "Rudder deflection [rad], positive to port"
+  variable delta::Angle
+  "Inflow angle at the rudder"
+  variable Beta_R::Angle
+  variable Gamma_R::Real
+  "Signed effective angle of attack"
+  variable Alpha_eff::Angle
   variable Water_Speed_X::Velocity
   variable Water_Speed_Y::Velocity
   variable WaterSpeed::Velocity
@@ -81,7 +97,7 @@ relations
 
   Rudder_Tau * der(rudder_angle_state) = clamp(Rudder_Order, -MaxRudderAngle, MaxRudderAngle) - rudder_angle_state
   Rudder_position = rudder_angle_state
-  Alpha = -Rudder_position * π / 180
+  delta = Rudder_position * π / 180
 
   Water_Speed_X = ifelse(Propeller_flow_diameter >= s,
                          -Propeller_speed,
@@ -91,11 +107,13 @@ relations
   WaterSpeed = sqrt(Water_Speed_X^2 + Water_Speed_Y^2 + 1e-9)
   Re = WaterSpeed * C / SeaKViscosity
 
-  Beta = atan(Water_Speed_Y, -Water_Speed_X) - Alpha
+  Beta_R = atan(Water_Speed_Y, -Water_Speed_X)
+  Gamma_R = ifelse(Beta_R > 0, Gamma_R_Neg, Gamma_R_Pos)
+  Alpha_eff = delta - Gamma_R * Beta_R
 
-  Cl = Cl0 + Cl1 * Beta + Cl2 * Beta^2
-  Cd = Cd0 + Cd1 * Beta + Cd2 * Beta^2
-  Cm = Cm0 + Cm1 * Beta + Cm2 * Beta^2
+  Cl = Cl0 + Cl1 * Alpha_eff + Cl2 * Alpha_eff^2
+  Cd = Cd0 + Cd1 * Alpha_eff + Cd2 * Alpha_eff^2
+  Cm = Cm0 + Cm1 * Alpha_eff + Cm2 * Alpha_eff^2
 
   Lift = 0.5 * SeaDensity * Surf * WaterSpeed^2 * Cl * (1 + a_h)
   Drag = 0.5 * SeaDensity * Surf * WaterSpeed^2 * Cd

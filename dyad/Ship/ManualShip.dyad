@@ -26,7 +26,7 @@ test component ManualShip
 
   prop = DyadShip.Propulsion.Propeller1Q(Diameter = 4, P_D = 1.0, Ae_Ao = 0.55, Z = 4)
   shaft = RotationalComponents.Components.Inertia(J = 5000)
-  src = RotationalComponents.Sources.SpeedSource()
+  src = RotationalComponents.Sources.VelocitySource()
   ground = RotationalComponents.Components.Fixed()
 
   rudder = DyadShip.Propulsion.Rudder()

@@ -8,6 +8,13 @@ See the ./agent_resources folder for information. Follow what is there very care
 
 This will be an autonomous session so you don't need to make plots, but do validate your models.
 
+## Heavy commands
+
+Every compile, simulation, test or package operation goes through
+`~/dyad-fleet/heavy -m 8G <command>` (memory-capped cgroup; see the global
+`CLAUDE.md`). Never run the whole generated test suite; run single analyses
+from a script instead.
+
 ## Running Julia
 
 **Always** use `../julia-dyad.sh` (i.e. `/home/pgeorgakopoulos/dyad-ship/julia-dyad.sh`) to invoke Julia in this repo. Do **not** call `julia` directly.
@@ -16,10 +23,10 @@ The wrapper sets the environment this project requires:
 
 - `JULIAUP_DEPOT_PATH=~/.julia/juliaup-depots/juliahub.com`
 - `JULIAUP_SERVER=https://juliahub.com/juliabin`
-- `JULIAUP_CHANNEL=dyad-3.2.0-rc1`
+- `JULIAUP_CHANNEL=dyad-3.3.0`
 - `JULIA_PKG_SERVER=juliahub.com`
 
-It launches the `dyad-3.2.0-rc1` channel and uses `--project=@.` so the active directory's project is used. Any extra args are forwarded.
+It launches the `dyad-3.3.0` channel and uses `--project=@.` so the active directory's project is used. Any extra args are forwarded.
 
 Examples:
 
@@ -31,7 +38,7 @@ Examples:
 
 ## Running Dyad
 
-Use `../dyad.sh` (i.e. `/home/pgeorgakopoulos/dyad-ship/dyad.sh`) to invoke the Dyad CLI. It runs `npx --yes @juliacomputing/dyad-cli@3.2.0-rc2` (GitHub Packages registry, token in `~/.npmrc`) and forwards all arguments verbatim.
+Use `../dyad.sh` (i.e. `/home/pgeorgakopoulos/dyad-ship/dyad.sh`) to invoke the Dyad CLI. It runs `npx --yes @juliacomputing/dyad-cli@3.3.0` (GitHub Packages registry, token in `~/.npmrc`) and forwards all arguments verbatim.
 
 Examples:
 
@@ -40,6 +47,18 @@ Examples:
 ../dyad.sh compile                 # compile ./dyad in the current package
 ../dyad.sh render <component>      # render a model
 ```
+
+## Toolchain pins (dyad-3.3.0)
+
+The `dyad-3.3.0` channel's sysimage bakes in BlockComponents 4.5.1,
+RotationalComponents 2.5.4, TranslationalComponents 2.5.0, ThermalComponents
+2.0.5, ElectricalComponents 2.2.1 and DyadInterface 7.2.1; `Project.toml`
+must pin exactly those (Pkg reports "package in sysimage!" otherwise).
+`MultibodyComponents` is not in the sysimage and resolves freely (0.2.4 at
+the time of writing, with the 3D library). Bundled library sources live under
+`<juliaup>/julia-1.12.7+dyad-3x3x0…/share/julia/stdlib/v1.12/<Lib>/dyad/`.
+`RotationalComponents.Sources.SpeedSource` is deprecated in favour of
+`VelocitySource` (same ports).
 
 ## TASK (DONE)
 
@@ -74,19 +93,14 @@ A prior autonomous session ported 18 ShipSIM components into Dyad and validated 
 
 ### What didn't / pitfalls to avoid
 
-- **`MultibodyComponents` IS shipped, but only as 2D `PlanarMechanics`** (no general 3D Body/FixedTranslation/Revolute). It's not in `agent_resources/stdlib_reference/`, so it's easy to assume it doesn't exist. After `Pkg.add("MultibodyComponents")` (or putting it in `Project.toml` and running `Pkg.instantiate()`) the source lives at `~/.julia/packages/MultibodyComponents/<hash>/dyad/`:
-  - **Top-level**: `enums.dyad` (incl. `ResolveInFrame`), `kinematic5.dyad`, `kinematic_ptp.dyad`, `kinematic_ptp_bounded_jerk.dyad`, `parallelkinematicrobotanalysis.dyad`, `renderable.dyad`, `selector.dyad`, `shape.dyad`.
-  - **`PlanarMechanics/` sub-library** (uses the built-in `Frame2D` connector — `x`, `y`, `phi` potentials; `fx`, `fy`, `tau` flows): `world.dyad`, `body.dyad`, `body_shape.dyad`, `fixed.dyad`, `fixed_translation.dyad`, `fixed_rotation.dyad`, `revolute.dyad`, `prismatic.dyad`, `spring.dyad`, `damper.dyad`, `spring_damper.dyad`, `relative_force.dyad`, `world_force_torque.dyad`, `partial_two_frames.dyad`, `partial_two_frame_sensor.dyad`, `sensors.dyad`, `frame_visualizer_2d.dyad`, `differential_gear.dyad`, `ideal_planetary.dyad`, several wheel joints, and many `_test.dyad` test harnesses.
-  - **No 3D body components**, but ship maneuvering is mostly surge/sway/yaw which **maps directly onto `PlanarMechanics`**. ShipSIM's `Frame_a`/`Frame_b` 3D rigid-body connectors collapse to `Frame2D` for that subset. Ports of `HidrodynamicXYY`, `Propeller1Q`, `Rudder`, `WingSail` and the hull body could keep their multibody shape using `PlanarMechanics.WorldForceTorque` instead of the signal-domain shortcut taken in the previous session.
-  - When using `PlanarMechanics`, namespacing is `MultibodyComponents.PlanarMechanics.<Name>` — see `library_namespacing.md` for sub-library rules.
-  - Bonus: the `PlanarMechanics/world_force_torque.dyad` uses an `if … end` block in `relations` keyed on a structural enum parameter — i.e. conditional *inclusion of equations*. That's distinct from algebraic `ifelse(...)` and might be useful for parameter-switched modes (e.g. `resolve_in_frame == World()` vs `FrameB()`).
+- **`MultibodyComponents` ≥ 0.2 ships both the 2D `PlanarMechanics` sub-library and a full 3D library** (`Body`, `BodyShape`, `FixedTranslation`, `FixedRotation`, `Revolute`/`Prismatic`/`Spherical`…, `WorldForce`/`WorldTorque`/`Force`/`Torque`, `AbsoluteVelocity`/`AbsoluteAngularVelocity`/`TransformAbsoluteVector` sensors, `Cable`, visualizers). Sources are under `~/.julia/packages/MultibodyComponents/<hash>/dyad/`; `examples/floating_wind_turbine.dyad` (`BuoyantBody`) is the template for a free-floating 6-DOF body driven by algebraic forces. Namespacing: `MultibodyComponents.Body(...)`, enums as `MultibodyComponents.OrientationState.Euler()` / `MultibodyComponents.ResolveInFrame.FrameB()`, helper functions as `MultibodyComponents.resolve1/resolve2/cross/angular_velocity2(...)`. The `Ship6DOF` submodule is built on it; see the "6-DOF pass" learnings below.
 - **`Modelica.Fluid` has no Dyad equivalent.** `HydraulicComponents` covers liquid-only hydraulics, not moist-air media. Components built on `Modelica.Fluid.Sources.MassFlowSource_T` with `Modelica.Media.Air.MoistAir` (e.g. `SourceMoistAir`) cannot be ported without first porting the medium model. The downstream signal-only sensors (e.g. `DewTemperature`) are fine.
 - **No `when` / `discrete` events in Dyad as documented.** Anything using Modelica's `when ZeroCrossing(...) then`, `discrete Integer i + pre(i)`, `OnOffController` with hysteresis, or `TriggeredTrapezoid` cannot be ported 1:1 today. Workarounds:
   - For threshold-crossing-with-hysteresis: replace with a smooth `clamp((|x| - threshold) / band, 0, 1)` saturating activation. Loses crisp on/off but works in equation form.
   - For peak/zero-crossing samplers: skip and put in `HARD.md`. A `PeriodicSample`-style block (if/when one lands) might cover a subset.
 - **Algebraic `if/elseif/else` chains in Modelica equations must become nested `ifelse(...)`.** Dyad has no algebraic `if/elseif`, only the `ifelse(cond, a, b)` function. For a 4-branch piecewise (e.g. SunScreen, max-torque-vs-RPM, SFOC) the nesting can get deep — write the data points inline as parameters and order branches by ascending threshold to keep it readable.
 - **`Modelica.Blocks.Tables.CombiTable*` doesn't have a default-data shortcut in Dyad.** `BlockComponents.Tables.Interpolation` requires a `DyadData.DyadTimeseries` or 2D table from a CSV. For small fixed-data tables (< ~10 points) it's much simpler to inline the table as nested `ifelse` piecewise-linear, rather than ship a CSV. Reserve CSV-driven tables for ≥ 50-row datasets.
-- **`dyad.sh` now exports the four `JULIAUP_*` / `JULIA_PKG_SERVER` env vars internally** so `../dyad.sh compile` runs cleanly. (Earlier the wrapper only `exec`'d node, and the dyad CLI's spawned `julia` failed with `ERROR: Invalid Juliaup channel \`dyad-3.0.0-rc5\`` unless the caller pre-exported them.) If you ever need to debug or override, the env block lives in `/home/pgeorgakopoulos/dyad-ship/dyad.sh` next to the `exec npx --yes @juliacomputing/dyad-cli@3.2.0-rc2 "$@"` line — keep it in sync with `julia-dyad.sh`. Compile output is still noisy on stderr (the JuliaHub banner); `generated/*.jl` mtime is the authoritative success signal.
+- **`dyad.sh` now exports the four `JULIAUP_*` / `JULIA_PKG_SERVER` env vars internally** so `../dyad.sh compile` runs cleanly. (Earlier the wrapper only `exec`'d node, and the dyad CLI's spawned `julia` failed with `ERROR: Invalid Juliaup channel \`dyad-3.0.0-rc5\`` unless the caller pre-exported them.) If you ever need to debug or override, the env block lives in `/home/pgeorgakopoulos/dyad-ship/dyad.sh` next to the `exec npx --yes @juliacomputing/dyad-cli@3.3.0 "$@"` line — keep it in sync with `julia-dyad.sh`. Compile output is still noisy on stderr (the JuliaHub banner); `generated/*.jl` mtime is the authoritative success signal.
 - **MTK index reduction can choke on `der(...)` inside an algebraic floor like `sqrt(der(x)^2 + ε^2)`.** The first `Propeller1Q` had `(I+Ia)·der(w_eff) = flange.tau - Torque_Kq` with `w_eff = sqrt(der(flange.phi)^2 + w_floor^2)`. MTK saw two derivative orders of `phi` and reported `ExtraVariablesSystemException: 3 highest order derivative variables and 2 equations`. Fix: introduce an explicit state `w` with `w = der(flange.phi)` and apply the floor only inside non-derivative algebraic uses; never put a `der(...)` *inside* a `sqrt`.
 - **Connector flow rules surprise: a single connection with a forced flow makes the system over-determined.** Setting `prop.flange.tau = 50000` directly with no other connection on `flange` produced `ExtraEquationsSystemException` because the connector also implies "sum of flows = 0 ⇒ flange.tau = 0" at an unconnected port. Use a proper source: `RotationalComponents.Sources.TorqueSource` + a `Constant` on its input + a `Fixed` grounding the support spline.
 - **`RotationalComponents.Sources.TorqueSource` needs its support spline grounded.** It extends `PartialElementaryOneSplineAndSupport`, which has `support` and `phi_support`. Always connect the support to a `RotationalComponents.Components.Fixed` or another grounded element.
@@ -103,12 +117,18 @@ A prior autonomous session ported 18 ShipSIM components into Dyad and validated 
 The library is organized into 4 submodules under `dyad/`, plus a few foundational
 helpers at the root:
 
-- **Top level**: `Environment.dyad`, `VariableEnvironment.dyad`, `ApparentSpeedXY.dyad`,
-  `hello.dyad` — small, foundational, no domain-specific dependencies.
-- **`Ship/`**: hull body + ship-level forces/control. `Hull3DOF`, `ShipWind`,
-  `AntiHeeling`, `Tank`, `SimpleAutoPilot`, plus `Ship_analysis` (full assembly).
-- **`Propulsion/`**: `Propeller1Q`, `Propeller4Q`, `POD4Q`, `Rudder`, `WingSail`,
-  `SimpleDieselEngine`.
+- **Top level**: `Environment.dyad`, `VariableEnvironment.dyad`, `ApparentSpeedXY.dyad`
+  — small, foundational, no domain-specific dependencies.
+- **`Ship6DOF/`**: the primary, 3D-multibody stack: `ShipBody`, `HydrodynamicXYY`,
+  `HydrodynamicZRP`, `ApparentSpeedXY`, `Propeller1Q`, `Propeller4Q`, `Rudder`,
+  `ShipWind`, `WaypointAutopilot`, the `StandardShip` partial assembly and the
+  validation analyses (speed trial, turning circle, rudder return, zig-zag, roll
+  decay, crash stop, autopilot transit, manual ship). Julia helpers (Wageningen
+  polynomials, 4Q Fourier sets, draft polynomials) in `Ship6DOF/definitions.jl`.
+- **`Ship/`** (planar): `HullMMG`, `ShipWind`, `AntiHeeling`, `Tank`, `HeadingAutoPilot`,
+  `ManualShip`, the `FullShip*` assemblies (autopilot, disturbed, render, Flettner).
+- **`Propulsion/`** (planar): `Propeller1Q`, `Propeller4Q`, `POD4Q`, `Rudder`, `WingSail`,
+  `FlettnerRotor`, `FlettnerRotorOnline`, `SimpleDieselEngine`.
 - **`Machinery/`**: deck/auxiliary equipment — `Crane`, `Cable`, `OnOffConsumer`,
   `PeakSampler`.
 - **`Thermal/`**: heat transfer + solar + moist air — `PlateTransient`,
@@ -134,7 +154,7 @@ helpers at the root:
   `library_namespacing.md`). E.g. `Ship/Ship_analysis.dyad` references the propeller
   as `DyadShip.Propulsion.Propeller1Q(...)`, not `Propeller1Q(...)`. Within the same
   submodule, the bare name works.
-- **Julia callers must use `DyadShip.Ship.ShipTransient()`**, not `ShipTransient()`,
+- **Julia callers must use `DyadShip.Ship6DOF.TurningCircleTransient()` / `DyadShip.Ship.ShipTransient()`**, not `ShipTransient()`,
   because the analyses are exported only inside their submodule (not re-exported at
   the root).
 
@@ -150,13 +170,25 @@ can collide with new code.
 - **`HeatCapacitor.T0` is a *required* parameter — no default.** Forgot once and got "missing value" on every node. Must always pass an initial temperature, even if you also write `initial T = ...` in `relations` (and in fact, doing both raises an extra-equations exception).
 - **Julia helpers that get called from Dyad parameters or relations must avoid Julia-only `if/else` ternaries on `Symbolics.Num` inputs.** `sin_alt > 0 ? a : b` raises `non-boolean (Symbolics.Num) used in boolean context` once the helper sees a symbolic time argument. Rewrite as plain arithmetic and gate on the Dyad side with `ifelse(...)`. Same for `max(-1, min(1, x))` clamps — replace with `sqrt(x^2 + ε)` or similar smooth analogues.
 - **Type the helper signatures as `Real`, not concrete types.** `function f(t::Real, ...)` (or even untyped) plays nicer with MTK Symbolic propagation than `function f(t::Float64, ...)`.
-- **`Hull3DOF` pattern for multibody hulls:** wrap a `PlanarMechanics.Body` and a `WorldForceTorque(resolve_in_frame = FrameB)` together. The `WorldForceTorque` carries body-frame drag + `Fx_extra`/`Fy_extra`/`Mz_extra` real inputs. External components (propeller, rudder, wind) connect their `frame_a` to the wrapper's `frame_a`, and forces sum at the body node automatically. Saves writing connector-level flow equations by hand.
+- **`HullMMG` pattern for planar hulls:** wrap a `PlanarMechanics.Body` and a `WorldForceTorque(resolve_in_frame = FrameB)` together. The `WorldForceTorque` carries body-frame drag + `Fx_extra`/`Fy_extra`/`Mz_extra` real inputs. External components (propeller, rudder, wind) connect their `frame_a` to the wrapper's `frame_a`, and forces sum at the body node automatically. Saves writing connector-level flow equations by hand.
 - **`PlanarMechanics.World` is required even when "you don't need gravity".** Set `g = 0` for ship/horizontal models; without any `World`, mtkcompile errors with `Could not evaluate value of parameter g`.
 - **`Revolute.phi` is a state, not a constraint variable.** Forcing `boom_pivot.phi = command` causes an extra-equations error. Drive it via a `RotationalComponents.Sources.Position` connected to `Revolute.flange_a`, with the position source's `support` grounded by `RotationalComponents.Components.Fixed`.
 - **Dyad `if … end` blocks inside `relations` work for *enum-keyed* equation inclusion** (see `world_force_torque.dyad`), but the cases must use literal enum values like `MultibodyComponents.ResolveInFrame.World()` — not arbitrary boolean expressions. For value-level branching, use algebraic `ifelse(cond, a, b)`.
 - **`dyad/definitions.jl` is auto-included by the generated module** (the generated `definitions.jl` does `if isfile(joinpath((@__DIR__) |> Base.dirname, "dyad", "definitions.jl"))` then include it). Drop Julia helpers there. They get the project's full `using ...` scope from `src/<ModuleName>.jl`.
 - **Saving CSV assets to `assets/` and referencing them as `dyad://<PackageName>/<filename>.csv` works without any registration.** `BlockComponents.Tables.Interpolation` reads them through `DyadData.DyadTimeseries`. Keep the asset small (< 100 KB) for compile-time embedding.
 - **Tension-only `ifelse(...)` cables can create algebraic loops with passive bodies** in PlanarMechanics. The 2D `Crane` couldn't close with the tension-only `Cable` + a free `Body` (cf. `STILL_HARD.md`). Use a `PlanarMechanics.Spring` or `SpringDamper` to break the loop at the cost of allowing compression.
+
+### 6-DOF pass learnings (MultibodyComponents 3D, dyad-3.3.0)
+
+- **Free-floating body:** `MultibodyComponents.Body(orientation_state = MultibodyComponents.OrientationState.Euler(), sequence = [3, 2, 1], statePriority = 100, linearStatePriority = 100, r_0(initial = …), v_0(initial = …), phi(initial = [yaw, pitch, roll]))` with nothing connecting it to the world. `sequence = [3, 2, 1]` is yaw-pitch-roll (`phi[1]` = yaw, unbounded). `frame_a.f` / `frame_a.tau` are resolved in the body frame; `body.v_0` is the world velocity, `body.w_a` the body-frame angular velocity.
+- **Apply algebraic forces with `WorldForce(resolve_in_frame = ResolveInFrame.FrameB())` + `WorldTorque(FrameB)` connected to the same frame,** setting `force_x/y/z`, `torque_x/y/z` from equations (the `BuoyantBody` example pattern). A force acting away from the frame origin is applied at the origin plus `MultibodyComponents.cross(r, F)` as torque; no `VariableTranslation` needed.
+- **Reading kinematics inside a force component works without sensors:** `MultibodyComponents.resolve2(frame_a.R, der(frame_a.r_0))` and `MultibodyComponents.angular_velocity2(frame_a.R)`. MTK also accepts `der()` of those algebraic velocities for added-mass terms (`-Δ mx der(u)`); the resulting acceleration loop is handled by structural simplification (turning circle: ~800 steps for 900 s).
+- **Array parameters with structural row counts** (`structural parameter n::Integer = 7; parameter T::Real[n, 2] = [[…], …]`) can be passed to a Julia helper (`draft_poly(T, x)`); `structural parameter PropModel::String` selects a Julia `Dict` entry (`wageningen_4q_ct(PropModel, beta)`).
+- **`BlockComponents.Tables.InterpolatedTable` with `DyadData.DyadInterpolationTable2D`** wants the Modelica `CombiTable2D` CSV layout (header row = axis-2 values, first column = axis-1 values) **with every cell parseable as Float64** — an integer-valued axis column makes the ND interpolator fail with `no method matching validate_size_u` (mixed `Vector{Int64}` / `Vector{Float64}` axes). Clamp the inputs to the tabulated range yourself; there is no extrapolation option.
+- **Two same-named conditional subcomponents are not supported** (`prop = Propeller1Q() if !flag` / `prop = Propeller4Q() if flag`, the pattern MultibodyComponents' `Spring` uses internally): the compiler emits only the last declaration, and the other branch fails at build time with `prop not defined`. Write a separate assembly (`CrashStop` vs `StandardShip`) instead.
+- **Hysteresis without events:** a fast relay state `der(s) = (target - s)/T` whose `target` is an `ifelse` on the sign of `s` itself (see `ZigZagController`).
+- **Autopilots:** an `ifelse`-frozen integrator with a `clamp` on the output chatters at the saturation boundary (320k solver steps for 2400 s); `BlockComponents.Continuous.LimPID` with back-calculation anti-windup (`u_s` = wrapped course error, `u_m` = 0) takes 5k steps.
+- **Sign-check every hydrodynamic port with a physical experiment,** not only with a compile: the yaw-rate persistence bug was a rudder inflow-angle sign, caught by the rudder pulse-and-return analysis, and the planar wind loads had both lateral signs flipped relative to upstream.
 
 ### Frame conventions (caught during code review)
 

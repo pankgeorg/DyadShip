@@ -1,0 +1,152 @@
+"""
+Wageningen B-series single-quadrant propeller on a 3D frame.
+
+Port of `ShipSIM.Components.Propulsion.Propeller1Q`. The propeller reads its
+own speed through the water from `frame_a` (an internal `ApparentSpeedXY`
+subtracts the current), evaluates the full Oosterveld & van Oossanen (1975)
+`Kt(J)` / `Kq(J)` regression through `wageningen_kt` / `wageningen_kq`, and
+applies the thrust `Kt ρ n² D⁴ (1 - t)` along the frame's x axis together with
+the shaft-torque reaction `-Q` about it (so a 6-DOF hull feels the small
+heeling moment of the propeller).
+
+The shaft connects through `flange`; the propeller itself is algebraic on the
+shaft (`flange.tau = Q`), so attach an external
+`RotationalComponents.Components.Inertia` carrying `Inertia + Add_Inertia`.
+Wake fraction, thrust deduction and relative rotative efficiency default to
+the Harvald (1983) and Holtrop (1988) single-screw estimates used upstream.
+
+The slipstream outputs `Propeller_flow_diameter` / `Propeller_speed` (Brix
+1993) feed a downstream `Rudder`. The advance ratio is clamped to
+`[J_min, J_max]` so a stopped or windmilling shaft stays inside the
+regression's range; the model is meant for ahead running (`J > 0`).
+"""
+component Propeller1Q
+  "Shaft connector"
+  flange = Spline()
+  "Propeller position on the hull; thrust acts along the frame's +x"
+  frame_a = Frame3D()
+  "Sea current velocity, world x"
+  Current_x = RealInput()
+  "Sea current velocity, world y"
+  Current_y = RealInput()
+  "Net thrust delivered to the hull [N]"
+  Thrust = RealOutput()
+  "Diameter of the slipstream reaching the rudder [m]"
+  Propeller_flow_diameter = RealOutput()
+  "Slipstream velocity reaching the rudder [m/s]"
+  Propeller_speed = RealOutput()
+  "Wake fraction passed on to the rudder"
+  Wake_Fraction = RealOutput()
+  "Propeller speed through the water along the frame x axis [m/s]"
+  ShipSpeed = RealOutput()
+  "Shaft speed [rpm]"
+  rpm = RealOutput()
+  "Shaft power [W]"
+  ShaftPower = RealOutput()
+  "Effective thrust power [W]"
+  ThrustPower = RealOutput()
+  "Overall propulsive efficiency"
+  Nu_propulsive = RealOutput()
+
+  apparent = ApparentSpeedXY()
+  force = MultibodyComponents.WorldForce(resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB(), render = false)
+  torque = MultibodyComponents.WorldTorque(resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB())
+
+  parameter Diameter::Length = 4
+  "Number of blades"
+  parameter Z::Real = 4
+  "Pitch-diameter ratio"
+  parameter P_D::Real = 1
+  "Expanded blade area ratio"
+  parameter Ae_Ao::Real = 0.3
+  parameter Density_Prop::Density = 7600
+  "Propeller moment of inertia [kg m²]"
+  parameter Inertia::Real = 0.0002744 * Ae_Ao * (Ae_Ao + 3) * Density_Prop * Diameter^5
+  "Entrained-water moment of inertia [kg m²]"
+  parameter Add_Inertia::Real = 0.3 * Inertia
+  parameter Lpp::Length = 100
+  parameter B::Length = 20
+  parameter Cb::Real = 0.693
+  "Prismatic coefficient"
+  parameter Cp::Real = 0.75
+  "LCB as % of Lpp from midship, positive forward"
+  parameter lcb::Real = -0.75
+  "Aft body shape factor: -2 U shape, 0 N shape, +2 V shape"
+  parameter Fa::Real = -2
+  "Distance from the propeller to the rudder centre of forces"
+  parameter Rudder_distance::Length = Diameter * 1.2
+  parameter SeaDensity::Density = 1025
+  "Wake fraction (Harvald 1983, single screw)"
+  parameter WakeFraction::Real = 0.1 * B / Lpp + 0.149 + (((0.05 * B) / Lpp) + 0.449) / ((585 - 5027 * B / Lpp + 11700 * ((B / Lpp)^2)) * (0.98 - Cb)^3 + 1) + 0.025 * Fa / (100 * (Cb - 0.7)^2 + 1) - 0.18 + (0.00756 / ((Diameter / Lpp) + 0.002))
+  "Thrust deduction (Harvald 1983, single screw)"
+  parameter ThrustDeduction::Real = (0.625 * B / Lpp + 0.08) + (0.165 - 0.25 * B / Lpp) / ((525 - 8060 * B / Lpp + 20300 * (B / Lpp)^2) * (0.98 - Cb)^3 + 1) - 0.01 * Fa + 2 * (Diameter / Lpp - 0.04)
+  "Relative rotative efficiency (Holtrop 1988, single screw)"
+  parameter RotativeRelative::Real = 0.9922 - 0.05908 * Ae_Ao + 0.07424 * (Cp - 0.0225 * lcb)
+  "Shaft-speed floor keeping the open-water formulas defined at rest [rad/s]"
+  parameter w_floor::AngularVelocity = 1e-3
+  "Lower clamp on the advance ratio fed to the regression"
+  parameter J_min::Real = -0.5
+  "Upper clamp on the advance ratio fed to the regression"
+  parameter J_max::Real = 1.5
+
+  variable w::AngularVelocity
+  variable w_eff::AngularVelocity
+  "Revolutions per second"
+  variable n::Real
+  variable AdvanceSpeed::Velocity
+  variable J::Real
+  variable Kt::Real
+  variable Kq::Real
+  variable Thrust_Kt::Force
+  variable Torque_Kq::Torque
+  variable Nu_zero::Real
+  variable Nu_hull::Real
+  variable C_th::Real
+  variable V_inf::Velocity
+  variable r_inf::Length
+  variable r_x::Length
+  variable V_x::Velocity
+  variable Delta_r::Length
+relations
+  connect(frame_a, apparent.frame_a, force.frame_b, torque.frame_b)
+  apparent.WorldSpeed_x = Current_x
+  apparent.WorldSpeed_y = Current_y
+  ShipSpeed = apparent.SpeedLocal_x
+  Wake_Fraction = WakeFraction
+
+  w = der(flange.phi)
+  w_eff = sqrt(w^2 + w_floor^2)
+  n = w_eff / (2 * π)
+  rpm = w * 60 / (2 * π)
+
+  AdvanceSpeed = ShipSpeed * (1 - WakeFraction)
+  J = clamp(AdvanceSpeed / (n * Diameter), J_min, J_max)
+  Kt = wageningen_kt(J, P_D, Ae_Ao, Z)
+  Kq = wageningen_kq(J, P_D, Ae_Ao, Z)
+  Thrust_Kt = Kt * SeaDensity * n^2 * Diameter^4
+  Torque_Kq = Kq * SeaDensity * n^2 * Diameter^5
+
+  flange.tau = Torque_Kq * w / w_eff
+  Thrust = Thrust_Kt * (1 - ThrustDeduction)
+  force.force_x = Thrust
+  force.force_y = 0
+  force.force_z = 0
+  torque.torque_x = -flange.tau
+  torque.torque_y = 0
+  torque.torque_z = 0
+
+  Nu_zero = J / (2 * π) * Kt / (Kq + 1e-6)
+  Nu_hull = (1 - ThrustDeduction) / (1 - WakeFraction)
+  Nu_propulsive = Nu_zero * RotativeRelative * Nu_hull
+  ShaftPower = w * flange.tau
+  ThrustPower = Thrust * ShipSpeed
+
+  C_th = sqrt(8 * w_eff^2 * Diameter^2 * abs(Kt) / (π * (AdvanceSpeed^2 + 1e-6)))
+  V_inf = sqrt(AdvanceSpeed^2 + 1e-6) * sqrt(1 + C_th)
+  r_inf = (Diameter / 2) * sqrt(0.5 * (1 + AdvanceSpeed / V_inf))
+  r_x = (Diameter / 2) * (0.14 * (r_inf / (Diameter / 2))^3 + (r_inf / (Diameter / 2)) * (Rudder_distance / (Diameter / 2))^1.5) / (0.14 * (r_inf / (Diameter / 2))^3 + (Rudder_distance / (Diameter / 2))^1.5)
+  V_x = V_inf * (r_inf / r_x)^2
+  Delta_r = 0.15 * Rudder_distance * ((V_inf * r_inf^2 - AdvanceSpeed * r_x^2) / (V_inf * r_inf^2 + AdvanceSpeed * r_x^2))
+  Propeller_flow_diameter = 2 * (r_x + Delta_r)
+  Propeller_speed = (V_x - AdvanceSpeed) * (r_x^2 / (r_x + Delta_r)^2) + AdvanceSpeed
+end

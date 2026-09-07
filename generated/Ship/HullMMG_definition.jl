@@ -40,13 +40,18 @@ where `v_nd = v/U`, `r_nd = r·Lpp/U`, `U = sqrt(u² + v² + ε)`, and
 example values for a 100 m hull (towing-tank-fit polynomial in |u|).
 
 Limitations vs upstream:
-- Dynamic added mass (`mx d/dt(u) − my v r` etc.) is not modelled. The
-  `mass` and `Iz` parameters should already include the rigid-body +
-  added-mass total. Only the *cross-coupling* added-mass terms (the
-  v·r and u·r contributions) are kept, since they don't introduce new
-  derivatives.
+- Dynamic added mass (`mx d/dt(u)`, `my d/dt(v)`, `Jz d/dt(r)`) is not
+  modelled. The `mass` and `Iz` parameters should already include the
+  rigid-body + added-mass total. Only the *cross-coupling* added-mass
+  terms `+Δ my v r` (surge) and `-Δ mx u r` (sway) are kept, since they
+  don't introduce new derivatives.
 - Per upstream's known issue, the resistance curve is a function of
   surge speed only (not of total apparent speed U).
+- The analyses in this submodule use `mass = 1e6`, `Iz = 1e8`, far below
+  the displacement (5.7e6 kg) and yaw inertia (4.3e9 kg m²) of the hull
+  the resistance and derivative estimates describe, so their transients
+  are faster than a real 100 m ship. The 6-DOF stack in `Ship6DOF` uses
+  the consistent upstream values; prefer it for maneuvering studies.
 
 ## Parameters:
 
@@ -235,7 +240,7 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   __initial_conditions[N_vvr] = __local__N_vvr
 
   ### Final Parameters (assignments)
-  __bindings[mx] = 1.0 / (π * sqrt(Lpp ^ 2 / (B * Draft * Cb * SeaDensity)) - 14)
+  __bindings[mx] = 1.0 / (π * sqrt(Lpp ^ 2 / (B * Draft * Cb)) - 14)
   __bindings[my] = 0.882 - 0.54 * Cb * (1 - 1.6 * Draft / B) - 0.156 * (1 - 0.673 * Cb) * Lpp / B + 0.826 * (Draft / B) * (Lpp / B) * (1 - 0.678 * Draft / B) - 0.638 * Cb * (Draft / B) * (Lpp / B) * (1 - 0.669 * Draft / B)
 
   ### Final Path Parameters
@@ -333,8 +338,8 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   push!(__eqs, R_surge ~ -1 * (R3 * u * u * abs(u) + R2 * u * abs(u) + R1 * u))
   push!(__eqs, NonDimXY ~ 0.5 * SeaDensity * U * U * Lpp * Draft)
   push!(__eqs, NonDimN ~ NonDimXY * Lpp)
-  push!(__eqs, X_damp ~ NonDimXY * (X_vv * v_nd ^ 2 + X_vvvv * v_nd ^ 4 + X_rr * r_nd ^ 2 + X_vr * v_nd * r_nd) - mass * my / 100 * v * r)
-  push!(__eqs, Y_damp ~ NonDimXY * (Y_v * v_nd + Y_vvv * v_nd ^ 3 + Y_r * r_nd + Y_rrr * r_nd ^ 3 + Y_vrr * v_nd * r_nd ^ 2 + Y_vvr * v_nd ^ 2 * r_nd) + mass * mx / 100 * u * r)
+  push!(__eqs, X_damp ~ NonDimXY * (X_vv * v_nd ^ 2 + X_vvvv * v_nd ^ 4 + X_rr * r_nd ^ 2 + X_vr * v_nd * r_nd) + mass * my * v * r)
+  push!(__eqs, Y_damp ~ NonDimXY * (Y_v * v_nd + Y_vvv * v_nd ^ 3 + Y_r * r_nd + Y_rrr * r_nd ^ 3 + Y_vrr * v_nd * r_nd ^ 2 + Y_vvr * v_nd ^ 2 * r_nd) - mass * mx * u * r)
   push!(__eqs, N_damp ~ NonDimN * (N_v * v_nd + N_vvv * v_nd ^ 3 + N_r * r_nd + N_rrr * r_nd ^ 3 + N_vrr * v_nd * r_nd ^ 2 + N_vvr * v_nd ^ 2 * r_nd))
   push!(__eqs, forcer.force_x ~ Fx_extra + R_surge + X_damp)
   push!(__eqs, forcer.force_y ~ Fy_extra + Y_damp)

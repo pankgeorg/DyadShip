@@ -19,8 +19,6 @@ end
 include("Cable_test.jl")
 include("CraneStaticLoad_test.jl")
 include("Crane_test.jl")
-include("OnOffConsumerDuty_test.jl")
 include("OnOffConsumer_test.jl")
-include("PeakSamplerSine_test.jl")
 include("PeakSampler_test.jl")
 end

@@ -204,6 +204,4 @@ end
 
 include("ApparentSpeedXY_definition.jl")
 include("Environment_definition.jl")
-include("Hello_definition.jl")
 include("VariableEnvironment_definition.jl")
-include("World_definition.jl")

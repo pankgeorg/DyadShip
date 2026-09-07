@@ -2,222 +2,143 @@
 
 A [Dyad](https://help.juliahub.com/dyad/) port of the Modelica naval-architecture
 library [ShipSIM](https://github.com/BasilioPV/ShipSIM) by Basilio Puente and
-M Dolores Fernandez, extended with a **WaterLily.jl CFD-driven Flettner rotor**
-propulsor.
+M Dolores Fernandez, built on the 3D `MultibodyComponents` library, plus a
+WaterLily.jl CFD-driven Flettner rotor propulsor.
 
 > **This is a rewrite, not a translation.** The Modelica components have been
-> reimplemented in Dyad and adapted to the components available in
-> `MultibodyComponents`, `RotationalComponents`, `BlockComponents`, and the
-> rest of the Dyad standard libraries. Some upstream features that depend on
-> Modelica facilities not yet available in Dyad (3D multibody, `when`/discrete
-> events, `Modelica.Fluid` moist-air media, full Wageningen-B propeller
-> regressions, etc.) have been simplified — see the per-component docstrings
-> for the assumptions taken in each case, and `HARD.md` / `STILL_HARD.md` for
-> components that were skipped.
+> reimplemented in Dyad on top of `MultibodyComponents`, `RotationalComponents`,
+> `BlockComponents` and the rest of the Dyad standard libraries. Per-component
+> docstrings state what was simplified or corrected relative to upstream;
+> `PORTING_NOTES.md` is the map of what exists, what changed and what was left out.
 
-The upstream Modelica library lives at
-<https://github.com/BasilioPV/ShipSIM> and is distributed under the 3-clause
-BSD license. Per-component docstrings cite the originals they're ported from.
+## Six-degree-of-freedom ship (`dyad/Ship6DOF`)
 
-## Highlights
+The primary stack mirrors ShipSIM's architecture on `Frame3D` connectors:
 
-- **Closed-loop autopilot transit.** A `HeadingAutoPilot` (PI on heading +
-  throttle ramp on approach) steers a `HullMMG` hull from origin to a target
-  waypoint with diesel propeller, rudder, and time-varying wind windage.
-- **CFD-driven Flettner rotor propulsion.** A new `FlettnerRotor` component
-  whose `Cl(ξ), Cd(ξ)` coefficients come from offline
-  [WaterLily.jl](https://github.com/WaterLily-jl/WaterLily.jl) simulations of a
-  2D rotating cylinder in cross-flow. Reads coefficients live from
-  `assets/flettner_coeffs.csv` via two `BlockComponents.Tables.Interpolation`
-  blocks. Source pattern is G. D. Weymouth's canonical SpinCyl example.
-- **Three-way wind-orientation comparison.** Identical hull / propulsion /
-  autopilot stack, three different rotor scenarios:
+| Component | What it does |
+|---|---|
+| `ShipBody` | Rigid body (yaw-pitch-roll Euler angles) with draft-polynomial hydrostatics: displacement, centre of buoyancy and metacentric radii as functions of the instantaneous draft, heel and trim. |
+| `HydrodynamicXYY` | MMG surge/sway/yaw forces with the empirical derivative estimates of Clarke, Smitt, Khattab, Lee & Shin, Kijima and Yoshimura, resistance curve, and added mass with the coupling terms. Forces act at the centre of forces, so a turn heels the hull. |
+| `HydrodynamicZRP` | Heave/roll/pitch damping and added mass, with defaults from damping ratios. |
+| `Propeller1Q` / `Propeller4Q` | Wageningen B-series open-water characteristics: the full Oosterveld & van Oossanen polynomial, or the 14 four-quadrant Fourier data sets for astern and crash-stop work. Both feed the rudder with Brix's slipstream model. |
+| `Rudder` | Steering-gear angle and rate limits, NACA 0012/0015 `Cl/Cd/Cm(α, Re)` tables (`assets/naca*.csv`), flow straightening, Söding slipstream and hull-interaction factors. |
+| `ShipWind` | Fujiwara superstructure wind loads at the centre of the lateral area. |
+| `ApparentSpeedXY` | Frame-based apparent wind / current sensor. |
+| `WaypointAutopilot` | `LimPID` heading autopilot with throttle ramp. |
+| `StandardShip` | The ShipSIM sample hull (100 m, 5681 t) with propeller, rudder and hydrodynamics wired up; the manoeuvring analyses extend it. |
+
+### Validation
+
+`scripts/validate_6dof.jl` runs the standard manoeuvring tests and writes the
+figures in `assets/ship6dof_*.png`. Results for the sample hull (rudder rate
+2.5 °/s, approach 6.69 m/s, 100 rpm unless noted):
+
+| Analysis | Result |
+|---|---|
+| `RollDecayTransient` | roll period 9.1 s (linear estimate 8.4 s; the difference is the sway added-mass coupling of a hull rolling about a CoG 5 m above its hydrodynamic centre), damping ratio 0.047 for the 0.05 setting |
+| `SpeedTrialTransient` | 6.05 m/s at 100 rpm, thrust 129 kN against 128 kN resistance, 1.1 MW shaft power |
+| `TurningCircleTransient` (35°) | advance 3.9 L, transfer 0.7 L, tactical diameter 3.2 L; steady turn at 44 % of approach speed, 0.95 °/s, 35° drift, 0.35° outward heel |
+| `RudderReturnTransient` | yaw rate halves 24 s after the rudder is centred and decays to zero |
+| `ZigZagTransient` (20/20) | overshoot angles 32°, 31°, 27° |
+| `CrashStopTransient` | 110 rpm ahead to 80 rpm astern: stopped after 287 s, head reach 9.9 L |
+| `FullShip6DOFTransient` | 10 km waypoint transit in a 10 m/s wind from the north-east: arrives at 1768 s holding a 3.8° rudder offset and 0.2° heel |
+
+![Turning circle](assets/ship6dof_turning_circle.png)
+
+The zig-zag overshoots are large because the upstream Khattab estimate of the
+yaw damping leaves the bare hull linearly course-unstable
+(`HydrodynamicXYY.CourseStability < 0`); the rudder's fin effect holds the
+course. Override `N_r` for a stiffer hull.
+
+`ManualShip6DOFTransient` exposes shaft rpm and rudder angle as tunable
+parameters for interactive (WASM) use.
+
+## Planar stack and Flettner rotor
+
+`dyad/Ship` and `dyad/Propulsion` hold the earlier `PlanarMechanics`
+(surge/sway/yaw) port: `HullMMG`, `Rudder`, `Propeller1Q/4Q`, `POD4Q`,
+`WingSail`, `ShipWind`, `HeadingAutoPilot`, `ManualShip`, the `FullShip*`
+transits and the Flettner-rotor propulsor. Two sign errors in it were fixed
+in this pass (rudder inflow angle, wind lateral force and moment); its
+analyses still use a hull mass well below the sample ship's displacement, so
+prefer `Ship6DOF` for manoeuvring studies.
+
+The `FlettnerRotor` component reads `Cl(ξ)`, `Cd(ξ)` from
+`assets/flettner_coeffs.csv`, produced offline by
+`scripts/run_waterlily_flettner.jl` from WaterLily.jl simulations of a
+rotating cylinder in cross-flow (G. D. Weymouth's SpinCyl pattern). Three
+rendered transits compare diesel-only, rotor with bow-quarter wind and rotor
+with beam wind:
 
 | Analysis | Rotor | Mean wind from | Time to target |
 |---|---|---|---|
-| `ShipRenderTransient` | none (diesel only) | NE (45°) | doesn't reach by t=2200 s |
-| `ShipFlettnerRenderTransient` | yes | NE (45°), bow-quarter | doesn't reach by t=1500 s |
-| `ShipFlettnerFavorableRenderTransient` | yes | N (0°), beam | **reaches at t ≈ 1200 s** |
-
-## Animations
-
-The 1500–2200 s simulations are compressed to 30-second MP4s into `assets/`.
-Same axis limits, same target star, same wind-arrow corner across all three
-so the comparison is purely about the rotor's contribution. Flettner frames
-add a purple rotor glyph on the hull (spin chord visible at ×80 slow-down)
-and a crimson rotor-force arrow.
-
-### Baseline — diesel only, NE wind
-
-<video src="assets/ship_animation.mp4" controls width="720">
-  Your viewer doesn't render embedded MP4. Open
-  <a href="assets/ship_animation.mp4">assets/ship_animation.mp4</a>.
-</video>
-
-### Flettner rotor, unfavorable bow-quarter wind
-
-<video src="assets/ship_flettner_animation.mp4" controls width="720">
-  <a href="assets/ship_flettner_animation.mp4">assets/ship_flettner_animation.mp4</a>
-</video>
-
-Rotor produces ~400 kN of Magnus lift but only 4–28 % of it is in surge —
-most of the force is lateral. The hull sideslips, the autopilot uses the
-rudder hard, induced drag eats the surge gain. Net result: ~13 % extra
-distance vs. baseline (1.7 km more after 1500 s), but average speed is
-similar.
-
-### Flettner rotor, favorable beam wind
+| `ShipRenderTransient` | none | NE (45°) | not reached by 2200 s |
+| `ShipFlettnerRenderTransient` | yes | NE (45°), bow quarter | not reached by 1500 s |
+| `ShipFlettnerFavorableRenderTransient` | yes | N (0°), beam | reaches at t ≈ 1200 s |
 
 <video src="assets/ship_flettner_favorable_animation.mp4" controls width="720">
   <a href="assets/ship_flettner_favorable_animation.mp4">assets/ship_flettner_favorable_animation.mp4</a>
 </video>
 
-Same rotor, same hull, wind direction rotated 45° so the apparent wind hits
-the ship broadside. Magnus lift now decomposes 39–51 % into surge — the
-rotor delivers up to **+300 kN of forward thrust on top of the 110 kN
-propeller**, and ship surge speed peaks at **8.5 m/s** (vs. 5.2 m/s
-baseline). The ship reaches the destination at **t ≈ 1200 s, ~40 % faster
-than baseline**.
+`FlettnerRotorOnline` and `scripts/run_flettner_cosim_verification.jl` run
+the same transit with WaterLily stepped live in a `PeriodicCallback`
+(package extension `FlettnerCFDLiveExt`, GPU-capable through CUDA) to
+verify the table approach; `assets/flettner_cosim_*` hold the comparison
+plots and animations. Table and live CFD agree on shape, sign and
+trajectory, with live magnitudes 20–30 % lower during the ramp-up.
 
-## Getting Started
+## Getting started
 
-Dyad models live in `dyad/`; the Dyad compiler emits Julia into `generated/`.
-Do not edit files in `generated/` directly.
+Dyad models live in `dyad/`; the Dyad compiler emits Julia into `generated/`
+(never edit those files). The wrappers `../julia-dyad.sh` and `../dyad.sh`
+select the `dyad-3.3.0` JuliaUp channel and `dyad-cli@3.3.0`; run heavy
+commands through `~/dyad-fleet/heavy` on this machine.
 
 ```sh
-# Compile Dyad → Julia
+# Compile Dyad -> Julia
 ../dyad.sh compile
 
-# Run an analysis from the REPL
-../julia-dyad.sh -e 'using DyadShip; DyadShip.Ship.ShipFlettnerFavorableRenderTransient()'
+# Run an analysis from Julia
+../julia-dyad.sh -e 'using DyadShip; res = DyadShip.Ship6DOF.TurningCircleTransient(); println(res.sol.retcode)'
 
-# Render the three comparison animations into assets/
+# Manoeuvring validation report + figures
+../julia-dyad.sh scripts/validate_6dof.jl
+
+# Planar transit animations
 ../julia-dyad.sh scripts/render_all.jl
 
-# Re-characterize the Flettner rotor with WaterLily (writes assets/flettner_coeffs.csv;
-# uses scripts/Project.toml so WaterLily isn't on the main library deps)
+# Re-characterise the Flettner rotor with WaterLily (scripts/Project.toml)
 ../julia-dyad.sh --project=scripts scripts/run_waterlily_flettner.jl
 ```
 
-The wrappers `../julia-dyad.sh` and `../dyad.sh` set the JuliaUp channel and
-package server this project expects (`dyad-3.0.0-rc5`, `juliahub.com`); call
-them rather than `julia` / the Dyad CLI directly.
+Accessing results follows the Dyad convention:
+
+```julia
+using DyadShip
+using DyadInterface: symbolic_container
+res = DyadShip.Ship6DOF.ZigZagTransient()
+m = symbolic_container(res)
+heading_deg = rad2deg.(res.sol[m.ship.Yaw])
+```
 
 ## Layout
 
-- `dyad/` — Dyad component sources
-  - `dyad/Ship/` — hull, autopilot, anti-heeling, buoyancy, ship-wind force,
-    full-ship analyses (with and without Flettner rotor).
-  - `dyad/Propulsion/` — propellers (1Q, 4Q, POD), rudder, wing-sail, diesel,
-    **Flettner rotor**.
-  - `dyad/Machinery/` — crane, cable, on-off consumer, peak sampler.
-  - `dyad/Thermal/` — irradiation, sun-screen, plate/cylinder transients.
-- `generated/` — auto-generated Julia (do not edit).
-- `src/DyadShip.jl` — thin Julia module wrapper around `generated/module.jl`.
-- `scripts/` — runnable analysis + rendering + WaterLily characterization
-  scripts; carries its own `Project.toml` for the WaterLily dependency.
-- `assets/` — bundled datasets (temperature CSV, Flettner coefficient CSV)
-  and generated artifacts (animation MP4s, diagnostic PNGs).
-- `REPORT.md`, `SUCCESSES.md`, `HARD.md`, `STILL_HARD.md`, `PORT_PLAN.md` —
-  porting log from the initial autonomous session.
-- `agent_resources/` — local tooling notes (gitignored).
-
-## How the Flettner rotor talks to Dyad
-
-WaterLily.jl can't run live inside the Dyad ODE solver — a single CFD step
-costs many milliseconds and the adaptive stepper calls the rhs hundreds of
-times per simulated second. Real Flettner designs (Norsepower, Maranet) use
-the same pattern as `dyad/Propulsion/FlettnerRotor.dyad`:
-
-1. **Characterize once.** `scripts/run_waterlily_flettner.jl` runs the
-   spinning-cylinder simulation over a sweep of spin ratios ξ ∈ [0, 6] (the
-   exact `AutoBody(sdf, rotation_map)` + `WaterLily.total_force` pattern
-   from Weymouth's `SpinCylOptim.jl`), writes `assets/flettner_coeffs.csv`.
-2. **Read live.** Two `BlockComponents.Tables.Interpolation` blocks inside
-   `FlettnerRotor` look up `Cl(ξ)` and `Cd(ξ)` per ODE step. CubicSpline
-   interpolation keeps the rhs Jacobian smooth across the sweep points.
-3. **Decompose into body axes.** Magnus lift is perpendicular to the
-   apparent wind, with the sign of `ω` flipping which side it points to.
-
-The CSV stores raw `WaterLily.total_force` (force-on-fluid convention per
-`Metrics.jl::pressure_force`); the Dyad component negates internally to
-the engineering force-on-body convention. The docstring on
-`dyad/Propulsion/FlettnerRotor.dyad` spells this out.
-
-### Live co-simulation (verification only)
-
-`FlettnerRotorOnline` is a sibling component that gets its body-frame force
-from a `@register_symbolic` Julia callback instead of the offline-CFD table.
-The forces are written by a `DiffEqCallbacks.PeriodicCallback` that fires
-every `Δt_cosim = 0.2 s` and steps WaterLily one inner sim-time unit; the
-machinery lives in `src/FlettnerCFDLive.jl` (stubs + force lookups) +
-`ext/FlettnerCFDLiveExt.jl` (the real WaterLily wiring, behind a package
-extension keyed on `WaterLily`). The driver is documented in the docstrings.
-
-This exists to **verify** the offline-table approach against actual live
-CFD, not for production runs. CFD wall-time (90 s of sim, 450 callbacks,
-WaterLily inner_dt = 0.5):
-
-| Grid | T_STOP | Δt_cosim | Backend | CFD wall | per-step | vs. CPU baseline |
-|---|---|---|---|---|---|---|
-| `n=128` | 90 s   | 0.2 s | CPU (single-thread) | 458 s | 1.02 s | — |
-| `n=128` | 90 s   | 0.2 s | GPU (RTX 2000 Ada Laptop) | 324 s | 0.72 s | 1.4× |
-| `n=256` | 90 s   | 0.2 s | GPU | 793 s | 1.76 s | ~2.3× vs estimated CPU |
-| `n=128` | 1500 s | 1.0 s | GPU (the full-arrival video below) | 1784 s | 1.19 s | — |
-
-The GPU path is `mem = CUDA.CuArray` passed through `FlettnerCFDLive.init!`
-to `WaterLily.Simulation`; the script auto-detects `CUDA.functional()`
-and falls back to CPU when no device is present. **Speedup at `n=128` is
-modest** because the grid is tiny (~98 k cells) — each WaterLily kernel
-finishes in microseconds while the CPU-side dispatch overhead is ~10 µs
-per launch, so the GPU spends most of its time waiting for the next
-kernel. `n=256` (~400 k cells) starts to amortize the dispatch cost and
-also produces noticeably better-matched Cl/Cd vs the offline reference
-(e.g., live `Cl` at `t=10` is 2.4 at n=256 vs 0.8 at n=128, table value
-~2.5).
-
-Override the grid with `N_GRID=256 ../julia-dyad.sh --project=scripts
-scripts/run_flettner_cosim_verification.jl`. Outputs are tagged with
-`_n{N}_{cpu|gpu}` so multiple runs don't overwrite each other; the
-untagged `flettner_cosim_animation.mp4` / `flettner_cosim_verification.png`
-in the repo are the canonical n=256 GPU pair.
-
-The script writes:
-
-- `assets/flettner_cosim_verification.png` — four-panel plot comparing
-  rotor surge force, sway force, ship trajectory, and live `Cl(t)` / `Cd(t)`
-  against the table-driven `FullShipFlettnerFavorableRender` reference.
-- `assets/flettner_cosim_animation.mp4` — full-arrival run: 1500 s of
-  simulated transit compressed into 25 s (30 fps, 750 frames). Top panel
-  shows the ship's map view as it travels from origin to the (10000, 1000)
-  target; bottom panel shows the WaterLily z-vorticity field — actual CFD
-  flow around the rotating cylinder — synchronized to the same simulated
-  time. You can see the Magnus boundary layer roll up and the wake bias
-  swing as the apparent-wind angle shifts under the time-varying wind.
-
-<video src="assets/flettner_cosim_animation.mp4" controls width="720">
-  <a href="assets/flettner_cosim_animation.mp4">assets/flettner_cosim_animation.mp4</a>
-</video>
-
-The ship in the live cosim arrives at **t ≈ 1200 s** — close to the
-table-based favorable run's 1200 s arrival, despite live `Cl` running
-~20–30 % under the table at the early ramp-up phase. The
-`_n128_gpu` / `_n256_gpu` tagged variants are also bundled for direct
-short-window comparison.
-
-Table and live agree on shape, sign, and trajectory; live magnitudes run
-~20–30% under the table because the body-rebuild-each-callback approach
-restarts the BDIM transient between coupling steps. Good enough to
-confirm the table is in the right physical regime.
-
-To run:
-
-```sh
-../julia-dyad.sh --project=scripts scripts/run_flettner_cosim_verification.jl
-```
-
-The first invocation `Pkg.develop`s the parent project into `scripts/` and
-precompiles WaterLily + the package extension.
+- `dyad/Ship6DOF/` — 6-DOF ship stack, analyses, `definitions.jl` (Wageningen
+  polynomials, four-quadrant Fourier sets, draft polynomials).
+- `dyad/Ship/`, `dyad/Propulsion/` — planar stack, Flettner rotor, transits.
+- `dyad/Machinery/` — crane, cable, on-off consumer, peak sampler.
+- `dyad/Thermal/` — solar irradiation, sun screen, plate and cylinder
+  transients, temperature dataset, dew point, air exchanger.
+- `dyad/Environment.dyad`, `VariableEnvironment.dyad`, `ApparentSpeedXY.dyad` —
+  signal-level environment helpers.
+- `assets/` — wing-profile and Flettner coefficient tables, temperature CSV,
+  validation figures, animations.
+- `scripts/` — validation, rendering and WaterLily characterisation scripts
+  (`scripts/Project.toml` carries the WaterLily/CUDA dependencies).
+- `src/DyadShip.jl`, `ext/FlettnerCFDLiveExt.jl` — Julia module wrapper and
+  the live-CFD extension.
+- `PORTING_NOTES.md` — port status, conventions, corrections relative to upstream.
+- `AGENTS.md` — toolchain notes and Dyad/MTK learnings for agents.
 
 ## License
 

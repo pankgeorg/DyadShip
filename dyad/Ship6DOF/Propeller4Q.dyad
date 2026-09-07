@@ -1,0 +1,123 @@
+"""
+Wageningen B-series four-quadrant propeller on a 3D frame.
+
+Port of `ShipSIM.Components.Propulsion.Propeller4Q`. Thrust and torque come
+from the Fourier-series four-quadrant characteristics `Ct(β)`, `Cq(β)` of the
+propeller `PropModel` (one of the 14 Wageningen B-series propellers tabulated
+upstream: `B4_100_1`, `B4_85_1`, `B4_70_1`, `B4_55_1`, `B4_40_1`, `B3_65_1`,
+`B5_75_1`, `B6_80_1`, `B7_85_1`, `B4_70_5`, `B4_70_6`, `B4_70_8`, `B4_70_12`,
+`B4_70_14`, named `B<blades>_<Ae/Ao %>_<P/D x10>`):
+
+```math
+β = \\operatorname{atan2}(V_a, 0.7 π n D), \\quad V_r^2 = V_a^2 + (0.7 π n D)^2
+```
+```math
+T = C_t(β)\\, \\tfrac12 ρ V_r^2 \\tfrac{π}{4} D^2, \\quad Q = C_q(β)\\, \\tfrac12 ρ V_r^2 \\tfrac{π}{4} D^3
+```
+
+Unlike `Propeller1Q`, the characteristics stay valid with the shaft reversed
+or the ship moving astern, so this is the propeller for crash-stop and
+astern manoeuvres. The four quadrants are selected by the signs of `V_a` and
+`n` through `atan2`; the Fourier series is periodic, so no branch logic is
+needed. Interface, hull coupling, slipstream outputs and the Harvald wake /
+thrust-deduction estimates are the same as `Propeller1Q`.
+"""
+component Propeller4Q
+  "Shaft connector"
+  flange = Spline()
+  "Propeller position on the hull; thrust acts along the frame's +x"
+  frame_a = Frame3D()
+  Current_x = RealInput()
+  Current_y = RealInput()
+  "Net thrust delivered to the hull [N]"
+  Thrust = RealOutput()
+  Propeller_flow_diameter = RealOutput()
+  Propeller_speed = RealOutput()
+  Wake_Fraction = RealOutput()
+  "Propeller speed through the water along the frame x axis [m/s]"
+  ShipSpeed = RealOutput()
+  "Shaft speed [rpm]"
+  rpm = RealOutput()
+  "Hydrodynamic pitch angle at 0.7 R [rad]"
+  Beta = RealOutput()
+  ShaftPower = RealOutput()
+  ThrustPower = RealOutput()
+
+  apparent = ApparentSpeedXY()
+  force = MultibodyComponents.WorldForce(resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB(), render = false)
+  torque = MultibodyComponents.WorldTorque(resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB())
+
+  "Wageningen B-series four-quadrant propeller data set"
+  structural parameter PropModel::String = "B4_70_1"
+  parameter Diameter::Length = 4
+  "Expanded blade area ratio, used for the inertia estimate; match PropModel"
+  parameter Ae_Ao::Real = 0.7
+  parameter Density_Prop::Density = 7600
+  "Propeller moment of inertia [kg m²]"
+  parameter Inertia::Real = 0.0002744 * Ae_Ao * (Ae_Ao + 3) * Density_Prop * Diameter^5
+  "Entrained-water moment of inertia [kg m²]"
+  parameter Add_Inertia::Real = 0.3 * Inertia
+  parameter Lpp::Length = 100
+  parameter B::Length = 20
+  parameter Cb::Real = 0.693
+  parameter Fa::Real = -2
+  parameter Rudder_distance::Length = Diameter * 1.2
+  parameter SeaDensity::Density = 1025
+  "Wake fraction (Harvald 1983, single screw)"
+  parameter WakeFraction::Real = 0.1 * B / Lpp + 0.149 + (((0.05 * B) / Lpp) + 0.449) / ((585 - 5027 * B / Lpp + 11700 * ((B / Lpp)^2)) * (0.98 - Cb)^3 + 1) + 0.025 * Fa / (100 * (Cb - 0.7)^2 + 1) - 0.18 + (0.00756 / ((Diameter / Lpp) + 0.002))
+  "Thrust deduction (Harvald 1983, single screw)"
+  parameter ThrustDeduction::Real = (0.625 * B / Lpp + 0.08) + (0.165 - 0.25 * B / Lpp) / ((525 - 8060 * B / Lpp + 20300 * (B / Lpp)^2) * (0.98 - Cb)^3 + 1) - 0.01 * Fa + 2 * (Diameter / Lpp - 0.04)
+
+  variable w::AngularVelocity
+  "Revolutions per second, signed"
+  variable n::Real
+  variable Va::Velocity
+  variable Vr::Velocity
+  variable Ct::Real
+  variable Cq::Real
+  variable T::Force
+  variable Q::Torque
+  variable C_th::Real
+  variable V_inf::Velocity
+  variable r_inf::Length
+  variable r_x::Length
+  variable V_x::Velocity
+  variable Delta_r::Length
+relations
+  connect(frame_a, apparent.frame_a, force.frame_b, torque.frame_b)
+  apparent.WorldSpeed_x = Current_x
+  apparent.WorldSpeed_y = Current_y
+  ShipSpeed = apparent.SpeedLocal_x
+  Wake_Fraction = WakeFraction
+
+  w = der(flange.phi)
+  n = w / (2 * π)
+  rpm = 60 * n
+  Va = ShipSpeed * (1 - WakeFraction)
+  Beta = atan(Va, 0.7 * π * n * Diameter)
+  Vr = sqrt(Va^2 + (0.7 * π * n * Diameter)^2 + 1e-6)
+  Ct = wageningen_4q_ct(PropModel, Beta)
+  Cq = wageningen_4q_cq(PropModel, Beta)
+  T = Ct * 0.5 * SeaDensity * Vr^2 * (π / 4) * Diameter^2
+  Q = Cq * 0.5 * SeaDensity * Vr^2 * (π / 4) * Diameter^3
+
+  flange.tau = Q
+  Thrust = T * (1 - ThrustDeduction)
+  force.force_x = Thrust
+  force.force_y = 0
+  force.force_z = 0
+  torque.torque_x = -Q
+  torque.torque_y = 0
+  torque.torque_z = 0
+  ShaftPower = w * Q
+  ThrustPower = Thrust * ShipSpeed
+
+  C_th = sqrt(8 * abs(T) / (π * SeaDensity * Diameter^2 * (Va^2 + 1e-6)))
+  V_inf = sqrt(Va^2 + 1e-6) * sqrt(1 + C_th)
+  r_inf = (Diameter / 2) * sqrt(0.5 * (1 + Va / V_inf))
+  r_x = (Diameter / 2) * (0.14 * (r_inf / (Diameter / 2))^3 + (r_inf / (Diameter / 2)) * (Rudder_distance / (Diameter / 2))^1.5) / (0.14 * (r_inf / (Diameter / 2))^3 + (Rudder_distance / (Diameter / 2))^1.5)
+  V_x = V_inf * (r_inf / r_x)^2
+  Delta_r = 0.15 * Rudder_distance * ((V_inf * r_inf^2 - Va * r_x^2) / (V_inf * r_inf^2 + Va * r_x^2))
+  Propeller_flow_diameter = 2 * (r_x + Delta_r)
+  Propeller_speed = (V_x - Va) * (r_x^2 / (r_x + Delta_r)^2) + Va
+end

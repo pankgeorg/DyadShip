@@ -1,0 +1,41 @@
+"""
+Apparent (relative) velocity of the flow past a 3D frame.
+
+Port of `ShipSIM.SubComponents.ApparentSpeedXY` onto a `Frame3D`. The medium
+(wind or current) velocity is given in world coordinates through
+`WorldSpeed_x` / `WorldSpeed_y`; the component reads the frame's own world
+velocity and resolves the difference into the frame axes.
+
+Outputs:
+- `SpeedLocal_x`, `SpeedLocal_y`: velocity of the frame relative to the medium,
+  resolved in `frame_a` (positive x when the body moves forward through the medium).
+- `ApparentSpeed`: magnitude of the relative velocity in the frame's x-y plane.
+- `AttackAngle`: direction of the relative velocity in the frame's x-y plane, in [0, 2π).
+- `AttackAngleSigned`: same angle in (-π, π].
+
+The z component of the relative velocity is dropped, as upstream. This is a
+sensor: it applies no force or torque to the frame.
+"""
+component ApparentSpeedXY
+  frame_a = Frame3D()
+  "Medium velocity, world x component"
+  WorldSpeed_x = RealInput()
+  "Medium velocity, world y component"
+  WorldSpeed_y = RealInput()
+  SpeedLocal_x = RealOutput()
+  SpeedLocal_y = RealOutput()
+  ApparentSpeed = RealOutput()
+  AttackAngle = RealOutput()
+  AttackAngleSigned = RealOutput()
+  "Relative velocity resolved in frame_a"
+  variable v_rel::Velocity[3]
+relations
+  frame_a.f = [0, 0, 0]
+  frame_a.tau = [0, 0, 0]
+  v_rel = MultibodyComponents.resolve2(frame_a.R, der(frame_a.r_0) - [WorldSpeed_x, WorldSpeed_y, 0])
+  SpeedLocal_x = v_rel[1]
+  SpeedLocal_y = v_rel[2]
+  ApparentSpeed = sqrt(SpeedLocal_x^2 + SpeedLocal_y^2 + 1e-12)
+  AttackAngleSigned = atan(SpeedLocal_y, SpeedLocal_x)
+  AttackAngle = ifelse(AttackAngleSigned < 0, AttackAngleSigned + 2 * π, AttackAngleSigned)
+end

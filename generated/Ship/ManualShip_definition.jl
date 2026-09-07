@@ -113,9 +113,9 @@ integration steps; also works as a plain transient analysis.
   # Subcomponent shaft of type RotationalComponents.Components.Inertia
   shaft_overrides = __pop_subcomponent_overrides!(__overrides, "shaft")
   push!(__systems, @named shaft = RotationalComponents.Components.Inertia(; J=Float64(5000), shaft_overrides...))
-  # Subcomponent src of type RotationalComponents.Sources.SpeedSource
+  # Subcomponent src of type RotationalComponents.Sources.VelocitySource
   src_overrides = __pop_subcomponent_overrides!(__overrides, "src")
-  push!(__systems, @named src = RotationalComponents.Sources.SpeedSource(; src_overrides...))
+  push!(__systems, @named src = RotationalComponents.Sources.VelocitySource(; src_overrides...))
   # Subcomponent ground of type RotationalComponents.Components.Fixed
   ground_overrides = __pop_subcomponent_overrides!(__overrides, "ground")
   push!(__systems, @named ground = RotationalComponents.Components.Fixed(; ground_overrides...))

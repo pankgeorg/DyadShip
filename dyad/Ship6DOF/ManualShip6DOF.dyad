@@ -1,0 +1,34 @@
+"""
+Open-loop, human-controllable 6-DOF ship: the `StandardShip` stack with the
+shaft speed and rudder angle as tunable parameters, each passed through a
+first-order input lag (engine telegraph / steering-gear command) so live
+command changes arrive smoothly. Intended for interactive (WASM
+model-exchange) use where `rpm_cmd` / `rudder_cmd` are re-tuned between
+integration steps; also runs as a plain transient. The analysis keeps
+`optimize = None` so the commands stay in the tunable parameter buffer.
+"""
+test component ManualShip6DOF
+  extends StandardShip(U0 = 0)
+  "Commanded shaft speed [rpm]"
+  parameter rpm_cmd::Real = 60
+  "Commanded rudder angle [deg], positive turns to port"
+  parameter rudder_cmd::Real = 0
+  "Engine telegraph lag time constant"
+  parameter T_rpm::Time = 5
+  "Steering-gear command lag time constant"
+  parameter T_rudder::Time = 1
+  variable rpm_state::Real
+  variable rudder_state::Real
+relations
+  initial rpm_state = 0
+  initial rudder_state = 0
+  der(rpm_state) = (rpm_cmd - rpm_state) / T_rpm
+  der(rudder_state) = (rudder_cmd - rudder_state) / T_rudder
+  shaft_rpm = rpm_state
+  rudder_order = rudder_state
+end
+
+analysis ManualShip6DOFTransient
+  extends TransientAnalysis(stop = 600.0, optimize = OptimizationLevel.None())
+  model = ManualShip6DOF()
+end

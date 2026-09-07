@@ -11,5 +11,4 @@ end
 
 include("ApparentSpeedXY_experiment.jl")
 include("Environment_experiment.jl")
-include("Hello_experiment.jl")
 include("VariableEnvironment_experiment.jl")

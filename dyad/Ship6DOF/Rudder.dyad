@@ -1,0 +1,187 @@
+"""
+Ship rudder on a 3D frame with tabulated wing-section coefficients.
+
+Port of `ShipSIM.Components.Propulsion.Rudder`. `frame_a` is the rudder stock
+on the hull; the hydrodynamic forces act at `CenterOfForces` below it. The
+rudder order is limited to `±MaxRudderAngle` and rate-limited to
+`MaxRudderAngularSpeed` by `BlockComponents` blocks, matching the upstream
+steering-gear model. Positive rudder turns the ship to port (positive yaw).
+
+The local water velocity comes from the frame itself (an internal
+`ApparentSpeedXY` at the centre of forces subtracts the current, so the yaw
+rate's contribution to the inflow angle is included). Along the span the
+propeller slipstream (`Propeller_speed` over `Propeller_flow_diameter`) is
+blended with the wake-reduced free stream, as upstream.
+
+The signed effective angle of attack is `α = δ - γ_R β_R`, where
+`β_R = atan2(-v, u)` is the inflow angle at the rudder and `γ_R` the flow
+straightening coefficient for the current side (Lee & Shin 1998). A drift
+angle therefore reduces the rudder's effective angle in a steady turn, and a
+centred rudder in a drifting hull produces the restoring fin force that makes
+a course-stable hull shed its yaw rate. Lift, drag and moment coefficients
+are looked up in the 2D tables `Cl(|α|, Re)`, `Cd(|α|, Re)`, `Cm(|α|, Re)`
+from the CSV assets (NACA 0015 by default; `naca0012_*.csv` is also bundled),
+corrected for aspect ratio and, on the lift, for the slipstream (Söding). Drag
+acts along the local flow, lift perpendicular to it with the sign of `α`, and
+the lateral components are increased by `1 + a_h` for the hull above the rudder
+(Söding 1982). Table inputs are clamped to the tabulated ranges.
+"""
+component Rudder
+  "Rudder stock on the hull"
+  frame_a = Frame3D()
+  "Rudder angle order [deg], positive to port"
+  Rudder_Order = RealInput()
+  "Slipstream velocity from the propeller [m/s]"
+  Propeller_speed = RealInput()
+  "Slipstream diameter at the rudder [m]"
+  Propeller_flow_diameter = RealInput()
+  "Wake fraction from the propeller"
+  Wake_Fraction = RealInput()
+  "Sea current velocity, world x"
+  Current_x = RealInput()
+  "Sea current velocity, world y"
+  Current_y = RealInput()
+  "Actual rudder angle [deg]"
+  Rudder_position = RealOutput()
+  Lift = RealOutput()
+  Drag = RealOutput()
+  "Hydrodynamic moment about the stock [N m]"
+  Moment = RealOutput()
+  "Force on the hull along the ship x axis [N]"
+  Force_X = RealOutput()
+  "Force on the hull along the ship y axis [N]"
+  Force_Y = RealOutput()
+  "Signed effective angle of attack [rad]"
+  Alpha_eff = RealOutput()
+
+  angle_limiter = BlockComponents.Nonlinear.Limiter(y_max = MaxRudderAngle)
+  rate_limiter = BlockComponents.Nonlinear.SlewRateLimiter(rising = MaxRudderAngularSpeed, td = 0.05)
+  stock_to_cof = MultibodyComponents.FixedTranslation(r = CenterOfForces, render = false)
+  apparent = ApparentSpeedXY()
+  force = MultibodyComponents.WorldForce(resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB(), render = false)
+  torque = MultibodyComponents.WorldTorque(resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB())
+  Cl_table = BlockComponents.Tables.InterpolatedTable(axis1 = Cl_data["angle_deg"], axis2 = Cl_data["Re"], data = Cl_data["Cl"], interpolation_dim1 = BlockComponents.Tables.InterpolationDimension.LinearInterpolationDimension(), interpolation_dim2 = BlockComponents.Tables.InterpolationDimension.LinearInterpolationDimension())
+  Cd_table = BlockComponents.Tables.InterpolatedTable(axis1 = Cd_data["angle_deg"], axis2 = Cd_data["Re"], data = Cd_data["Cd"], interpolation_dim1 = BlockComponents.Tables.InterpolationDimension.LinearInterpolationDimension(), interpolation_dim2 = BlockComponents.Tables.InterpolationDimension.LinearInterpolationDimension())
+  Cm_table = BlockComponents.Tables.InterpolatedTable(axis1 = Cm_data["angle_deg"], axis2 = Cm_data["Re"], data = Cm_data["Cm"], interpolation_dim1 = BlockComponents.Tables.InterpolationDimension.LinearInterpolationDimension(), interpolation_dim2 = BlockComponents.Tables.InterpolationDimension.LinearInterpolationDimension())
+
+  "Lift coefficient table: rows = angle of attack [deg], columns = Reynolds number"
+  structural parameter Cl_file::String = "dyad://DyadShip/naca0015_cl.csv"
+  "Drag coefficient table"
+  structural parameter Cd_file::String = "dyad://DyadShip/naca0015_cd.csv"
+  "Moment coefficient table"
+  structural parameter Cm_file::String = "dyad://DyadShip/naca0015_cm.csv"
+  structural parameter Cl_data::DyadData.DyadInterpolationTable2D = DyadData.DyadInterpolationTable2D(Cl_file, axis1_name = "angle_deg", axis2_name = "Re", data_name = "Cl")
+  structural parameter Cd_data::DyadData.DyadInterpolationTable2D = DyadData.DyadInterpolationTable2D(Cd_file, axis1_name = "angle_deg", axis2_name = "Re", data_name = "Cd")
+  structural parameter Cm_data::DyadData.DyadInterpolationTable2D = DyadData.DyadInterpolationTable2D(Cm_file, axis1_name = "angle_deg", axis2_name = "Re", data_name = "Cm")
+  "Reynolds range covered by the lift and drag tables"
+  parameter Re_min::Real = 1e4
+  parameter Re_max::Real = 1e7
+  "Reynolds range covered by the moment table"
+  parameter Re_cm_min::Real = 3.6e5
+  parameter Re_cm_max::Real = 6.8e5
+
+  parameter Lpp::Length = 100
+  parameter B::Length = 20
+  parameter Cb::Real = 0.693
+  "Ship draft"
+  parameter T::Length = 4
+  "Distance from the propeller to the rudder centre of forces"
+  parameter Rudder_distance::Length = 2.5 * 1.2
+  "Rudder chord"
+  parameter C::Length = 2
+  "Rudder span"
+  parameter s::Length = 3.5
+  "Centre of the rudder forces from the stock frame [x fwd, y port, z up]"
+  parameter CenterOfForces::Length[3] = [0.05 * C, 0, -s / 2 - 0.1 * s]
+  "Maximum rudder angle [deg]"
+  parameter MaxRudderAngle::Real = 35
+  "Maximum rudder rate [deg/s]"
+  parameter MaxRudderAngularSpeed::Real = 2.5
+  "Lateral force increase from the hull above the rudder (Söding 1982)"
+  parameter a_h::Real = 1 / (1 + ((4.9 * Rudder_distance / T) + (3 * C / T))^2)
+  "Flow straightening coefficient, flow from port (Lee & Shin 1998)"
+  parameter Gamma_R_Pos::Real = 2.7236 * Cb * B / Lpp + 0.021
+  "Flow straightening coefficient, flow from starboard (Lee & Shin 1998)"
+  parameter Gamma_R_Neg::Real = -1.20501 * Cb * B / Lpp + 0.7391
+  parameter SeaKViscosity::KinematicViscosity = 1.004e-6
+  parameter SeaDensity::Density = 1025
+  "Rudder area"
+  parameter Surf::Area = C * s
+  "Aspect ratio"
+  parameter Asp::Real = s / C
+  "Aspect-ratio correction of the normal force"
+  parameter Cn_Asp_Correction::Real = 1 / (1 + (2.25 / Asp))
+  "Angle scale of the smooth sign used for the lift direction [rad]"
+  parameter alpha_eps::Angle = 1e-3
+
+  "Water velocity relative to the rudder, ship frame"
+  variable Wx::Velocity
+  variable Wy::Velocity
+  variable WaterSpeed::Velocity
+  variable Re::Real
+  "Inflow angle at the rudder"
+  variable Beta_R::Angle
+  variable Gamma_R::Real
+  "Rudder deflection [rad]"
+  variable delta::Angle
+  "Angle of attack magnitude fed to the tables [deg]"
+  variable alpha_deg::Real
+  variable Cl::Real
+  variable Cd::Real
+  variable Cm::Real
+  "Lift reduction factor from the propeller slipstream (Söding)"
+  variable Lambda::Real
+  "Dynamic pressure times rudder area"
+  variable qS::Force
+  "Unit vector along the local flow"
+  variable e_d::Real[2]
+  "Smooth sign of the effective angle of attack"
+  variable sgn::Real
+relations
+  connect(Rudder_Order, angle_limiter.u)
+  connect(angle_limiter.y, rate_limiter.u)
+  Rudder_position = rate_limiter.y
+  delta = Rudder_position * π / 180
+
+  connect(frame_a, stock_to_cof.frame_a)
+  connect(stock_to_cof.frame_b, apparent.frame_a, force.frame_b, torque.frame_b)
+  apparent.WorldSpeed_x = Current_x
+  apparent.WorldSpeed_y = Current_y
+
+  Wx = ifelse(Propeller_flow_diameter >= s, -Propeller_speed, -(Propeller_speed * Propeller_flow_diameter + apparent.SpeedLocal_x * (1 - Wake_Fraction) * (s - Propeller_flow_diameter)) / s)
+  Wy = -apparent.SpeedLocal_y
+  WaterSpeed = sqrt(Wx^2 + Wy^2 + 1e-6)
+  Re = WaterSpeed * C / SeaKViscosity
+
+  Beta_R = atan(Wy, -Wx)
+  Gamma_R = ifelse(Beta_R > 0, Gamma_R_Neg, Gamma_R_Pos)
+  Alpha_eff = delta - Gamma_R * Beta_R
+  sgn = Alpha_eff / sqrt(Alpha_eff^2 + alpha_eps^2)
+  alpha_deg = clamp(abs(Alpha_eff) * 180 / π, 0, 180)
+
+  Cl_table.u1 = alpha_deg
+  Cl_table.u2 = clamp(Re, Re_min, Re_max)
+  Cd_table.u1 = alpha_deg
+  Cd_table.u2 = clamp(Re, Re_min, Re_max)
+  Cm_table.u1 = alpha_deg
+  Cm_table.u2 = clamp(Re, Re_cm_min, Re_cm_max)
+  Cl = Cl_table.y * Cn_Asp_Correction
+  Cd = Cd_table.y * Cn_Asp_Correction
+  Cm = Cm_table.y
+
+  Lambda = max(abs(apparent.SpeedLocal_x * (1 - Wake_Fraction)) / (abs(Wx) + 1e-6), 1e-3)^(2 * (2 / (2 + (0.886 * (Propeller_flow_diameter / 2) / C)))^8)
+  qS = 0.5 * SeaDensity * Surf * WaterSpeed^2
+  Drag = Cd * qS
+  Lift = Cl * Lambda * qS
+  Moment = Cm * qS * C
+
+  e_d = [Wx, Wy] / WaterSpeed
+  Force_X = Drag * e_d[1] - Lift * sgn * e_d[2]
+  Force_Y = (Drag * e_d[2] + Lift * sgn * e_d[1]) * (1 + a_h)
+  force.force_x = Force_X
+  force.force_y = Force_Y
+  force.force_z = 0
+  torque.torque_x = 0
+  torque.torque_y = 0
+  torque.torque_z = Moment * sgn
+end

@@ -1,0 +1,64 @@
+"""
+Waypoint-tracking heading autopilot built on `BlockComponents.Continuous.LimPID`.
+
+The controller steers the heading towards the bearing of the target waypoint
+with a PID on the wrapped course error (bearing minus heading, in (-π, π]),
+limited to `±Rudder_max` with back-calculation anti-windup. The derivative
+term on the error provides the yaw-rate feedback ship autopilots need on a
+slow, marginally course-stable hull; the integral term trims out steady wind
+and current biases.
+
+Default gains come from a Nomoto fit of the `TurningCircle` result for the
+`StandardShip` hull (K ≈ 0.027 1/s, T ≈ 25 s): `k = 48` deg of rudder per
+radian of error and `Td = 9` s give a closed-loop natural period of about
+three minutes at damping 0.8, slow enough for the 2.5 °/s steering gear.
+
+The throttle output ramps linearly from 1 at `Throttle_full_dist` to 0 at
+`Throttle_off_dist`, so the ship coasts to a stop at the waypoint.
+"""
+component WaypointAutopilot
+  "Ship world position"
+  pos_x = RealInput()
+  pos_y = RealInput()
+  "Heading [rad], positive to port, unbounded"
+  psi = RealInput()
+  "Waypoint world position"
+  target_x = RealInput()
+  target_y = RealInput()
+  "Rudder order [deg], positive to port"
+  rudder = RealOutput()
+  "Wrapped course error [rad]"
+  course_difference = RealOutput()
+  bearing = RealOutput()
+  distance_to_target = RealOutput()
+  "Throttle factor in [0, 1]"
+  throttle = RealOutput()
+
+  pid = BlockComponents.Continuous.LimPID(k = k, Ti = Ti, Td = Td, Nd = Nd, y_max = Rudder_max, y_min = -Rudder_max, Ni = 0.9)
+  zero_ff = BlockComponents.Sources.Constant(k = 0)
+  zero_meas = BlockComponents.Sources.Constant(k = 0)
+
+  "Proportional gain [deg of rudder per rad of course error]"
+  parameter k::Real = 48
+  "Integral time constant [s]"
+  parameter Ti::Time = 200
+  "Derivative time constant [s]"
+  parameter Td::Time = 9
+  "Derivative filter ratio"
+  parameter Nd::Real = 10
+  "Maximum rudder order [deg]"
+  parameter Rudder_max::Real = 35
+  "Distance above which the throttle is 1"
+  parameter Throttle_full_dist::Length = 300
+  "Distance below which the throttle is 0"
+  parameter Throttle_off_dist::Length = 100
+relations
+  bearing = atan(target_y - pos_y, target_x - pos_x)
+  distance_to_target = sqrt((target_x - pos_x)^2 + (target_y - pos_y)^2)
+  course_difference = atan(sin(bearing - psi), cos(bearing - psi))
+  pid.u_s = course_difference
+  connect(zero_meas.y, pid.u_m)
+  connect(zero_ff.y, pid.u_ff)
+  connect(pid.y, rudder)
+  throttle = clamp((distance_to_target - Throttle_off_dist) / (Throttle_full_dist - Throttle_off_dist), 0, 1)
+end

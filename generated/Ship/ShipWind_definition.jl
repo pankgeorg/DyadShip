@@ -9,33 +9,34 @@ import Moshi as __Ext__Moshi
 @doc Markdown.doc"""
    ShipWind(; name, Loa, B, Draft, A_T, A_L, A_0D, A_ss, C, C_BR, H_BR, H_C, AirDensity, X_0, X_1, X_3, X_5, Y_1, Y_3, Y_5, N_1, N_2, N_3)
 
-Wind force and yaw moment on a ship.
+Wind force and yaw moment on a ship (planar version).
 
 Ported from `ShipSIM.Components.Ship.ShipWind` (Fujiwara/Yamane based superstructure
-windage model).
+windage model). The 3D counterpart is `DyadShip.Ship6DOF.ShipWind`.
 
-The upstream model computes 26 empirical regression coefficients (X_*, Y_*, N_*) from
-ship geometry parameters (Loa, B, Draft, A_T, A_L, A_0D, A_ss, C, C_BR, H_BR, H_C). Those
-expressions are kept verbatim as `parameter` definitions. The angular sweep `phi` (angle
-between ship heading and apparent wind) is taken as a real input rather than a multibody
-sensor measurement, and the dynamic pressure is built from a real input `ApparentWind`.
+The upstream model computes the empirical regression coefficients (X_*, Y_*, N_*) from
+ship geometry parameters (Loa, B, Draft, A_T, A_L, A_0D, C, C_BR, H_BR, H_C). Those
+expressions are kept verbatim as `parameter` definitions. The apparent-wind attack angle
+`AttackAngle` (0 = head wind, increasing towards a wind from port) and speed
+`ApparentWind` are real inputs, typically from `DyadShip.ApparentSpeedXY`.
 
-Outputs are forces and yaw moment in the ship body frame:
+Forces and yaw moment in the ship body frame:
   X_force = q · A_T · Cx
-  Y_force = q · A_L · Cy
-  N_moment = q · A_L · Loa · Cn
+  Y_force = -q · A_L · Cy
+  N_moment = -q · A_L · Loa · Cn
 
 with
   Cx = X_0 + X_1 · cos(phi) + X_3 · cos(3·phi) + X_5 · cos(5·phi)
   Cy = Y_1 · sin(phi)   + Y_3 · sin(3·phi)   + Y_5 · sin(5·phi)
   Cn = N_1 · sin(phi)   + N_2 · sin(2·phi)   + N_3 · sin(3·phi)
 
-(Same Fourier expansion as upstream. The original sums over coefficients up to N_2 in the
-yaw moment; we keep only the dominant first three harmonics since N_2 is not present in
-the published coefficient table the upstream model uses.)
+The lateral force and yaw moment carry the upstream minus sign, so a wind from port
+pushes the ship to starboard and a wind on the port bow turns the bow away from the
+wind. (An earlier version of this port applied both with the opposite sign.)
 
-Multibody forces (`WorldForce`/`WorldTorque` on `frame_a`) are not produced — the caller
-integrates the outputs into the hull.
+The forces are applied to the PlanarMechanics hull through `frame_a`, rotated from the
+body frame into the world frame; the `X_force` / `Y_force` / `N_moment` outputs hold the
+same values for diagnostics.
 
 ## Parameters:
 
@@ -236,8 +237,8 @@ All variables are resolved in the planar world frame. ([`Frame2D`](@ref))
   push!(__eqs, Cy ~ Y_1 * sin(AttackAngle) + Y_3 * sin(3 * AttackAngle) + Y_5 * sin(5 * AttackAngle))
   push!(__eqs, Cn ~ N_1 * sin(AttackAngle) + N_2 * sin(2 * AttackAngle) + N_3 * sin(3 * AttackAngle))
   push!(__eqs, X_force ~ q * A_T * Cx)
-  push!(__eqs, Y_force ~ q * A_L * Cy)
-  push!(__eqs, N_moment ~ q * A_L * Loa * Cn)
+  push!(__eqs, Y_force ~ -q * A_L * Cy)
+  push!(__eqs, N_moment ~ -q * A_L * Loa * Cn)
   push!(__eqs, frame_a.fx + cos(frame_a.phi) * X_force - sin(frame_a.phi) * Y_force ~ 0)
   push!(__eqs, frame_a.fy + sin(frame_a.phi) * X_force + cos(frame_a.phi) * Y_force ~ 0)
   push!(__eqs, frame_a.tau + N_moment ~ 0)

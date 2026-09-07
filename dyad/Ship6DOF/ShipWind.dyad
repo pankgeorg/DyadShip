@@ -1,0 +1,102 @@
+"""
+Wind loads on a ship's superstructure acting on a 3D frame.
+
+Port of `ShipSIM.Components.Ship.ShipWind` (Fujiwara-type regression on the
+projected areas). Connect `frame_a` to the `ShipBody` reference frame and
+feed the world-frame wind vector through `Wind_x` / `Wind_y`. The apparent
+wind is evaluated at the centre of the lateral windage area,
+`[Loa/2, 0, H_C + Draft]` above the keel, where the resulting force also acts,
+so beam winds produce a heeling moment as well as a lateral force.
+
+Force and moment coefficients are functions of the apparent wind attack
+angle `φ` (0 = head wind, increasing towards a wind from port):
+
+```math
+C_X = X_0 + X_1 \\cos φ + X_3 \\cos 3φ + X_5 \\cos 5φ, \\quad
+C_Y = Y_1 \\sin φ + Y_3 \\sin 3φ + Y_5 \\sin 5φ, \\quad
+C_N = N_1 \\sin φ + N_2 \\sin 2φ + N_3 \\sin 3φ
+```
+
+with `X = q A_T C_X`, `Y = -q A_L C_Y`, `N = -q A_L L_{oa} C_N` and
+`q = ½ ρ_air V_app²`. The lateral force and yaw moment carry the upstream
+minus sign, so a wind from port pushes the ship to starboard and a wind on
+the port bow turns the bow away from the wind. Upstream normalises the
+lateral force with `A_T`; this port uses `A_L` as in Fujiwara's definition.
+"""
+component ShipWind
+  frame_a = Frame3D()
+  "Wind velocity, world x"
+  Wind_x = RealInput()
+  "Wind velocity, world y"
+  Wind_y = RealInput()
+  "Apparent wind attack angle [rad]"
+  AttackAngle = RealOutput()
+  "Apparent wind speed [m/s]"
+  ApparentWind = RealOutput()
+  X_force = RealOutput()
+  Y_force = RealOutput()
+  N_moment = RealOutput()
+
+  cof = MultibodyComponents.FixedTranslation(r = [Loa / 2, 0, H_C + Draft], render = false)
+  apparent = ApparentSpeedXY()
+  force = MultibodyComponents.WorldForce(resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB(), render = false)
+  torque = MultibodyComponents.WorldTorque(resolve_in_frame = MultibodyComponents.ResolveInFrame.FrameB())
+
+  "Length over all"
+  parameter Loa::Length = 100
+  parameter B::Length = 20
+  parameter Draft::Length = 4
+  "Transverse projected wind area"
+  parameter A_T::Area = 316
+  "Lateral projected wind area"
+  parameter A_L::Area = 1337
+  "Lateral projected area of all superstructures"
+  parameter A_0D::Area = 451
+  "Distance from midship to the centre of the lateral area, positive forward"
+  parameter C::Length = 0.85
+  "Distance from midship to the centre of the superstructure area, positive forward"
+  parameter C_BR::Length = 4.6
+  "Height of the bridge top above the waterline"
+  parameter H_BR::Length = 17.5
+  "Height of the centre of the lateral area above the waterline"
+  parameter H_C::Length = 6.71
+  parameter AirDensity::Density = 1.29
+
+  parameter X_0::Real = -0.33 + 0.293 * B * H_BR / A_T + 0.0193 * C / H_C + 0.682 * A_0D / Loa^2
+  parameter X_1::Real = -1.353 + 1.7 * A_L / (Loa * B) + 2.87 * Loa * H_C / A_L - 0.463 * Loa * H_BR / A_L - 0.57 * A_0D / A_L - 6.64 * A_T / (Loa * B) - 0.0123 * (A_T / (Loa^2))^(-1) + 0.0202 * (H_C / Loa)^(-1)
+  parameter X_3::Real = 0.83 - 0.413 * (Loa * H_BR / A_L)^(-1) - 0.0827 * A_L / A_T - 0.563 * Loa * H_C / A_L + 0.804 * A_0D / A_L - 5.67 * A_0D / (Loa^2) - 0.0401 * C / H_C - 0.132 * C_BR / Loa
+  parameter X_5::Real = -0.0372 - 0.0075 * (A_0D / A_L)^(-1) - 0.103 * C_BR / Loa + 0.0921 * A_L / (Loa * B)
+  parameter Y_1::Real = 0.684 + 0.717 * C_BR / Loa - 3.22 * C / Loa + 0.0281 * (A_0D / A_L)^(-1) + 0.0661 * C / H_C + 0.298 * (B * H_BR / A_T)^(-1)
+  parameter Y_3::Real = -0.4 + 0.282 * A_L / (Loa * B) + 0.307 * Loa * H_C / A_L + 0.0519 * C_BR / Loa + 0.0526 * (H_BR / B)^(-1) - 0.0814 * A_0D / A_L + 0.0582 * (B * H_BR / A_T)^(-1)
+  parameter Y_5::Real = 0.122 - 0.166 * A_L / (Loa * B) - 0.0054 * (H_BR / Loa)^(-1) - 0.0481 * C_BR / Loa - 0.0136 * (A_T / B^2)^(-1) + 0.0864 * C / Loa - 0.0297 * C_BR / Loa
+  parameter N_1::Real = 0.299 + 1.71 * C / Loa + 0.183 * Loa * H_C / A_L - 1.09 * A_T / A_L - 0.0442 * C / H_C - 0.289 * A_L / (Loa * B) + 4.24 * A_T / (Loa^2) - 0.0646 * (B^2) / A_T + 0.0306 * C_BR / Loa
+  parameter N_2::Real = 0.0
+  parameter N_3::Real = -0.118
+
+  variable Cx::Real
+  variable Cy::Real
+  variable Cn::Real
+  variable q::Real
+relations
+  connect(frame_a, cof.frame_a)
+  connect(cof.frame_b, apparent.frame_a, force.frame_b, torque.frame_b)
+  apparent.WorldSpeed_x = Wind_x
+  apparent.WorldSpeed_y = Wind_y
+  AttackAngle = apparent.AttackAngle
+  ApparentWind = apparent.ApparentSpeed
+
+  q = 0.5 * AirDensity * ApparentWind^2
+  Cx = X_0 + X_1 * cos(AttackAngle) + X_3 * cos(3 * AttackAngle) + X_5 * cos(5 * AttackAngle)
+  Cy = Y_1 * sin(AttackAngle) + Y_3 * sin(3 * AttackAngle) + Y_5 * sin(5 * AttackAngle)
+  Cn = N_1 * sin(AttackAngle) + N_2 * sin(2 * AttackAngle) + N_3 * sin(3 * AttackAngle)
+  X_force = q * A_T * Cx
+  Y_force = -q * A_L * Cy
+  N_moment = -q * A_L * Loa * Cn
+
+  force.force_x = X_force
+  force.force_y = Y_force
+  force.force_z = 0
+  torque.torque_x = 0
+  torque.torque_y = 0
+  torque.torque_z = N_moment
+end

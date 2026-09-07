@@ -1,0 +1,63 @@
+"""
+Crash stop with the four-quadrant propeller, after `ShipSIM.Examples.Maneuvering.Test_CrashStop_4Q`.
+
+Same assembly as `StandardShip` but with `Propeller4Q` (`B4_55_1`) on the
+shaft. The ship approaches at `U0` with the shaft at `rpm_ahead`; from
+`t_reverse` the shaft speed is ramped linearly to `rpm_astern` over `t_ramp`
+seconds and held there, with the rudder amidships. The head reach is the
+distance travelled along the initial heading until `ship.Surge` crosses
+zero, and the stopping time is when it does; the astern propeller then
+accelerates the ship backwards. The track stays nearly straight because the
+model has no propeller transverse thrust, which on a real single-screw ship
+swings the stern during the stop.
+"""
+test component CrashStop
+  parameter U0::Velocity = 7
+  parameter J_shaft::Real = 4000
+  parameter rpm_ahead::Real = 110
+  parameter rpm_astern::Real = -80
+  parameter t_reverse::Time = 20
+  parameter t_ramp::Time = 60
+  world = MultibodyComponents.World(n = [0, 0, -1], g = 9.80665, render = false, nominal_length = 100)
+  ship = ShipBody(ini_Vel = [U0, 0, 0])
+  hydro = HydrodynamicXYY()
+  zrp = HydrodynamicZRP()
+  prop_mount = MultibodyComponents.FixedTranslation(r = [1, 0, 2], render = false)
+  prop = Propeller4Q(Diameter = 4, PropModel = "B4_55_1", Ae_Ao = 0.55)
+  shaft = RotationalComponents.Components.Inertia(J = J_shaft)
+  governor = RotationalComponents.Sources.VelocitySource()
+  ground = RotationalComponents.Components.Fixed()
+  rudder_mount = MultibodyComponents.FixedTranslation(r = [-2, 0, 4.5], render = false)
+  rudder = Rudder()
+  "Shaft speed order [rpm]"
+  variable shaft_rpm::Real
+relations
+  initial shaft.phi = 0
+  connect(ship.frame_a, hydro.frame_a, zrp.frame_a, prop_mount.frame_a, rudder_mount.frame_a)
+  connect(prop_mount.frame_b, prop.frame_a)
+  connect(rudder_mount.frame_b, rudder.frame_a)
+  connect(ship.Draft, hydro.MeanDraft)
+  connect(ship.Draft, zrp.MeanDraft)
+  connect(ship.Displacement, hydro.Displacement)
+  connect(ship.Displacement, zrp.Displacement)
+  hydro.Current_x = 0
+  hydro.Current_y = 0
+  prop.Current_x = 0
+  prop.Current_y = 0
+  rudder.Current_x = 0
+  rudder.Current_y = 0
+  connect(prop.Propeller_speed, rudder.Propeller_speed)
+  connect(prop.Propeller_flow_diameter, rudder.Propeller_flow_diameter)
+  connect(prop.Wake_Fraction, rudder.Wake_Fraction)
+  connect(governor.support, ground.spline)
+  connect(governor.spline, shaft.spline_a)
+  connect(shaft.spline_b, prop.flange)
+  governor.w_ref = shaft_rpm * π / 30
+  rudder.Rudder_Order = 0
+  shaft_rpm = ifelse(time < t_reverse, rpm_ahead, ifelse(time < t_reverse + t_ramp, rpm_ahead + (rpm_astern - rpm_ahead) * (time - t_reverse) / t_ramp, rpm_astern))
+end
+
+analysis CrashStopTransient
+  extends TransientAnalysis(stop = 300.0)
+  model = CrashStop()
+end

@@ -20,10 +20,10 @@ include("test_internals.jl")
 @testset "`DyadShip`" begin
 include("ApparentSpeedXY_test.jl")
 include("Environment_test.jl")
-include("Hello_test.jl")
 include("VariableEnvironment_test.jl")
 end
 include("Machinery/tests.jl")
 include("Propulsion/tests.jl")
 include("Ship/tests.jl")
+include("Ship6DOF/tests.jl")
 include("Thermal/tests.jl")

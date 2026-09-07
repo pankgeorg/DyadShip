@@ -1,0 +1,28 @@
+"""
+Free roll decay of the hull at rest: the ship is released from an initial
+heel of `heel0_deg` with no forward speed, propeller or rudder. The roll
+period should match `T = 2π k_xx / sqrt(g GM)` (about 8.4 s for the default
+hull with GM ≈ 2.9 m and k_xx = 0.3557 B) and the amplitude should decay at
+the damping ratio set in `HydrodynamicZRP`. Heave and pitch start at rest at
+the design draft, so they show only the small coupling with roll.
+"""
+test component RollDecay
+  parameter heel0_deg::Real = 10
+  world = MultibodyComponents.World(n = [0, 0, -1], g = 9.80665, render = false, nominal_length = 100)
+  ship = ShipBody(ini_Heel = heel0_deg * π / 180)
+  zrp = HydrodynamicZRP()
+  hydro = HydrodynamicXYY()
+relations
+  connect(ship.frame_a, zrp.frame_a, hydro.frame_a)
+  connect(ship.Draft, zrp.MeanDraft)
+  connect(ship.Draft, hydro.MeanDraft)
+  connect(ship.Displacement, zrp.Displacement)
+  connect(ship.Displacement, hydro.Displacement)
+  hydro.Current_x = 0
+  hydro.Current_y = 0
+end
+
+analysis RollDecayTransient
+  extends TransientAnalysis(stop = 120.0)
+  model = RollDecay()
+end

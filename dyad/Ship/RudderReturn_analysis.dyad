@@ -1,0 +1,47 @@
+"""
+Rudder pulse-and-return check on the planar `HullMMG` stack: the rudder is
+put over to +20° at t = 50 s, returned to 0° at t = 150 s, and the shaft is
+held at a constant 60 rpm. A course-stable hull must shed its yaw rate after
+the rudder is centred; the yaw rate `hull.r` and heading `hull.psi` are the
+signals to inspect.
+"""
+test component RudderReturn2D
+  parameter rpm::Real = 60
+  parameter rudder_deg::Real = 20
+  parameter t_on::Time = 50
+  parameter t_off::Time = 150
+
+  world = MultibodyComponents.PlanarMechanics.World(g = 0, render = false)
+  hull = HullMMG(mass = 1e6, Iz = 1e8, Lpp = 100, B = 20, Draft = 4, Cb = 0.693)
+  prop = DyadShip.Propulsion.Propeller1Q(Diameter = 4, P_D = 1.0, Ae_Ao = 0.55, Z = 4)
+  shaft = RotationalComponents.Components.Inertia(J = 5000)
+  src = RotationalComponents.Sources.VelocitySource()
+  ground = RotationalComponents.Components.Fixed()
+  rudder = DyadShip.Propulsion.Rudder()
+  prop_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r = [-50, 0], render = false)
+  rudder_arm = MultibodyComponents.PlanarMechanics.FixedTranslation(r = [-52, 0], render = false)
+relations
+  initial shaft.phi = 0
+  src.w_ref = rpm * π / 30
+  connect(src.support, ground.spline)
+  connect(src.spline, shaft.spline_a)
+  connect(shaft.spline_b, prop.flange)
+  connect(hull.frame_a, prop_arm.frame_a, rudder_arm.frame_a)
+  connect(prop_arm.frame_b, prop.frame_a)
+  connect(rudder_arm.frame_b, rudder.frame_a)
+  prop.ShipSpeed = hull.u
+  rudder.WaterSpeedX_in = hull.u
+  rudder.WaterSpeedY_in = hull.v
+  rudder.Propeller_speed = prop.Propeller_speed
+  rudder.Propeller_flow_diameter = prop.Propeller_flow_diameter
+  rudder.Wake_Fraction = prop.Wake_Fraction
+  rudder.Rudder_Order = ifelse(time > t_on, ifelse(time < t_off, rudder_deg, 0), 0)
+  hull.Fx_extra = 0
+  hull.Fy_extra = 0
+  hull.Mz_extra = 0
+end
+
+analysis RudderReturn2DTransient
+  extends TransientAnalysis(stop = 600.0)
+  model = RudderReturn2D()
+end
